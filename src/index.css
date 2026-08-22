@@ -1,0 +1,59 @@
+/* Fontes locais do sistema: nenhuma requisição externa é necessária. */
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Identidade visual da marca */
+  --color-brand-navy: #07182b;
+  --color-brand-navy-soft: #102e4e;
+  --color-brand-cream: #f7f4ee;
+  --color-brand-copper: #c9975b;
+  --color-brand-copper-light: #d8aa72;
+
+  /* Cores legadas mantidas para as telas internas. */
+  --color-indigo-50: #f0f5fa;
+  --color-indigo-100: #e1ebf5;
+  --color-indigo-200: #c4d7eb;
+  --color-indigo-300: #97b8de;
+  --color-indigo-400: #598fc2;
+  --color-indigo-500: #1c5d99;
+  --color-indigo-600: #0f2e54; /* Gorgeous Navy Blue */
+  --color-indigo-700: #0b2240; /* Deep Navy Blue */
+  --color-indigo-800: #081a30;
+  --color-indigo-900: #05101f;
+  --color-indigo-950: #02070d;
+
+  /* Redefine purple to support complementary slate-navy tones */
+  --color-purple-50: #f3f6fa;
+  --color-purple-100: #e4eaf2;
+  --color-purple-200: #c9d5e6;
+  --color-purple-600: #1d3557;
+  --color-purple-700: #15263f;
+  --color-purple-800: #0d1929;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-brand-cream);
+}
+
+/* 16px prevents Safari/iOS from zooming focused form controls. */
+@media (max-width: 639px) {
+  input, textarea, select { font-size: 16px !important; }
+}
+
+html, body, #root { max-width: 100%; overflow-x: clip; }
+button, a, input, textarea, select { touch-action: manipulation; }
+.services-rail { scroll-behavior: smooth; overscroll-behavior-inline: contain; touch-action: pan-x pan-y; scrollbar-width: thin; }
+.service-card { width: 86.956%; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+:focus-visible { outline: 2px solid var(--color-brand-copper); outline-offset: 3px; }
+@media (min-width: 640px) { .service-card { width: calc(50% - .5rem); } }
+@media (min-width: 1024px) { .service-card { width: calc(33.333% - .667rem); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

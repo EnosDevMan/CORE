@@ -1,0 +1,9 @@
+# Todo o conteúdo público (landing page e fluxo de agendamento) pode ser
+# indexado. Painéis autenticados (admin/barbeiro/cliente) não têm rotas
+# próprias de URL nesta SPA e não precisam de regra de bloqueio aqui — o
+# acesso já é protegido por login e RLS no backend, não por robots.txt.
+User-agent: *
+Allow: /
+
+Sitemap: https://barbeariapaulogledson.vercel.app/sitemap.xml
+
