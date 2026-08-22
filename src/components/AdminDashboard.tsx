@@ -7,12 +7,13 @@ import { useAdminDashboard } from '../features/admin/hooks/useAdminDashboard';
 import { AdminOverviewTab } from '../features/admin/components/AdminOverviewTab';
 import { AdminReportsTab } from '../features/admin/components/AdminReportsTab';
 import { AdminServicesTab } from '../features/admin/components/AdminServicesTab';
-import { AdminBarbersTab } from '../features/admin/components/AdminBarbersTab';
+import { AdminProfessionalsTab } from '../features/admin/components/AdminProfessionalsTab';
 import { AdminGalleryTab } from '../features/admin/components/AdminGalleryTab';
 import { AdminClientsTab } from '../features/admin/components/AdminClientsTab';
 import { AdminAgendaTab } from '../features/admin/components/AdminAgendaTab';
 import { AdminSettingsTab } from '../features/admin/components/AdminSettingsTab';
 import { AdminBookingForm } from '../features/admin/components/agenda/AdminBookingForm';
+import { AdminPetsTab } from '../features/pets/components/AdminPetsTab';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -33,7 +34,7 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
     setIsMobileMenuOpen,
     showFeedback,
     handleUpdateBookingStatus,
-    getBarberName,
+    getProfessionalName,
     getServiceName,
     formatBRL,
     navItems
@@ -41,6 +42,7 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
 
   const compactUserName = currentUser ? getCompactDisplayName(currentUser.name) : '';
   const activeNavItem = navItems.find(item => item.id === activeTab) ?? navItems[0];
+  const hasTab = (id: typeof activeTab) => navItems.some(item => item.id === id);
   const navGroups = ['Operação', 'Gestão', 'Cadastros', 'Sistema'] as const;
 
   const renderNavigation = (onNavigate?: () => void) => navGroups.map(group => (
@@ -177,7 +179,7 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                   <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">{activeNavItem.label}</h2>
                   <p className="text-slate-500 text-sm mt-1">{activeNavItem.description}</p>
                 </div>
-                {activeTab !== 'new-booking' && (
+                {hasTab('new-booking') && activeTab !== 'new-booking' && (
                   <button onClick={() => setActiveTab('new-booking')} className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-navy-soft transition-colors shadow-sm">
                     <CalendarPlus size={17} /> Novo agendamento
                   </button>
@@ -188,15 +190,16 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                   {activeTab === 'overview' && (
                     <AdminOverviewTab 
                       formatBRL={formatBRL}
-                      getBarberName={getBarberName}
+                      getProfessionalName={getProfessionalName}
                       getServiceName={getServiceName}
                       handleUpdateBookingStatus={handleUpdateBookingStatus}
                       onViewFullReport={() => setActiveTab('reports')}
+                      canViewReports={hasTab('reports')}
                       showFeedback={showFeedback}
                     />
                   )}
 
-                  {activeTab === 'new-booking' && (
+                  {hasTab('new-booking') && activeTab === 'new-booking' && (
                     <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-sm">
                       <div className="mb-6">
                         <h2 className="text-xl font-extrabold text-slate-900">Criar novo agendamento</h2>
@@ -206,13 +209,13 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                     </div>
                   )}
 
-                  {activeTab === 'reports' && (
+                  {hasTab('reports') && activeTab === 'reports' && (
                     <AdminReportsTab
                       formatBRL={formatBRL}
                     />
                   )}
 
-                  {activeTab === 'services' && (
+                  {hasTab('services') && activeTab === 'services' && (
                     <AdminServicesTab
                       formatBRL={formatBRL}
                       setSuccessMessage={setSuccessMessage}
@@ -220,8 +223,8 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                     />
                   )}
 
-                  {activeTab === 'barbers' && (
-                    <AdminBarbersTab
+                  {hasTab('professionals') && activeTab === 'professionals' && (
+                    <AdminProfessionalsTab
                       setSuccessMessage={setSuccessMessage}
                       setErrorMessage={setErrorMessage}
                     />
@@ -234,13 +237,15 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                     />
                   )}
 
-                  {activeTab === 'clients' && (
+                  {hasTab('pets') && activeTab === 'pets' && <AdminPetsTab />}
+
+                  {hasTab('clients') && activeTab === 'clients' && (
                     <AdminClientsTab
                       formatBRL={formatBRL}
                     />
                   )}
 
-                  {activeTab === 'agenda' && (
+                  {hasTab('agenda') && activeTab === 'agenda' && (
                     <AdminAgendaTab
                       showFeedback={showFeedback}
                     />
@@ -303,4 +308,4 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
 // quem não é admin antes de chegar aqui) — é só uma rede de segurança
 // extra caso este componente venha a ser renderizado por outro caminho no
 // futuro.
-export const AdminDashboard = withRoleGuard(AdminDashboardInner, 'admin');
+export const AdminDashboard = withRoleGuard(AdminDashboardInner, ['owner', 'admin']);

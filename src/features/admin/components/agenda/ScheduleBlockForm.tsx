@@ -8,7 +8,7 @@ interface ScheduleBlockFormProps {
 }
 
 export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedback }) => {
-  const { barbers, scheduleBlocks, addScheduleBlock, deleteScheduleBlock } = useApp();
+  const { professionals, scheduleBlocks, addScheduleBlock, deleteScheduleBlock } = useApp();
 
   // 'special_hours' é uma opção só de UI (ajuda o admin a diferenciar
   // visualmente "feriado fechado" de "dia com horário especial"), mas o
@@ -18,7 +18,7 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
   // para 'special' na hora de montar o payload, mantendo os dados de
   // specialHours.
   type BlockFormType = BlockType | 'special_hours';
-  const [blockBarberId, setBlockBarberId] = useState<string>('all');
+  const [blockProfessionalId, setBlockProfessionalId] = useState<string>('all');
   const [blockType, setBlockType] = useState<BlockFormType>('block');
   const [blockDate, setBlockDate] = useState<string>('');
   const [blockStartDate, setBlockStartDate] = useState<string>('');
@@ -85,7 +85,7 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
     }
 
     const newBlockData: Partial<ScheduleBlock> = {
-      barberId: blockBarberId,
+      professionalId: blockProfessionalId,
       reason: blockReason,
     };
 
@@ -134,9 +134,9 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
   return (
     <>
       <form onSubmit={handleSaveScheduleBlock} className="space-y-4 text-xs" noValidate>
-        <select value={blockBarberId} onChange={(e) => setBlockBarberId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">
+        <select value={blockProfessionalId} onChange={(e) => setBlockProfessionalId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">
           <option value="all">Todos os Profissionais (Salão)</option>
-          {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          {professionals.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
         
         <select value={blockType} onChange={(e) => setBlockType(e.target.value as BlockFormType)} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">
@@ -239,7 +239,7 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
               <div key={sb.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative group text-xs">
                 <div className="font-bold text-slate-800 mb-1 pr-7">{sb.reason}</div>
                 <div className="text-slate-500 font-medium">
-                  {sb.barberId === 'all' ? 'Todos os profissionais' : barbers.find(b=>b.id===sb.barberId)?.name}
+                  {sb.professionalId === 'all' ? 'Todos os profissionais' : professionals.find(b=>b.id===sb.professionalId)?.name}
                 </div>
                 <div className="text-slate-600 mt-1">
                   {sb.type === 'block' && `${new Date(sb.date! + "T12:00:00").toLocaleDateString("pt-BR", {day: "2-digit", month: "2-digit"})} ${sb.startTime}-${sb.endTime}`}

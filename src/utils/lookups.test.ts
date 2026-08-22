@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { getServiceName, getBarberName } from './lookups';
-import { Service, Barber } from '../types';
+import { getServiceName, getProfessionalName } from './lookups';
+import { Service, Professional } from '../types';
 
 const services: Service[] = [
   { id: 's1', name: 'Corte', price: 40, duration: 30 } as Service,
   { id: 's2', name: 'Barba', price: 30, duration: 20 } as Service,
 ];
 
-const barbers: Barber[] = [
-  { id: 'b1', name: 'João' } as Barber,
+const professionals: Professional[] = [
+  { id: 'b1', name: 'João' } as Professional,
 ];
 
 describe('getServiceName', () => {
@@ -30,12 +30,12 @@ describe('getServiceName', () => {
   });
 });
 
-describe('getBarberName', () => {
+describe('getProfessionalName', () => {
   it('resolves a known barber', () => {
-    expect(getBarberName(barbers, 'b1')).toBe('João');
+    expect(getProfessionalName(professionals, 'b1')).toBe('João');
   });
 
   it('falls back to "Desconhecido" for an unknown id', () => {
-    expect(getBarberName(barbers, 'nao-existe')).toBe('Desconhecido');
+    expect(getProfessionalName(professionals, 'nao-existe')).toBe('Desconhecido');
   });
 });

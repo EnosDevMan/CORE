@@ -23,10 +23,11 @@ export const useApp = useAppStore;
  * para quem for escrever/otimizar um componente novo (ou revisitar um
  * componente que hoje re-renderiza mais do que precisa).
  */
-export const useBarbers = () => useDataStore(state => state.barbers);
+/** Niche-neutral selector for the shared professional collection. */
+export const useProfessionals = () => useDataStore(state => state.professionals);
 export const useServices = () => useDataStore(state => state.services);
 export const useBookings = () => useDataStore(state => state.bookings);
 export const useScheduleBlocks = () => useDataStore(state => state.scheduleBlocks);
 export const useGalleryPhotos = () => useDataStore(state => state.galleryPhotos);
-export const useBarbershopConfig = () => useConfigStore(state => state.config);
+export const useBusinessConfig = () => useConfigStore(state => state.config);
 export const useCurrentUser = () => useAuthStore(state => state.currentUser);

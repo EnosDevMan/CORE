@@ -8,7 +8,7 @@ const createBooking = (status: BookingStatus): Booking => ({
   customerId: 'customer-1',
   customerName: 'Cliente',
   customerPhone: '11999999999',
-  barberId: 'barber-1',
+  professionalId: 'barber-1',
   serviceId: 'service-1',
   date: '2026-08-05',
   time: '10:00',

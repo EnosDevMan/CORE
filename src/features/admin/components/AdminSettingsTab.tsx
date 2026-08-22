@@ -249,7 +249,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
           <div className="space-y-6">
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Agenda semanal da barbearia</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Agenda semanal do estabelecimento</label>
                 <p className="text-xs text-slate-500 mt-1">Defina o funcionamento geral; a disponibilidade individual continua configurada em cada barbeiro.</p>
               </div>
               <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
@@ -308,7 +308,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
 
         <FormSection id="blocks" title="🚫 Intervalos, Bloqueios e Feriados" expandedSection={expandedSection} setExpandedSection={setExpandedSection}>
           <div>
-            <p className="text-sm text-slate-500 mb-5">Centralize indisponibilidades da barbearia e dos profissionais sem ocupar a agenda de consultas.</p>
+            <p className="text-sm text-slate-500 mb-5">Centralize indisponibilidades do estabelecimento e dos profissionais sem ocupar a agenda de atendimentos.</p>
             <ScheduleBlockForm showFeedback={showFeedback} />
           </div>
         </FormSection>

@@ -1,23 +1,26 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../../store/useApp';
-import { Service, Barber, Booking } from '../../../types';
-import { getBarbershopTodayStr, validatePhoneBR } from '../../../utils/validation';
+import { Service, Booking } from '../../../types';
+import type { Professional } from '../../professionals/types';
+import { getBusinessTodayStr, validatePhoneBR } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
 import { getErrorMessage } from '../../../utils/errors';
 import { notificationService } from '../../../services/notificationService';
 
-export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialServiceId?: string, initialBarberId?: string) => {
-  const { services: allServices, barbers: allBarbers, config, currentUser, getAvailableSlots, addBooking } = useApp();
-  // Barbeiros desativados (active=false) não podem ser selecionados no
+export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialServiceId?: string, initialProfessionalId?: string) => {
+  const { services: allServices, professionals: allProfessionals, config, currentUser, getAvailableSlots, addBooking } = useApp();
+  const { profile } = useBusiness();
+  // Profissionais desativados (active=false) não podem ser selecionados no
   // fluxo público de agendamento — antes, "desativar" um barbeiro não
   // tinha nenhum efeito aqui e ele continuava aparecendo para reserva.
   const services = useMemo(() => allServices.filter(s => s.active !== false), [allServices]);
-  const barbers = useMemo(() => allBarbers.filter(b => b.active !== false), [allBarbers]);
+  const professionals = useMemo(() => allProfessionals.filter(b => b.active !== false), [allProfessionals]);
 
   const [step, setStep] = useState(1);
   const [selectedServices, setSelectedServices] = useState<Service[]>(() => allServices.filter(s => s.active !== false && s.id === initialServiceId));
-  const [selectedBarber, setSelectedBarber] = useState<Barber | null>(() => allBarbers.find(b => b.active !== false && b.id === initialBarberId) || null);
+  const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(() => allProfessionals.find(b => b.active !== false && b.id === initialProfessionalId) || null);
 
-  const [selectedDate, setSelectedDate] = useState<string>(getBarbershopTodayStr);
+  const [selectedDate, setSelectedDate] = useState<string>(() => getBusinessTodayStr(profile.timezone));
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
@@ -26,7 +29,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [notes, setNotes] = useState('');
-  
+
   const [errorMsg, setErrorMsg] = useState('');
   const [completedBooking, setCompletedBooking] = useState<Booking | null>(null);
   const [copiedPix, setCopiedPix] = useState(false);
@@ -47,11 +50,11 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       if (isSelected) return prev.filter(s => s.id !== service.id);
       return [...prev, service];
     });
-    setSelectedTime(''); 
+    setSelectedTime('');
   };
 
-  const selectBarber = (barber: Barber) => {
-    setSelectedBarber(barber);
+  const selectProfessional = (professional: Professional) => {
+    setSelectedProfessional(professional);
     setSelectedTime('');
   };
 
@@ -65,11 +68,11 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   useEffect(() => {
     let cancelled = false;
 
-    if (selectedBarber && selectedDate && selectedServices.length > 0) {
+    if (selectedProfessional && selectedDate && selectedServices.length > 0) {
       const serviceIds = selectedServices.map(s => s.id).join(",");
       setLoadingTimes(true);
       setSlotsError('');
-      getAvailableSlots(selectedBarber.id, serviceIds, selectedDate)
+      getAvailableSlots(selectedProfessional.id, serviceIds, selectedDate)
         .then(times => {
           if (cancelled) return;
           setAvailableTimes(times);
@@ -93,7 +96,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
     }
 
     return () => { cancelled = true; };
-  }, [selectedBarber, selectedDate, selectedServices, getAvailableSlots]);
+  }, [selectedProfessional, selectedDate, selectedServices, getAvailableSlots]);
 
   const handleNext = () => {
     setErrorMsg('');
@@ -101,7 +104,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setErrorMsg('Por favor, selecione pelo menos um serviço.');
       return;
     }
-    if (step === 2 && !selectedBarber) {
+    if (step === 2 && !selectedProfessional) {
       setErrorMsg('Por favor, selecione um profissional.');
       return;
     }
@@ -118,7 +121,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   };
 
   const handleConfirm = async () => {
-    if (!selectedBarber || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
+    if (!selectedProfessional || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
 
     const effectiveName = currentUser?.name?.trim() || custName.trim();
     const effectivePhone = currentUser?.phone?.trim() || custPhone.trim();
@@ -141,7 +144,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
         customerId: currentUser?.id || 'guest',
         customerName: effectiveName,
         customerPhone: effectivePhone,
-        barberId: selectedBarber.id,
+        professionalId: selectedProfessional.id,
         date: selectedDate,
         time: selectedTime,
         status: 'Aguardando pagamento' as const,
@@ -155,7 +158,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       void notificationService.publish({ type: 'booking.created', payload: newBooking, requestedChannels: ['whatsapp'] });
       setCompletedBooking(newBooking);
       setStep(5);
-      
+
       if (onSuccess) {
         onSuccess(newBooking.id);
       }
@@ -165,9 +168,9 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setSelectedTime('');
       // Atualiza a lista de horários disponíveis, já que o conflito indica
       // que outra pessoa reservou o horário nesse meio-tempo.
-      if (selectedBarber) {
+      if (selectedProfessional) {
         const serviceIds = selectedServices.map(s => s.id).join(",");
-        getAvailableSlots(selectedBarber.id, serviceIds, selectedDate).then(setAvailableTimes).catch(() => {});
+        getAvailableSlots(selectedProfessional.id, serviceIds, selectedDate).then(setAvailableTimes).catch(() => {});
       }
       setStep(3);
     }
@@ -190,18 +193,18 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
     step,
     setStep,
     services,
-    barbers,
+    professionals,
     config,
     currentUser,
-    
+
     selectedServices,
     totalDuration,
     totalPrice,
     toggleService,
-    
-    selectedBarber,
-    selectBarber,
-    
+
+    selectedProfessional,
+    selectProfessional,
+
     selectedDate,
     setSelectedDate,
     selectedTime,
@@ -209,19 +212,19 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
     availableTimes,
     loadingTimes,
     slotsError,
-    
+
     custName, setCustName,
     custPhone, setCustPhone,
     notes, setNotes,
-    
+
     errorMsg,
     completedBooking,
     copiedPix,
     copyPix,
-    
+
     isProcessing,
     processingStatus,
-    
+
     handleNext,
     handleBack,
     handleConfirm

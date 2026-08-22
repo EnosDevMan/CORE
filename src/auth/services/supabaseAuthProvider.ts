@@ -7,13 +7,14 @@ import {
   LoginCredentials,
   RegisterPayload,
 } from '../types';
+import { parseUserRole } from '../authorization';
 
 /**
  * Implementação de IAuthProvider usando Supabase Auth + tabela `profiles`.
  *
  * `profiles` é criada automaticamente (trigger `handle_new_user`, ver
  * `supabase/migrations/0001_initial_schema.sql`) quando um usuário se
- * cadastra — sempre com role 'customer'. Promoção para 'admin'/'barber' é
+ * cadastra — sempre com role 'customer'. Promoção para owner/professional é
  * feita manualmente pelo painel administrativo ou direto no banco.
  */
 async function fetchProfile(userId: string): Promise<AuthUser | null> {
@@ -29,7 +30,7 @@ async function fetchProfile(userId: string): Promise<AuthUser | null> {
     id: data.id,
     email: data.email,
     name: data.name,
-    role: data.role,
+    role: parseUserRole(data.role),
     phone: data.phone ?? undefined,
     avatar: data.avatar ?? undefined,
     profileId: data.profile_id ?? undefined,

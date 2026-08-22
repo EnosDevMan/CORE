@@ -34,7 +34,7 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
         if (mounted) {
           setConfig(data.config);
           setInitialData({
-            barbers: data.barbers,
+            professionals: data.professionals,
             services: data.services,
             bookings: data.bookings,
             users: data.users,
@@ -45,7 +45,7 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (err) {
         if (mounted) {
           setLoadError(
-            err instanceof Error ? err.message : 'Não foi possível carregar os dados da barbearia.'
+            err instanceof Error ? err.message : 'Não foi possível carregar os dados do negócio.'
           );
         }
       }

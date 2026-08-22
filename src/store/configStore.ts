@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { BarbershopConfig } from '../types';
+import { BusinessConfig } from '../types';
 import { dataService } from '../services/dataService';
 
 interface ConfigState {
-  config: BarbershopConfig;
-  setConfig: (config: BarbershopConfig) => void;
-  updateConfig: (updated: BarbershopConfig) => Promise<void>;
+  config: BusinessConfig;
+  setConfig: (config: BusinessConfig) => void;
+  updateConfig: (updated: BusinessConfig) => Promise<void>;
 }
 
 /**
@@ -14,7 +14,7 @@ interface ConfigState {
  * assim que `loadAllData()` retorna, `setConfig` substitui isso pelo
  * registro real de `barbershop_config`.
  */
-const PLACEHOLDER_CONFIG: BarbershopConfig = {
+const PLACEHOLDER_CONFIG: BusinessConfig = {
   name: '',
   logo: '',
   address: '',

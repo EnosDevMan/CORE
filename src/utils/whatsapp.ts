@@ -1,4 +1,4 @@
-import { Booking, BarbershopConfig } from '../types';
+import { Booking, BusinessConfig } from '../types';
 
 /**
  * Monta o link oficial do WhatsApp (https://wa.me/) com uma mensagem já
@@ -7,7 +7,7 @@ import { Booking, BarbershopConfig } from '../types';
  * Importante: isto NÃO é uma integração com a API do WhatsApp. É apenas um
  * link `https://wa.me/<numero>?text=<mensagem>` que abre o aplicativo/web do
  * WhatsApp do próprio cliente com uma conversa já iniciada com o número da
- * barbearia e a mensagem pronta. Nenhum serviço de terceiros, automação ou
+ * estabelecimento e a mensagem pronta. Nenhum serviço de terceiros, automação ou
  * API é utilizado — conforme especificado no escopo do projeto.
  */
 
@@ -40,24 +40,24 @@ function formatDateBR(date: string): string {
 
 export function buildBookingWhatsAppLink(params: {
   booking: Booking;
-  config: BarbershopConfig;
-  barberName?: string;
+  config: BusinessConfig;
+  professionalName?: string;
   serviceNames?: string;
 }): string | null {
-  const { booking, config, barberName, serviceNames } = params;
+  const { booking, config, professionalName, serviceNames } = params;
 
   const phone = normalizePhoneForWhatsApp(config.phone || '');
   if (!phone) return null;
 
   const lines = [
-    `Olá! Gostaria de confirmar meu agendamento na *${config.name || 'barbearia'}*:`,
+    `Olá! Gostaria de confirmar meu agendamento em *${config.name || 'nosso estabelecimento'}*:`,
     ``,
     `📅 Data: ${formatDateBR(booking.date)}`,
     `⏰ Horário: ${booking.time}`,
   ];
 
-  if (barberName) lines.push(`💈 Barbeiro: ${barberName}`);
-  if (serviceNames) lines.push(`✂️ Serviço(s): ${serviceNames}`);
+  if (professionalName) lines.push(`Profissional: ${professionalName}`);
+  if (serviceNames) lines.push(`Serviço(s): ${serviceNames}`);
 
   lines.push(``, `Nome: ${booking.customerName}`);
 

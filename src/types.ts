@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type UserRole = 'admin' | 'barber' | 'customer';
+export type UserRole =
+  | 'owner' | 'manager' | 'receptionist' | 'professional' | 'customer'
+  /** @deprecated Database compatibility roles. */
+  | 'admin' | 'barber';
 
 export interface User {
   id: string;
@@ -12,39 +15,14 @@ export interface User {
   role: UserRole;
   phone?: string;
   avatar?: string;
-  profileId?: string; // Barber ID or Customer ID
+  profileId?: string; // Professional ID or customer ID
   createdAt?: string;
 }
 
-export interface WorkingHours {
-  open: string; // HH:MM
-  close: string; // HH:MM
-  daysOpen: number[]; // 0 = Sunday, 1 = Monday, etc.
-  breakStart?: string; // HH:MM
-  breakEnd?: string; // HH:MM
-  /** Per-day schedule. Optional to keep persisted legacy configurations compatible. */
-  weeklySchedule?: Partial<Record<number, DailyWorkingHours>>;
-}
+export type { DailyWorkingHours, WorkingHours } from './features/booking/types';
+import type { WorkingHours } from './features/booking/types';
 
-export interface DailyWorkingHours {
-  open: string;
-  close: string;
-  closed?: boolean;
-  breakStart?: string;
-  breakEnd?: string;
-}
-
-export interface Barber {
-  id: string;
-  name: string;
-  avatar: string;
-  specialty: string;
-  active: boolean;
-  workingHours?: WorkingHours;
-  description?: string;
-  order?: number;
-  userId?: string;
-}
+export type { Professional } from './features/professionals/types';
 
 export interface Service {
   id: string;
@@ -71,7 +49,7 @@ export interface Booking {
   customerId: string;
   customerName: string;
   customerPhone: string;
-  barberId: string;
+  professionalId: string;
   serviceId: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
@@ -89,7 +67,7 @@ export interface SocialLinks {
   whatsapp?: string;
 }
 
-export interface BarbershopConfig {
+export interface BusinessConfig {
   name: string;
   logo: string; // url or emoji/icon key
   address: string;
@@ -111,7 +89,7 @@ export type BlockType = 'block' | 'offday' | 'vacation' | 'special';
 
 export interface ScheduleBlock {
   id: string;
-  barberId: string; // "all" for global or specific barber ID
+  professionalId: string; // "all" for global or a specific professional ID
   type: BlockType;
   date?: string; // YYYY-MM-DD (for block, offday, special)
   startDate?: string; // YYYY-MM-DD (for vacation, offday range)

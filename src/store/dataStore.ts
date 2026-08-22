@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { Barber, Service, Booking, User, ScheduleBlock, BookingStatus, GalleryPhoto } from '../types';
+import { Professional, Service, Booking, User, ScheduleBlock, BookingStatus, GalleryPhoto } from '../types';
 import { dataService } from '../services/dataService';
 
 interface DataState {
-  barbers: Barber[];
+  professionals: Professional[];
   services: Service[];
   bookings: Booking[];
   users: User[];
@@ -20,7 +20,7 @@ interface DataState {
   loadError: string | null;
 
   setInitialData: (data: {
-    barbers: Barber[];
+    professionals: Professional[];
     services: Service[];
     bookings: Booking[];
     users: User[];
@@ -32,13 +32,13 @@ interface DataState {
   /** Marca a carga inicial como falha, destravando a tela de loading. */
   setLoadError: (message: string) => void;
 
-  // Barbers
-  addBarber: (barber: Omit<Barber, 'id'>) => Promise<Barber>;
-  updateBarber: (barber: Barber) => Promise<void>;
-  deleteBarber: (id: string) => Promise<void>;
-  hardDeleteBarber: (id: string) => Promise<void>;
-  /** Sincroniza profiles.profile_id <-> barbers.user_id (ver implementação). */
-  linkBarberUser: (userId: string, barberId: string | null) => Promise<void>;
+  // Professionals
+  addProfessional: (professional: Omit<Professional, 'id'>) => Promise<Professional>;
+  updateProfessional: (professional: Professional) => Promise<void>;
+  deleteProfessional: (id: string) => Promise<void>;
+  hardDeleteProfessional: (id: string) => Promise<void>;
+  /** Sincroniza o vínculo entre conta autenticada e perfil profissional. */
+  linkProfessionalUser: (userId: string, professionalId: string | null) => Promise<void>;
 
   // Services
   addService: (service: Omit<Service, 'id'>) => Promise<void>;
@@ -73,7 +73,7 @@ interface DataState {
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
-  barbers: [],
+  professionals: [],
   services: [],
   bookings: [],
   users: [],
@@ -86,77 +86,78 @@ export const useDataStore = create<DataState>((set, get) => ({
   beginLoad: () => set({ bookings: [], users: [], loading: true, loadError: null }),
   setLoadError: (message) => set({ loading: false, loadError: message }),
 
-  addBarber: async (barber) => {
-    const newBarber = await dataService.createBarber(barber);
-    set(state => ({ barbers: [...state.barbers, newBarber] }));
-    if (newBarber.userId) {
-      // Vincula o usuário escolhido de volta a este barbeiro (ver
-      // linkBarberUser abaixo para o porquê disso ser necessário).
-      await get().linkBarberUser(newBarber.userId, newBarber.id);
+  addProfessional: async (professional) => {
+    const newProfessional = await dataService.createProfessional(professional);
+    set(state => ({ professionals: [...state.professionals, newProfessional] }));
+    if (newProfessional.userId) {
+      // Vincula o usuário escolhido de volta a este profissional (ver
+      // linkProfessionalUser abaixo para o porquê disso ser necessário).
+      await get().linkProfessionalUser(newProfessional.userId, newProfessional.id);
     }
-    return newBarber;
+    return newProfessional;
   },
-  updateBarber: async (barber) => {
-    const previous = get().barbers;
-    const oldBarber = previous.find(b => b.id === barber.id);
-    set(state => ({ barbers: state.barbers.map(b => (b.id === barber.id ? barber : b)) }));
+  updateProfessional: async (professional) => {
+    const previous = get().professionals;
+    const oldProfessional = previous.find(b => b.id === professional.id);
+    set(state => ({ professionals: state.professionals.map(b => (b.id === professional.id ? professional : b)) }));
     try {
-      await dataService.saveBarber(barber);
-      if (oldBarber?.userId !== barber.userId) {
-        if (oldBarber?.userId) {
-          // Desvincula o usuário anterior (ele não é mais este barbeiro).
-          await get().linkBarberUser(oldBarber.userId, null);
+      await dataService.saveProfessional(professional);
+      if (oldProfessional?.userId !== professional.userId) {
+        if (oldProfessional?.userId) {
+          // Desvincula o usuário anterior (ele não é mais este profissional).
+          await get().linkProfessionalUser(oldProfessional.userId, null);
         }
-        if (barber.userId) {
-          await get().linkBarberUser(barber.userId, barber.id);
+        if (professional.userId) {
+          await get().linkProfessionalUser(professional.userId, professional.id);
         }
       }
     } catch (err) {
-      set({ barbers: previous });
+      set({ professionals: previous });
       throw err;
     }
   },
   /**
-   * Mantém `profiles.profile_id` sincronizado com `barbers.user_id`.
+   * Mantém o identificador do perfil autenticado sincronizado com o vínculo
+   * do profissional persistido pela camada de dados.
    *
-   * BUG CORRIGIDO: o formulário de barbeiro (AdminBarberForm) sempre
-   * gravou apenas `barbers.user_id` ao vincular um profissional a uma
-   * conta de usuário. Só que `useBarberDashboard` decide "qual agenda é a
+   * O formulário administrativo precisa atualizar os dois lados do vínculo ao
+   * associar um profissional a uma conta. `useProfessionalDashboard` decide
+   * "qual agenda é a
    * minha" lendo `currentUser.profileId` (= `profiles.profile_id`) — que
-   * nunca era escrito. Resultado: todo barbeiro vinculado por lá caía
-   * sempre no modo de simulação (seleção manual), nunca no modo automático.
+   * precisa estar sincronizado. Sem isso, todo profissional vinculado cai no
+   * modo de simulação (seleção manual), nunca no modo automático.
    */
-  linkBarberUser: async (userId, barberId) => {
+  linkProfessionalUser: async (userId, professionalId) => {
     const previous = get().users;
     set(state => ({
-      users: state.users.map(u => (u.id === userId ? { ...u, profileId: barberId ?? undefined } : u)),
+      users: state.users.map(u => (u.id === userId ? { ...u, profileId: professionalId ?? undefined } : u)),
     }));
     try {
-      await dataService.setUserProfileId(userId, barberId);
+      await dataService.setUserProfileId(userId, professionalId);
     } catch (err) {
       set({ users: previous });
       throw err;
     }
   },
-  deleteBarber: async (id) => {
-    const previous = get().barbers;
-    const barber = previous.find(b => b.id === id);
-    if (!barber) return;
-    set(state => ({ barbers: state.barbers.map(b => (b.id === id ? { ...b, active: false } : b)) }));
+  deleteProfessional: async (id) => {
+    const previous = get().professionals;
+    const professional = previous.find(b => b.id === id);
+    if (!professional) return;
+    set(state => ({ professionals: state.professionals.map(b => (b.id === id ? { ...b, active: false } : b)) }));
     try {
-      await dataService.saveBarber({ ...barber, active: false });
+      await dataService.saveProfessional({ ...professional, active: false });
     } catch (err) {
-      set({ barbers: previous });
+      set({ professionals: previous });
       throw err;
     }
   },
-  hardDeleteBarber: async (id) => {
-    const previous = get().barbers;
-    set(state => ({ barbers: state.barbers.filter(b => b.id !== id) }));
+  hardDeleteProfessional: async (id) => {
+    const previous = get().professionals;
+    set(state => ({ professionals: state.professionals.filter(b => b.id !== id) }));
     try {
-      await dataService.deleteBarber(id);
+      await dataService.deleteProfessional(id);
     } catch (err) {
-      set({ barbers: previous });
+      set({ professionals: previous });
       throw err;
     }
   },

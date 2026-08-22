@@ -15,7 +15,7 @@ import { UserRole } from '../../types';
  *
  * Uso:
  *   export default withRoleGuard(AdminPanel, 'admin');
- *   export default withRoleGuard(BarberDashboard, ['admin', 'barber']);
+ *   export default withRoleGuard(ProfessionalDashboard, ['admin', 'barber']);
  */
 export function withRoleGuard<P extends object>(
   Component: React.ComponentType<P>,

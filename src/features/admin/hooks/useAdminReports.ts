@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../../../store/useApp';
-import { getBarbershopTodayStr } from '../../../utils/validation';
-import { getBarberName as getSharedBarberName, getServiceName as getSharedServiceName } from '../../../utils/lookups';
+import { getBusinessTodayStr } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
+import { getProfessionalName as getSharedProfessionalName, getServiceName as getSharedServiceName } from '../../../utils/lookups';
 
 export type ReportPeriod = 'day' | 'week' | 'month' | 'year' | 'custom';
 
@@ -44,7 +45,7 @@ const addDays = (date: Date, days: number): Date => {
 };
 
 // Semana começando na segunda-feira, para bater com o mesmo critério já
-// usado no painel do barbeiro (useBarberDashboard.isThisWeek).
+// usado no painel do barbeiro (useProfessionalDashboard.isThisWeek).
 const startOfWeek = (date: Date): Date => {
   const day = date.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
@@ -188,13 +189,14 @@ const buildRange = (period: ReportPeriod, offset: number, today: Date, customSta
 };
 
 export const useAdminReports = () => {
-  const { bookings, barbers, services } = useApp();
+  const { bookings, professionals, services } = useApp();
+  const { profile } = useBusiness();
   const [period, setPeriodState] = useState<ReportPeriod>('week');
   const [offset, setOffset] = useState(0);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  const todayStr = useMemo(() => getBarbershopTodayStr(), []);
+  const todayStr = useMemo(() => getBusinessTodayStr(profile.timezone), [profile.timezone]);
 
   const setPeriod = (next: ReportPeriod) => {
     setPeriodState(next);
@@ -257,17 +259,17 @@ export const useAdminReports = () => {
 
   const maxChartValue = Math.max(1, ...chartData.map(d => d.value));
 
-  const barberBreakdown: ReportBreakdownItem[] = useMemo(() => {
+  const professionalBreakdown: ReportBreakdownItem[] = useMemo(() => {
     const map: Record<string, ReportBreakdownItem> = {};
     completedInRange.forEach(b => {
-      if (!map[b.barberId]) {
-        map[b.barberId] = { id: b.barberId, name: getSharedBarberName(barbers, b.barberId), count: 0, total: 0 };
+      if (!map[b.professionalId]) {
+        map[b.professionalId] = { id: b.professionalId, name: getSharedProfessionalName(professionals, b.professionalId), count: 0, total: 0 };
       }
-      map[b.barberId].count += 1;
-      map[b.barberId].total += b.value;
+      map[b.professionalId].count += 1;
+      map[b.professionalId].total += b.value;
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [completedInRange, barbers]);
+  }, [completedInRange, professionals]);
 
   const serviceBreakdown: ReportBreakdownItem[] = useMemo(() => {
     const map: Record<string, ReportBreakdownItem> = {};
@@ -310,7 +312,7 @@ export const useAdminReports = () => {
     revenueInRange,
     chartData,
     maxChartValue,
-    barberBreakdown,
+    professionalBreakdown,
     serviceBreakdown,
   };
 };

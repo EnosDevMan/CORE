@@ -1,4 +1,4 @@
-import { Barber, Booking, ScheduleBlock, Service, WorkingHours } from '../types';
+import { Booking, Professional, ScheduleBlock, Service, WorkingHours } from '../types';
 import { minutesToTime, timeToMinutes, getWeekdayFromISODate } from './validation';
 
 export type SlotStatus = 'available' | 'occupied' | 'blocked' | 'break' | 'closed';
@@ -10,12 +10,12 @@ export interface AvailabilitySlot {
 }
 
 export interface AvailabilityInput {
-  barberId: string;
+  professionalId: string;
   date: string;
   duration: number;
   intervalMinutes: number;
   shopHours: WorkingHours;
-  barber?: Barber;
+  professional?: Professional;
   bookings: Booking[];
   blocks: ScheduleBlock[];
   services: Service[];
@@ -71,32 +71,32 @@ export function getAvailability(input: AvailabilityInput): AvailabilitySlot[] {
   if (weekday === null || input.duration <= 0) return [];
 
   const shopDaily = resolveDailyHours(input.shopHours, weekday);
-  const barberDaily = resolveDailyHours(input.barber?.workingHours ?? input.shopHours, weekday);
+  const professionalDaily = resolveDailyHours(input.professional?.workingHours ?? input.shopHours, weekday);
   const specials = input.blocks
-    .filter(block => block.type === 'special' && block.date === input.date && block.specialHours && (block.barberId === 'all' || block.barberId === input.barberId))
-  const shopSpecial = specials.find(block => block.barberId === 'all')?.specialHours;
-  const barberSpecial = specials.find(block => block.barberId === input.barberId)?.specialHours;
+    .filter(block => block.type === 'special' && block.date === input.date && block.specialHours && (block.professionalId === 'all' || block.professionalId === input.professionalId))
+  const shopSpecial = specials.find(block => block.professionalId === 'all')?.specialHours;
+  const professionalSpecial = specials.find(block => block.professionalId === input.professionalId)?.specialHours;
   const shopHours = shopSpecial ?? shopDaily;
-  const barberHours = barberSpecial ?? barberDaily;
+  const professionalHours = professionalSpecial ?? professionalDaily;
 
   // O salão sempre delimita a janela máxima de atendimento. A agenda do
   // profissional (inclusive um horário especial individual) pode restringir
-  // essa janela, mas nunca abrir antes ou fechar depois da barbearia.
-  if ((!shopSpecial && shopDaily.closed) || (!barberSpecial && barberDaily.closed)) return [];
+  // essa janela, mas nunca abrir antes ou fechar depois do estabelecimento.
+  if ((!shopSpecial && shopDaily.closed) || (!professionalSpecial && professionalDaily.closed)) return [];
 
-  const open = Math.max(timeToMinutes(shopHours.open), timeToMinutes(barberHours.open));
-  const close = Math.min(timeToMinutes(shopHours.close), timeToMinutes(barberHours.close));
+  const open = Math.max(timeToMinutes(shopHours.open), timeToMinutes(professionalHours.open));
+  const close = Math.min(timeToMinutes(shopHours.close), timeToMinutes(professionalHours.close));
 
   return generateSlotStartMinutes(open, close, input.duration, input.intervalMinutes).map(start => {
     const time = minutesToTime(start);
     const end = start + input.duration;
     if (input.unavailableBeforeMinutes !== undefined && start <= input.unavailableBeforeMinutes) return { time, status: 'closed', reason: 'Horário encerrado' };
     const duringShopBreak = shopHours.breakStart && shopHours.breakEnd && overlaps(start, end, timeToMinutes(shopHours.breakStart), timeToMinutes(shopHours.breakEnd));
-    const duringBarberBreak = barberHours.breakStart && barberHours.breakEnd && overlaps(start, end, timeToMinutes(barberHours.breakStart), timeToMinutes(barberHours.breakEnd));
-    if (duringShopBreak || duringBarberBreak) return { time, status: 'break', reason: 'Intervalo' };
+    const duringProfessionalBreak = professionalHours.breakStart && professionalHours.breakEnd && overlaps(start, end, timeToMinutes(professionalHours.breakStart), timeToMinutes(professionalHours.breakEnd));
+    if (duringShopBreak || duringProfessionalBreak) return { time, status: 'break', reason: 'Intervalo' };
 
     const block = input.blocks.find(item => {
-      if (item.barberId !== 'all' && item.barberId !== input.barberId) return false;
+      if (item.professionalId !== 'all' && item.professionalId !== input.professionalId) return false;
       if (item.type === 'special' && item.specialHours) return false;
       const applies = item.date === input.date || (!!item.startDate && !!item.endDate && input.date >= item.startDate && input.date <= item.endDate);
       if (!applies) return false;
@@ -106,7 +106,7 @@ export function getAvailability(input: AvailabilityInput): AvailabilitySlot[] {
     if (block) return { time, status: 'blocked', reason: block.reason || 'Bloqueado' };
 
     const occupied = input.bookings.some(booking => {
-      if (booking.id === input.excludeBookingId || booking.status === 'Cancelado' || booking.barberId !== input.barberId || booking.date !== input.date) return false;
+      if (booking.id === input.excludeBookingId || booking.status === 'Cancelado' || booking.professionalId !== input.professionalId || booking.date !== input.date) return false;
       const bookedStart = timeToMinutes(booking.time);
       return overlaps(start, end, bookedStart, bookedStart + bookingDuration(booking, input.services));
     }) || (input.additionalOccupiedIntervals ?? []).some(interval => {
