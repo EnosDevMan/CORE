@@ -6,6 +6,8 @@
 - Escritas administrativas verificam role no banco.
 - Guest booking usa RPC e não INSERT público direto.
 - Storage restringe escrita por bucket e identidade.
+- O bundle recebe somente a chave publicável; `service_role` nunca usa o
+  prefixo `VITE_` nem é enviado ao navegador.
 
 Antes de produção: revisar grants após cada migration, testar owner/professional/
 customer/anônimo, confirmar redirects permitidos, rotação de chaves e políticas
