@@ -21,3 +21,11 @@ O bootstrap valida URL, HTTPS e placeholders antes de carregar a aplicação.
 `VITE_SUPABASE_ANON_KEY` permanece apenas como fallback para instalações
 antigas; projetos novos usam a chave publicável. Nunca exponha `service_role`
 ou secrets administrativos em variáveis prefixadas por `VITE_`.
+
+## Orçamento do frontend
+
+Depois do build, `npm run check:bundle` impede regressões acima de 230 kB por
+chunk JavaScript, 700 kB de JavaScript total ou 100 kB de CSS total. A CI roda
+esse gate em todo pull request. Mudanças conscientes podem ajustar os limites
+por `BUNDLE_MAX_JS_KB`, `BUNDLE_TOTAL_JS_KB` e `BUNDLE_TOTAL_CSS_KB`, mas a
+justificativa e a medição devem acompanhar a alteração.
