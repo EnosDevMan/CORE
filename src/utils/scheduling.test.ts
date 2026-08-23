@@ -74,6 +74,17 @@ describe('getAvailability', () => {
     expect(getAvailability(input).find(slot => slot.time === '09:30')?.status).toBe('available');
   });
 
+  it('preserva a duração histórica mesmo quando o serviço atual muda', () => {
+    const slots = getAvailability({
+      ...input,
+      bookings: [{ ...input.bookings[0], durationMinutes: 60 }],
+      services: [{ ...input.services[0], duration: 15 }],
+    });
+
+    expect(slots.find(slot => slot.time === '09:30')?.status).toBe('occupied');
+    expect(slots.find(slot => slot.time === '10:00')?.status).toBe('available');
+  });
+
   it('ignora somente o próprio agendamento durante o reagendamento', () => {
     expect(getAvailability({ ...input, excludeBookingId: 'booking-1' }).find(slot => slot.time === '09:00')?.status).toBe('available');
   });

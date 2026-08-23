@@ -15,6 +15,7 @@ export interface OnboardingInput {
   professionals: readonly { name: string }[];
   intervalMinutes: number;
   bookingWindowDays: number;
+  ownerSetupCode?: string;
 }
 
 export interface OnboardingState {
@@ -38,7 +39,11 @@ export const onboardingService = {
 
   async complete(input: OnboardingInput, shouldClaimOwner: boolean): Promise<void> {
     if (shouldClaimOwner) {
-      const { error } = await supabase.rpc('claim_first_owner');
+      const setupCode = input.ownerSetupCode?.trim();
+      if (!setupCode || !/^[a-f0-9]{64}$/i.test(setupCode)) {
+        throw new Error('Informe o código de instalação gerado no painel do Supabase.');
+      }
+      const { error } = await supabase.rpc('claim_first_owner', { p_setup_code: setupCode.toLowerCase() });
       throwError(error);
     }
 

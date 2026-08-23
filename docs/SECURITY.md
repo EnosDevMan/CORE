@@ -2,12 +2,19 @@
 
 - Supabase Auth autentica; RLS e RPCs autorizam.
 - UI guards não são fronteira de segurança.
-- Tabelas públicas expõem apenas catálogo/configuração necessária.
+- Tabelas públicas expõem apenas catálogo/configuração necessária. Disponibilidade
+  pública contém horários e duração, nunca nome, telefone, observações ou IDs
+  de agendamentos; bloqueios públicos omitem justificativas internas.
 - Escritas administrativas verificam role no banco.
 - Guest booking usa RPC e não INSERT público direto.
 - Storage restringe escrita por bucket e identidade.
 - O bundle recebe somente a chave publicável; `service_role` nunca usa o
-  prefixo `VITE_` nem é enviado ao navegador.
+  prefixo `VITE_` nem é enviado ao navegador. JWTs legados só são aceitos quando
+  o payload informa a role `anon`; chaves secretas falham antes do bootstrap.
+- Contas são removidas por RPC exclusiva do proprietário, incluindo as sessões
+  e a identidade em `auth.users`; a conta proprietária não pode se autoexcluir.
+- Aceites de privacidade registram data do servidor e versão da política; o
+  próprio cliente não consegue alterar essa evidência posteriormente.
 
 Antes de produção: revisar grants após cada migration, testar owner/professional/
 customer/anônimo, confirmar redirects permitidos, rotação de chaves e políticas
@@ -28,8 +35,26 @@ permissão ou serem propagados pela interface.
 
 ## Bootstrap do proprietário
 
-`claim_first_owner` usa advisory lock e uma tabela interna sem policies de API.
-Apenas uma instalação sem owner/admin aceita a reivindicação. O registro interno
-faz `auth_role()` reconhecer o proprietário antes da promoção do perfil, sem
+Antes do cadastro público, o operador executa
+`prepare_installation_owner('proprietario@exemplo.com')` exclusivamente no SQL
+Editor. A função devolve um código único de 64 caracteres, armazena somente seu
+hash, limita a validade a 24 horas e vincula a reivindicação ao e-mail confirmado.
+Não há grant para `anon` ou `authenticated` gerar códigos ou ler a tabela privada.
+
+`claim_first_owner(codigo)` usa advisory lock, validade, consumo único e uma
+restrição física que admite apenas um proprietário. O registro interno faz
+`auth_role()` reconhecer o proprietário antes da promoção do perfil, sem
 desabilitar a proteção contra autoelevação. O onboarding completo exige owner e
 é executado atomicamente por RPC.
+
+## Integridade da agenda
+
+Cada reserva mantém snapshots imutáveis de início, término e duração. Alterar
+preços ou duração no catálogo não modifica agendamentos antigos nem muda o valor
+de um reagendamento. A restrição GiST no banco impede conflitos inclusive entre
+requisições concorrentes, e a janela pública, antecedência e prazo de cancelamento
+são validados pelo servidor.
+
+A CI aplica o schema consolidado em um PostgreSQL descartável e verifica a
+promoção inicial, isolamento por role, exposição pública, conflito de horários,
+imutabilidade dos snapshots, cancelamento e exclusão completa de contas.

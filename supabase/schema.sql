@@ -91,6 +91,8 @@ create table profiles (
   phone text,
   avatar text,
   profile_id uuid, -- aponta para barbers.id quando role = 'professional'
+  privacy_accepted_at timestamptz,
+  privacy_policy_version text,
   created_at timestamptz not null default now()
 );
 
@@ -206,6 +208,7 @@ create table gallery_photos (
 create index bookings_barber_date_idx on bookings (barber_id, date);
 create index bookings_customer_idx on bookings (customer_id);
 create index bookings_date_id_idx on bookings (date desc, id);
+create index barbers_user_id_idx on barbers (user_id);
 create index gallery_photos_display_order_idx on gallery_photos (display_order, created_at, id);
 
 
@@ -245,8 +248,17 @@ $$ language plpgsql security definer set search_path = public, pg_temp;
 create function handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, name, role)
-  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'name', new.email), 'customer');
+  insert into public.profiles (
+    id, email, name, role, privacy_accepted_at, privacy_policy_version
+  )
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'name', new.email),
+    'customer',
+    case when nullif(new.raw_user_meta_data->>'privacy_policy_version', '') is not null then now() end,
+    left(nullif(new.raw_user_meta_data->>'privacy_policy_version', ''), 64)
+  );
   return new;
 end;
 $$ language plpgsql security definer set search_path = public, pg_temp;
@@ -267,6 +279,10 @@ begin
     if new.profile_id is distinct from old.profile_id then
       raise exception 'Apenas administradores podem alterar o vínculo profile_id de um usuário.';
     end if;
+    if new.privacy_accepted_at is distinct from old.privacy_accepted_at
+       or new.privacy_policy_version is distinct from old.privacy_policy_version then
+      raise exception 'O registro de aceite de privacidade não pode ser alterado pelo usuário.';
+    end if;
   end if;
   return new;
 end;
@@ -286,6 +302,13 @@ declare
   v_via_reschedule_rpc boolean;
 begin
   v_actor_role := auth_role();
+
+  if new.created_at is distinct from old.created_at
+     or new.starts_at is distinct from old.starts_at
+     or new.ends_at is distinct from old.ends_at
+     or new.duration_minutes is distinct from old.duration_minutes then
+    raise exception 'Os identificadores temporais do agendamento são controlados exclusivamente pelo servidor.';
+  end if;
 
   if v_actor_role = 'owner' then
     return new;
@@ -320,6 +343,16 @@ begin
       raise exception 'Cliente só pode alterar o status do próprio agendamento para "Cancelado".';
     end if;
 
+    if new.status = 'Cancelado' and old.status <> 'Cancelado'
+       and exists (
+         select 1 from public.booking_settings settings
+         where settings.id = true
+           and settings.cancellation_notice_minutes > 0
+           and old.starts_at < now() + make_interval(mins => settings.cancellation_notice_minutes)
+       ) then
+      raise exception 'O prazo mínimo para cancelamento deste agendamento já foi ultrapassado.';
+    end if;
+
     return new;
   end if;
 
@@ -350,9 +383,10 @@ declare
   v_end_mins int;
   v_open_mins int;
   v_close_mins int;
-  v_today date := (now() at time zone 'America/Sao_Paulo')::date;
-  v_now_mins int := extract(hour from (now() at time zone 'America/Sao_Paulo')) * 60
-                    + extract(minute from (now() at time zone 'America/Sao_Paulo'));
+  v_timezone text;
+  v_today date;
+  v_now_mins int;
+  v_minimum_notice_minutes int;
   v_weekday int;
   v_pending_count int;
   v_recent_count int;
@@ -368,6 +402,15 @@ begin
      and new.value is not distinct from old.value then
     return new;
   end if;
+
+  select
+    coalesce((select timezone from public.business_profile where id = true), 'America/Sao_Paulo'),
+    coalesce((select minimum_notice_minutes from public.booking_settings where id = true), 30)
+  into v_timezone, v_minimum_notice_minutes;
+
+  v_today := (now() at time zone v_timezone)::date;
+  v_now_mins := extract(hour from (now() at time zone v_timezone)) * 60
+                + extract(minute from (now() at time zone v_timezone));
 
   v_actor_role := auth_role();
   new.customer_name := btrim(new.customer_name);
@@ -432,8 +475,17 @@ begin
      or v_service_count <> cardinality(string_to_array(new.service_id, ',')) then
     raise exception 'Um ou mais serviços são inválidos ou estão inativos.';
   end if;
-  -- O preço exibido pelo navegador nunca é fonte de verdade.
-  new.value := v_price;
+  -- Reagendamentos preservam preço e duração aceitos na reserva original.
+  -- Novas reservas ou mudanças reais de serviço usam o catálogo atual.
+  if tg_op = 'UPDATE'
+     and new.service_id is not distinct from old.service_id
+     and old.duration_minutes is not null then
+    v_duration := old.duration_minutes;
+    new.value := old.value;
+  else
+    -- O preço exibido pelo navegador nunca é fonte de verdade.
+    new.value := v_price;
+  end if;
 
   select b.active, coalesce(b.working_hours, c.working_hours), c.booking_window_days
     into v_barber_active, v_hours, v_booking_window_days
@@ -449,8 +501,8 @@ begin
       raise exception 'A data deve estar dentro da janela pública de agendamento.';
     end if;
     v_start_mins := extract(hour from new.time) * 60 + extract(minute from new.time);
-    if new.date = v_today and v_start_mins <= v_now_mins + 30 then
-      raise exception 'O horário deve ter pelo menos 30 minutos de antecedência.';
+    if new.date = v_today and v_start_mins <= v_now_mins + v_minimum_notice_minutes then
+      raise exception 'O horário precisa respeitar a antecedência mínima configurada.';
     end if;
   else
     v_start_mins := extract(hour from new.time) * 60 + extract(minute from new.time);
@@ -554,7 +606,7 @@ begin
       and b.status <> 'Cancelado'
       and (extract(hour from b.time) * 60 + extract(minute from b.time)) < v_end_mins
       and (extract(hour from b.time) * 60 + extract(minute from b.time))
-          + coalesce((select sum(s.duration) from services s where s.id::text = any(string_to_array(b.service_id, ','))), 30) > v_start_mins
+          + coalesce(b.duration_minutes, (select sum(s.duration) from services s where s.id::text = any(string_to_array(b.service_id, ','))), 30) > v_start_mins
   ) then
     raise exception 'Horário indisponível: já existe um agendamento neste intervalo.';
   end if;
@@ -651,11 +703,11 @@ declare
   v_recent_count int;
   v_new_booking bookings;
 begin
-  if auth_role() <> 'owner' and auth.uid() is not null and p_customer_id is distinct from auth.uid() then
+  if auth_role() is distinct from 'owner' and auth.uid() is not null and p_customer_id is distinct from auth.uid() then
     raise exception 'Não é possível criar um agendamento em nome de outro usuário.';
   end if;
 
-  if auth_role() <> 'owner' then
+  if auth_role() is distinct from 'owner' then
     select count(*) into v_pending_count
     from bookings
     where regexp_replace(customer_phone, '\D', '', 'g') = regexp_replace(p_customer_phone, '\D', '', 'g')
@@ -709,7 +761,7 @@ begin
     and (extract(hour from b.time) * 60 + extract(minute from b.time)) < v_end_mins
     and (
       (extract(hour from b.time) * 60 + extract(minute from b.time))
-      + (select coalesce(sum(s.duration), 30) from services s where s.id::text = any(string_to_array(b.service_id, ',')))
+      + coalesce(b.duration_minutes, (select sum(s.duration) from services s where s.id::text = any(string_to_array(b.service_id, ','))), 30)
     ) > v_start_mins;
 
   if v_conflict_count > 0 then
@@ -803,13 +855,7 @@ begin
 
   perform pg_advisory_xact_lock(hashtextextended(v_booking.barber_id::text || p_new_date::text, 0));
 
-  select coalesce(sum(duration), 0) into v_duration
-  from services
-  where id::text = any(string_to_array(v_booking.service_id, ','));
-
-  if v_duration = 0 then
-    v_duration := 30;
-  end if;
+  v_duration := coalesce(v_booking.duration_minutes, 30);
 
   v_start_mins := extract(hour from p_new_time) * 60 + extract(minute from p_new_time);
   v_end_mins := v_start_mins + v_duration;
@@ -823,7 +869,7 @@ begin
     and (extract(hour from b.time) * 60 + extract(minute from b.time)) < v_end_mins
     and (
       (extract(hour from b.time) * 60 + extract(minute from b.time))
-      + (select coalesce(sum(s.duration), 30) from services s where s.id::text = any(string_to_array(b.service_id, ',')))
+      + coalesce(b.duration_minutes, (select sum(s.duration) from services s where s.id::text = any(string_to_array(b.service_id, ','))), 30)
     ) > v_start_mins;
 
   if v_conflict_count > 0 then
@@ -996,7 +1042,9 @@ create policy "profiles_select_own_or_admin" on profiles for select
 create policy "profiles_insert_admin" on profiles for insert
   with check (auth_role() = 'owner');
 create policy "profiles_update_own_or_admin" on profiles for update
-  using (auth.uid() = id or auth_role() = 'owner');
+  to authenticated
+  using ((select auth.uid()) = id or (select auth_role()) = 'owner')
+  with check ((select auth.uid()) = id or (select auth_role()) = 'owner');
 create policy "profiles_delete_admin" on profiles for delete
   using (auth_role() = 'owner');
 
@@ -1033,18 +1081,35 @@ create policy "bookings_select_own_barber_or_admin" on bookings for select
 create policy "bookings_insert_admin_only" on bookings for insert
   with check (auth_role() = 'owner');
 create policy "bookings_update_own_barber_or_admin" on bookings for update
+  to authenticated
   using (
-    auth.uid() = customer_id
-    or auth_role() = 'owner'
-    or (auth_role() = 'professional' and barber_id = (select profile_id from profiles where id = auth.uid()))
+    (select auth.uid()) = customer_id
+    or (select auth_role()) = 'owner'
+    or ((select auth_role()) = 'professional' and barber_id = (select profile_id from profiles where id = (select auth.uid())))
+  )
+  with check (
+    (select auth.uid()) = customer_id
+    or (select auth_role()) = 'owner'
+    or ((select auth_role()) = 'professional' and barber_id = (select profile_id from profiles where id = (select auth.uid())))
   );
 create policy "bookings_delete_admin" on bookings for delete
   using (auth_role() = 'owner');
 
 -- schedule_blocks: leitura pública (para calcular disponibilidade), escrita
 -- por admin ou pelo próprio barbeiro (bloqueios da própria agenda).
-create policy "blocks_select_public" on schedule_blocks for select using (true);
+create policy "blocks_select_staff" on schedule_blocks for select to authenticated
+  using (
+    (select auth_role()) = 'owner'
+    or (
+      (select auth_role()) = 'professional'
+      and (
+        barber_id = 'all'
+        or barber_id = (select profile_id::text from profiles where id = (select auth.uid()))
+      )
+    )
+  );
 create policy "blocks_write_admin_or_own_barber" on schedule_blocks for all
+  to authenticated
   using (auth_role() = 'owner' or barber_id = (select profile_id::text from profiles where id = auth.uid()))
   with check (auth_role() = 'owner' or barber_id = (select profile_id::text from profiles where id = auth.uid()));
 
@@ -1068,6 +1133,35 @@ grant execute on function create_booking(
 -- convidado não tem uma agenda própria para reagendar por conta própria.
 revoke all on function reschedule_booking(uuid, date, time) from public, anon;
 grant execute on function reschedule_booking(uuid, date, time) to authenticated;
+
+-- Public booking flows need operational blocks, never staff-only reasons.
+-- A dedicated projection lets the table itself remain inaccessible to guests.
+create function public.get_public_schedule_blocks()
+returns table (
+  id uuid,
+  barber_id text,
+  type public.block_type,
+  date date,
+  start_date date,
+  end_date date,
+  start_time time,
+  end_time time,
+  special_hours jsonb
+)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select
+    blocks.id, blocks.barber_id, blocks.type, blocks.date,
+    blocks.start_date, blocks.end_date, blocks.start_time,
+    blocks.end_time, blocks.special_hours
+  from public.schedule_blocks blocks;
+$$;
+
+revoke all on function public.get_public_schedule_blocks() from public;
+grant execute on function public.get_public_schedule_blocks() to anon, authenticated;
 
 
 -- ============================================================================
@@ -1115,7 +1209,7 @@ create table public.booking_settings (
   id boolean primary key default true constraint booking_settings_singleton check (id),
   interval_minutes integer not null default 30 check (interval_minutes between 5 and 480),
   booking_window_days integer not null default 30 check (booking_window_days between 1 and 365),
-  minimum_notice_minutes integer not null default 0 check (minimum_notice_minutes >= 0),
+  minimum_notice_minutes integer not null default 30 check (minimum_notice_minutes >= 0),
   cancellation_notice_minutes integer not null default 0 check (cancellation_notice_minutes >= 0),
   updated_at timestamptz not null default now()
 );
@@ -1137,6 +1231,30 @@ create policy booking_settings_admin_write on public.booking_settings for all
 comment on table public.business_profile is 'Singleton identity of this independent installation.';
 comment on table public.feature_settings is 'Central capability switches; billing is intentionally out of scope.';
 
+-- Keep the compatibility configuration and the canonical booking settings in
+-- the same database transaction whenever an administrator changes the agenda.
+create function public.sync_booking_settings_from_config()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.booking_settings (id, interval_minutes, booking_window_days)
+  values (true, new.interval_minutes, new.booking_window_days)
+  on conflict (id) do update set
+    interval_minutes = excluded.interval_minutes,
+    booking_window_days = excluded.booking_window_days,
+    updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger config_sync_booking_settings
+after update of interval_minutes, booking_window_days
+on public.barbershop_config
+for each row execute function public.sync_booking_settings_from_config();
+
 -- P0: snapshot appointment duration and enforce non-overlap in PostgreSQL.
 -- The legacy date/time/service_id columns remain during the compatibility
 -- window, but are no longer the database's source of truth for conflicts.
@@ -1146,6 +1264,10 @@ alter table public.bookings
   add column starts_at timestamptz,
   add column ends_at timestamptz,
   add column duration_minutes integer;
+
+create index bookings_professional_starts_at_idx
+  on public.bookings (barber_id, starts_at)
+  where status <> 'Cancelado';
 
 create table public.booking_services (
   booking_id uuid not null references public.bookings(id) on delete cascade,
@@ -1188,9 +1310,15 @@ begin
     return new;
   end if;
 
-  select coalesce(sum(s.duration), 0)::integer into v_duration
-  from public.services s
-  where s.id::text = any(string_to_array(new.service_id, ','));
+  if tg_op = 'UPDATE'
+     and new.service_id is not distinct from old.service_id
+     and old.duration_minutes is not null then
+    v_duration := old.duration_minutes;
+  else
+    select coalesce(sum(s.duration), 0)::integer into v_duration
+    from public.services s
+    where s.id::text = any(string_to_array(new.service_id, ','));
+  end if;
 
   if v_duration <= 0 then
     raise exception using errcode = '23514', message = 'Agendamento sem serviço válido.';
@@ -1209,7 +1337,7 @@ end;
 $$;
 
 create trigger bookings_snapshot_interval
-before insert or update of date, time, service_id on public.bookings
+before insert or update on public.bookings
 for each row execute function public.snapshot_booking_interval();
 
 -- Invokes the trigger for all legacy records and intentionally aborts when a
@@ -1236,6 +1364,80 @@ exclude using gist (
   tstzrange(starts_at, ends_at, '[)') with &&
 )
 where (status <> 'Cancelado');
+
+-- Expose only the canonical time and duration required to draw public slots.
+-- Neither customer data nor booking identifiers leave this privileged boundary.
+create function public.get_public_occupied_intervals(
+  p_professional_id uuid,
+  p_date date,
+  p_exclude_booking_id uuid default null
+)
+returns table (start_time time, duration_minutes integer)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_actor_role public.user_role := public.auth_role();
+  v_timezone text;
+  v_today date;
+  v_window_days integer;
+begin
+  if p_professional_id is null or p_date is null then
+    raise exception using errcode = '22023', message = 'Profissional e data são obrigatórios.';
+  end if;
+
+  select
+    coalesce((select profile.timezone from public.business_profile profile where profile.id = true), 'America/Sao_Paulo'),
+    coalesce((select settings.booking_window_days from public.booking_settings settings where settings.id = true), 30)
+  into v_timezone, v_window_days;
+  v_today := (now() at time zone v_timezone)::date;
+
+  if v_actor_role is distinct from 'owner'
+     and v_actor_role is distinct from 'professional'
+     and (p_date < v_today or p_date > v_today + (v_window_days - 1)) then
+    raise exception using errcode = '22023', message = 'Data fora da janela pública de agendamento.';
+  end if;
+
+  if p_exclude_booking_id is not null and (
+    (select auth.uid()) is null
+    or not exists (
+      select 1
+      from public.bookings booking
+      where booking.id = p_exclude_booking_id
+        and (
+          booking.customer_id = (select auth.uid())
+          or v_actor_role = 'owner'
+          or (
+            v_actor_role = 'professional'
+            and booking.barber_id = (
+              select profile.profile_id from public.profiles profile
+              where profile.id = (select auth.uid())
+            )
+          )
+        )
+    )
+  ) then
+    raise exception using errcode = '42501', message = 'Você não pode ignorar o agendamento informado.';
+  end if;
+
+  return query
+  select
+    (booking.starts_at at time zone v_timezone)::time,
+    booking.duration_minutes
+  from public.bookings booking
+  where booking.barber_id = p_professional_id
+    and booking.starts_at >= (p_date::timestamp at time zone v_timezone)
+    and booking.starts_at < ((p_date + 1)::timestamp at time zone v_timezone)
+    and booking.status <> 'Cancelado'
+    and (p_exclude_booking_id is null or booking.id <> p_exclude_booking_id)
+  order by booking.starts_at;
+end;
+$$;
+
+revoke all on function public.get_public_occupied_intervals(uuid, date, uuid) from public;
+grant execute on function public.get_public_occupied_intervals(uuid, date, uuid) to anon, authenticated;
 
 create or replace function public.sync_booking_service_items()
 returns trigger
@@ -1280,10 +1482,23 @@ comment on table public.booking_services is 'Normalized service lines with histo
 -- P0: safe, one-time owner bootstrap and atomic installation onboarding.
 create table public.installation_owners (
   user_id uuid primary key references public.profiles(id) on delete restrict,
+  installation_id boolean not null default true unique check (installation_id),
   claimed_at timestamptz not null default now()
 );
 alter table public.installation_owners enable row level security;
 comment on table public.installation_owners is 'Internal bootstrap lock and canonical installation owner; no direct API policies.';
+
+create table public.installation_bootstrap (
+  id boolean primary key default true check (id),
+  owner_email text not null,
+  setup_code_hash text not null,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table public.installation_bootstrap enable row level security;
+revoke all on table public.installation_bootstrap from anon, authenticated;
+comment on table public.installation_bootstrap is 'Private, single-use owner enrollment challenge; no browser role can read it.';
 
 create or replace function public.auth_role()
 returns public.user_role
@@ -1312,7 +1527,55 @@ as $$
   );
 $$;
 
-create or replace function public.claim_first_owner()
+-- Run this helper from the Supabase SQL Editor before opening public signup.
+-- Only a one-way digest is stored; the returned code is shown exactly once.
+create function public.prepare_installation_owner(p_owner_email text)
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_setup_code text;
+begin
+  if nullif(btrim(p_owner_email), '') is null
+     or btrim(p_owner_email) !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
+    raise exception using errcode = '22023', message = 'Informe o e-mail real do proprietário.';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('core:first-owner', 0));
+  if exists(select 1 from public.installation_owners)
+     or exists(select 1 from public.profiles where role = 'owner') then
+    raise exception using errcode = '42501', message = 'O proprietário inicial já foi definido.';
+  end if;
+
+  v_setup_code := replace(gen_random_uuid()::text, '-', '')
+                  || replace(gen_random_uuid()::text, '-', '');
+
+  insert into public.installation_bootstrap (
+    id, owner_email, setup_code_hash, expires_at, consumed_at
+  ) values (
+    true,
+    lower(btrim(p_owner_email)),
+    encode(sha256(convert_to(v_setup_code, 'UTF8')), 'hex'),
+    now() + interval '24 hours',
+    null
+  )
+  on conflict (id) do update set
+    owner_email = excluded.owner_email,
+    setup_code_hash = excluded.setup_code_hash,
+    expires_at = excluded.expires_at,
+    consumed_at = null,
+    created_at = now();
+
+  return v_setup_code;
+end;
+$$;
+
+revoke all on function public.prepare_installation_owner(text) from public, anon, authenticated;
+grant execute on function public.prepare_installation_owner(text) to service_role;
+
+create or replace function public.claim_first_owner(p_setup_code text)
 returns public.profiles
 language plpgsql
 security definer
@@ -1320,6 +1583,9 @@ set search_path = public, pg_temp
 as $$
 declare
   v_profile public.profiles;
+  v_bootstrap public.installation_bootstrap;
+  v_email text;
+  v_email_confirmed_at timestamptz;
 begin
   if auth.uid() is null then
     raise exception using errcode = '42501', message = 'Autenticação obrigatória.';
@@ -1331,6 +1597,32 @@ begin
      or exists (select 1 from public.profiles where role = 'owner') then
     raise exception using errcode = '42501', message = 'O proprietário inicial já foi definido.';
   end if;
+
+  if p_setup_code is null or p_setup_code !~ '^[a-f0-9]{64}$' then
+    raise exception using errcode = '42501', message = 'Código de instalação inválido.';
+  end if;
+
+  select users.email, users.email_confirmed_at
+  into v_email, v_email_confirmed_at
+  from auth.users users
+  where users.id = (select auth.uid());
+
+  select * into v_bootstrap
+  from public.installation_bootstrap bootstrap
+  where bootstrap.id = true
+    and bootstrap.consumed_at is null
+    and bootstrap.expires_at > now()
+    and bootstrap.owner_email = lower(v_email)
+    and bootstrap.setup_code_hash = encode(sha256(convert_to(p_setup_code, 'UTF8')), 'hex')
+  for update;
+
+  if not found or v_email_confirmed_at is null then
+    raise exception using errcode = '42501', message = 'O código não pertence a uma conta confirmada do proprietário.';
+  end if;
+
+  update public.installation_bootstrap
+  set consumed_at = now()
+  where id = true;
 
   insert into public.installation_owners(user_id) values (auth.uid());
 
@@ -1418,8 +1710,8 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_first_owner() from public, anon;
-grant execute on function public.claim_first_owner() to authenticated;
+revoke all on function public.claim_first_owner(text) from public, anon;
+grant execute on function public.claim_first_owner(text) to authenticated;
 revoke all on function public.get_onboarding_state() from public, anon;
 grant execute on function public.get_onboarding_state() to authenticated;
 revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) from public, anon;
@@ -1441,7 +1733,7 @@ create or replace function public.capability_enabled(p_capability text)
 returns boolean
 language sql
 stable
-security definer
+security invoker
 set search_path = public, pg_temp
 as $$
   select coalesce((
@@ -1534,8 +1826,8 @@ with check (public.auth_role() = 'owner' and public.capability_enabled('pets'));
 grant select, insert, update, delete on public.pets to authenticated;
 grant select, insert, update, delete on public.pet_notes to authenticated;
 grant select, insert, update, delete on public.booking_pets to authenticated;
-revoke all on function public.capability_enabled(text) from public;
-grant execute on function public.capability_enabled(text) to anon, authenticated;
+revoke all on function public.capability_enabled(text) from public, anon;
+grant execute on function public.capability_enabled(text) to authenticated;
 
 -- P1: complete onboarding with hours, starter services, team and booking rules.
 revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) from public, anon, authenticated;
@@ -1644,5 +1936,51 @@ $$;
 
 revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer) from public, anon;
 grant execute on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer) to authenticated;
+
+-- Delete an authentication account without exposing privileged API keys.
+-- Existing access tokens remain cryptographically valid until expiration, but
+-- revoking sessions prevents refresh and profile deletion removes RLS access.
+create function public.delete_user_account(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if (select auth.uid()) is null
+     or public.auth_role() is distinct from 'owner'::public.user_role then
+    raise exception using errcode = '42501', message = 'Somente o proprietário pode excluir contas.';
+  end if;
+
+  if p_user_id is null
+     or p_user_id = (select auth.uid())
+     or exists(select 1 from public.installation_owners where user_id = p_user_id) then
+    raise exception using errcode = '42501', message = 'A conta do proprietário não pode ser excluída.';
+  end if;
+
+  delete from auth.sessions where user_id = p_user_id;
+  delete from auth.users where id = p_user_id;
+
+  if not found then
+    raise exception using errcode = 'P0002', message = 'Conta de usuário não encontrada.';
+  end if;
+end;
+$$;
+
+revoke all on function public.delete_user_account(uuid) from public, anon;
+grant execute on function public.delete_user_account(uuid) to authenticated;
+
+-- Trigger-only helpers do not form part of the browser-accessible API.
+revoke all on function public.enforce_booking_customer_identity() from public, anon, authenticated;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+revoke all on function public.prevent_profile_privilege_escalation() from public, anon, authenticated;
+revoke all on function public.protect_booking_updates() from public, anon, authenticated;
+revoke all on function public.validate_booking_business_rules() from public, anon, authenticated;
+revoke all on function public.prevent_booking_schedule_conflicts() from public, anon, authenticated;
+revoke all on function public.protect_barber_updates() from public, anon, authenticated;
+revoke all on function public.sync_profile_email() from public, anon, authenticated;
+revoke all on function public.sync_booking_settings_from_config() from public, anon, authenticated;
+revoke all on function public.snapshot_booking_interval() from public, anon, authenticated;
+revoke all on function public.sync_booking_service_items() from public, anon, authenticated;
 
 commit;

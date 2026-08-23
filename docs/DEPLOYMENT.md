@@ -13,11 +13,15 @@ banco de produção nem compartilhe chaves entre clientes.
 Execute `npm ci && npm run verify` no commit exato que será promovido. O comando
 único executa lint, tipos, testes, build, orçamento de bundle e uma inspeção
 estática dos artefatos, versão do Node, arquivos de ambiente rastreados e headers
-da Vercel. Ele reduz erro humano, mas não substitui os passos operacionais abaixo.
+da Vercel. Um segundo job da CI aplica o schema consolidado em PostgreSQL 17 e
+executa testes reais de autorização, isolamento e integridade da agenda. Esses
+gates reduzem erro humano, mas não substituem os passos operacionais abaixo.
 
 Uma versão só está pronta para produção depois de registrar evidência de:
 
 - migration aplicada e testada em staging, seguida de backup restaurável;
+- proprietário previamente preparado pelo SQL Editor com e-mail confirmado e
+  código de instalação de uso único;
 - URLs de redirect do Supabase Auth limitadas aos domínios reais;
 - smoke tests como anônimo, customer, professional e owner em viewport móvel;
 - criação, remarcação, cancelamento e conflito simultâneo de agendamentos;
@@ -41,8 +45,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 O bootstrap valida URL, HTTPS e placeholders antes de carregar a aplicação.
 `VITE_SUPABASE_ANON_KEY` permanece apenas como fallback para instalações
-antigas; projetos novos usam a chave publicável. Nunca exponha `service_role`
-ou secrets administrativos em variáveis prefixadas por `VITE_`.
+antigas e somente aceita JWT com role `anon`; projetos novos usam a chave
+publicável. Nunca exponha `service_role`, chaves `sb_secret_` ou o código de
+instalação em variáveis prefixadas por `VITE_`.
 
 ## Orçamento do frontend
 
