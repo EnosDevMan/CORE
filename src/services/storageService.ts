@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
+export { getPublicStoragePath, validateStorageObjectPath } from './storagePath';
+import { getPublicStoragePath, validateStorageObjectPath } from './storagePath';
 
 const MAX_FILE_SIZE_MB = 5;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -20,26 +22,15 @@ export async function uploadImage(file: File, path: string, bucket: string = 'av
     throw new Error(`Imagem muito grande. O tamanho máximo é ${MAX_FILE_SIZE_MB}MB.`);
   }
 
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+  const safePath = validateStorageObjectPath(path);
+  const { error } = await supabase.storage.from(bucket).upload(safePath, file, {
     upsert: true,
     cacheControl: '3600',
   });
   if (error) throw new Error(error.message);
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(safePath);
   return data.publicUrl;
-}
-
-/** Remove somente objetos pertencentes ao bucket informado neste projeto. */
-export function getPublicStoragePath(publicUrl: string, bucket: string): string {
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const url = new URL(publicUrl);
-  const markerIndex = url.pathname.indexOf(marker);
-  if (markerIndex < 0) throw new Error('A foto não pertence ao Storage configurado.');
-
-  const path = decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
-  if (!path || path.includes('..')) throw new Error('Caminho de foto inválido.');
-  return path;
 }
 
 export async function removePublicImage(publicUrl: string, bucket: string): Promise<void> {

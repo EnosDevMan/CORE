@@ -1,14 +1,15 @@
 import React from 'react';
 import { Calendar, Scissors, User, XCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Booking } from '../../../types';
-import { getBarbershopMaxBookingDateStr, getBarbershopNow } from '../../../utils/validation';
+import { getBusinessMaxBookingDateStr, getBusinessNow } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
 
 interface BookingCardProps {
   booking: Booking;
   bookingWindowDays: number;
   getServiceName: (id: string) => string;
   getServiceDuration: (id: string) => number;
-  getBarberName: (id: string) => string;
+  getProfessionalName: (id: string) => string;
   formatBRL: (val: number) => string;
   getStatusBadge: (status: string) => React.ReactNode;
   isRescheduling: boolean;
@@ -30,7 +31,7 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
   bookingWindowDays,
   getServiceName,
   getServiceDuration,
-  getBarberName,
+  getProfessionalName,
   formatBRL,
   getStatusBadge,
   isRescheduling,
@@ -46,10 +47,11 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
   setReschedulingBookingId,
   handleConfirmReschedule
 }) => {
-  // Compara com "agora" no fuso horário da barbearia, não no fuso do
+  const { profile } = useBusiness();
+  // Compara com "agora" no fuso horário do negócio, não no fuso do
   // dispositivo do cliente — evita marcar agendamentos como "passados" (ou
   // deixar de marcar) incorretamente para clientes acessando de outro fuso.
-  const { dateStr: nowDateStr, hours: nowHours, minutes: nowMinutes } = getBarbershopNow();
+  const { dateStr: nowDateStr, hours: nowHours, minutes: nowMinutes } = getBusinessNow(profile.timezone);
   const isPast =
     booking.date < nowDateStr ||
     (booking.date === nowDateStr && booking.time <= `${String(nowHours).padStart(2, '0')}:${String(nowMinutes).padStart(2, '0')}`);
@@ -70,7 +72,7 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
             <div className="mt-2 space-y-1">
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                 <User size={12} className="text-slate-400" />
-                <span>{getBarberName(booking.barberId)}</span>
+                <span>{getProfessionalName(booking.professionalId)}</span>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                 <Scissors size={12} className="text-slate-400" />
@@ -140,7 +142,7 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
               value={newDate}
               onChange={(e) => handleDateChange(e.target.value, booking)}
               min={nowDateStr}
-              max={getBarbershopMaxBookingDateStr(bookingWindowDays)}
+              max={getBusinessMaxBookingDateStr(bookingWindowDays, profile.timezone)}
               className="w-full px-3 py-1.5 border border-slate-250 bg-white rounded-lg text-xs font-semibold text-slate-800"
             />
             {errorMsg && <p className="text-[11px] text-red-600 font-bold">{errorMsg}</p>}

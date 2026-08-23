@@ -1,7 +1,7 @@
 {
-  "name": "Paulo Gledson Barbearia",
-  "short_name": "P. Gledson",
-  "description": "Agendamento online da Paulo Gledson Barbearia. Reserve seu horário 24/7 e pague com PIX.",
+  "name": "Agendamento online",
+  "short_name": "Agenda",
+  "description": "Aplicação de agendamento e gestão de serviços.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

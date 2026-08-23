@@ -51,14 +51,14 @@ describe('generateSlotStartMinutes', () => {
 
 describe('getAvailability', () => {
   const input = {
-    barberId: 'barber-1',
+    professionalId: 'barber-1',
     date: '2026-08-10',
     duration: 30,
     intervalMinutes: 30,
     shopHours: { open: '09:00', close: '11:00', daysOpen: [1] },
     bookings: [{
       id: 'booking-1', customerId: 'customer-1', customerName: 'Cliente',
-      customerPhone: '85999999999', barberId: 'barber-1', serviceId: 'service-1',
+      customerPhone: '85999999999', professionalId: 'barber-1', serviceId: 'service-1',
       date: '2026-08-10', time: '09:00', status: 'Confirmado' as const,
       feePaid: true, value: 30, createdAt: '2026-08-01T00:00:00Z',
     }],
@@ -99,14 +99,14 @@ describe('getAvailability', () => {
     expect(slots.map(slot => slot.time)).toEqual(['09:00', '09:30', '10:00']);
   });
 
-  it('limita o horário especial do barbeiro ao funcionamento do salão', () => {
+  it('limita o horário especial do profissional ao funcionamento do negócio', () => {
     const slots = getAvailability({
       ...input,
       date: '2026-08-09',
       shopHours: { open: '09:00', close: '18:00', daysOpen: [0], weeklySchedule: { 0: { open: '09:00', close: '13:00', closed: false } } },
       bookings: [],
       blocks: [
-        { id: 'barber', barberId: 'barber-1', type: 'special', date: '2026-08-09', specialHours: { open: '08:00', close: '17:00' } },
+        { id: 'barber', professionalId: 'barber-1', type: 'special', date: '2026-08-09', specialHours: { open: '08:00', close: '17:00' } },
       ],
     });
 
@@ -118,7 +118,7 @@ describe('getAvailability', () => {
       ...input,
       date: '2026-08-09',
       bookings: [],
-      blocks: [{ id: 'barber', barberId: 'barber-1', type: 'special', date: '2026-08-09', specialHours: { open: '09:00', close: '17:00' } }],
+      blocks: [{ id: 'barber', professionalId: 'barber-1', type: 'special', date: '2026-08-09', specialHours: { open: '09:00', close: '17:00' } }],
     })).toEqual([]);
   });
 });

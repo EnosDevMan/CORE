@@ -2,18 +2,21 @@ import React from 'react';
 import { DollarSign, Clock, UserPlus, Calendar as CalendarIcon, CheckCircle, XCircle, ArrowRight, User, Scissors } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
 import { BookingStatus } from '../../../types';
-import { getBarbershopTodayStr } from '../../../utils/validation';
+import { getBusinessTodayStr } from '../../../utils/validation';
 import { Booking } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
 import { useState } from 'react';
+import { useBusiness, useNiche } from '../../../core/business/hooks';
+import { isCustomerRole } from '../../../auth/authorization';
 
 interface AdminOverviewTabProps {
   formatBRL: (value: number) => string;
-  getBarberName: (id: string) => string;
+  getProfessionalName: (id: string) => string;
   getServiceName: (id: string) => string;
   handleUpdateBookingStatus: (id: string, newStatus: BookingStatus) => Promise<void>;
   onViewFullReport: () => void;
+  canViewReports: boolean;
   showFeedback: (message: string, isError: boolean) => void;
 }
 
@@ -26,14 +29,17 @@ interface AdminOverviewTabProps {
  */
 export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   formatBRL,
-  getBarberName,
+  getProfessionalName,
   getServiceName,
   handleUpdateBookingStatus,
   onViewFullReport,
+  canViewReports,
   showFeedback,
 }) => {
   const { bookings, users } = useApp();
-  const todayStr = getBarbershopTodayStr();
+  const niche = useNiche();
+  const { profile } = useBusiness();
+  const todayStr = getBusinessTodayStr(profile.timezone);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
 
   const todayBookings = bookings
@@ -49,7 +55,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   ).length;
 
   const newCustomersToday = users.filter(
-    u => u.role === 'customer' && u.createdAt?.slice(0, 10) === todayStr
+    u => isCustomerRole(u.role) && u.createdAt?.slice(0, 10) === todayStr
   ).length;
 
   const todayLabel = new Date(todayStr + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -87,12 +93,12 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           <p className="text-xs font-semibold text-slate-400">Resumo de hoje</p>
           <p className="text-sm font-bold text-slate-800 mt-0.5 capitalize">{todayLabel}</p>
         </div>
-        <button
+        {canViewReports && <button
           onClick={onViewFullReport}
           className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 px-2 py-2 rounded-lg transition-colors"
         >
           Ver relatório completo <ArrowRight size={14} />
-        </button>
+        </button>}
       </div>
 
       {/* Bento Stats Row — tudo escopado a hoje */}
@@ -108,7 +114,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
 
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-xs font-semibold">Agendamentos Hoje</p>
+            <p className="text-slate-400 text-xs font-semibold">{niche.dashboard.todayLabel}</p>
             <p className="text-xl sm:text-2xl font-extrabold text-slate-950 mt-1 font-sans">{todayBookings.length}</p>
           </div>
           <div className="p-2.5 sm:p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0"><CalendarIcon size={20} /></div>
@@ -135,7 +141,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-extrabold text-slate-900 tracking-tight text-lg">Agendamentos de Hoje</h3>
+          <h3 className="font-extrabold text-slate-900 tracking-tight text-lg">{niche.dashboard.scheduleLabel}</h3>
           <p className="text-xs text-slate-500 mt-1">Ordenados por horário</p>
         </div>
 
@@ -157,7 +163,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-500">
                     <span className="font-bold text-slate-700">{booking.time}h</span>
-                    <span className="inline-flex items-center gap-1"><User size={11} className="text-slate-400" />{getBarberName(booking.barberId)}</span>
+                    <span className="inline-flex items-center gap-1"><User size={11} className="text-slate-400" />{getProfessionalName(booking.professionalId)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-slate-500">
                     <Scissors size={11} className="text-slate-400 shrink-0" />
@@ -195,7 +201,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                       <td className="px-6 py-4 font-bold text-slate-800">{booking.time}h</td>
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                          {getBarberName(booking.barberId)}
+                          {getProfessionalName(booking.professionalId)}
                         </span>
                       </td>
                       <td className="px-6 py-4">

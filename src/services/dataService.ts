@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabaseClient';
-import { Barber, Service, BarbershopConfig, Booking, User, ScheduleBlock, GalleryPhoto, WorkingHours } from '../types';
+import { Professional, Service, BusinessConfig, Booking, User, ScheduleBlock, GalleryPhoto, WorkingHours, UserRole } from '../types';
+import { isAdministratorRole, parseUserRole } from '../auth/authorization';
+import { normalizeExternalUrl, safeExternalUrl } from '../utils/externalUrl';
+export { DEFAULT_PROFESSIONAL_AVATAR as DEFAULT_AVATAR } from '../features/professionals/constants';
 
 /**
  * Camada de Serviço de Acesso aos Dados (Data Service)
@@ -13,21 +16,19 @@ import { Barber, Service, BarbershopConfig, Booking, User, ScheduleBlock, Galler
  * abaixo convertem para os tipos `camelCase` de `src/types.ts`.
  */
 
-export const DEFAULT_AVATAR = '/favicon.svg';
-
 // Tipos do Supabase (como vêm do wire/JSON)
 type ProfileRow = {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'barber' | 'customer';
+  role: UserRole;
   phone?: string;
   avatar?: string;
   profile_id?: string;
   created_at?: string;
 };
 
-type BarberRow = {
+type ProfessionalRow = {
   id: string;
   name: string;
   avatar: string;
@@ -96,7 +97,7 @@ type ConfigRow = {
   address: string;
   phone: string;
   working_hours: WorkingHours;
-  social_links?: BarbershopConfig['socialLinks'];
+  social_links?: BusinessConfig['socialLinks'];
   booking_fee: number | string;
   tolerance_minutes: number;
   interval_minutes: number;
@@ -118,7 +119,7 @@ function mapProfile(row: ProfileRow): User {
     id: row.id,
     email: row.email,
     name: row.name,
-    role: row.role,
+    role: parseUserRole(row.role),
     phone: row.phone ?? undefined,
     avatar: row.avatar ?? undefined,
     profileId: row.profile_id ?? undefined,
@@ -126,7 +127,7 @@ function mapProfile(row: ProfileRow): User {
   };
 }
 
-function mapBarber(row: BarberRow): Barber {
+function mapProfessional(row: ProfessionalRow): Professional {
   return {
     id: row.id,
     name: row.name,
@@ -161,7 +162,7 @@ function mapBooking(row: BookingRow): Booking {
     customerId: row.customer_id ?? 'guest',
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
-    barberId: row.barber_id,
+    professionalId: row.barber_id,
     serviceId: row.service_id,
     date: row.date,
     time: toHHMM(row.time) as string,
@@ -177,7 +178,7 @@ function mapBooking(row: BookingRow): Booking {
 function mapScheduleBlock(row: ScheduleBlockRow): ScheduleBlock {
   return {
     id: row.id,
-    barberId: row.barber_id,
+    professionalId: row.barber_id,
     type: row.type,
     date: row.date ?? undefined,
     startDate: row.start_date ?? undefined,
@@ -199,14 +200,18 @@ function mapGalleryPhoto(row: GalleryPhotoRow): GalleryPhoto {
   };
 }
 
-function mapConfig(row: ConfigRow): BarbershopConfig {
+function mapConfig(row: ConfigRow): BusinessConfig {
   return {
     name: row.name,
     logo: row.logo,
     address: row.address,
     phone: row.phone,
     workingHours: row.working_hours,
-    socialLinks: row.social_links ?? {},
+    socialLinks: {
+      instagram: safeExternalUrl(row.social_links?.instagram, ['instagram.com']),
+      facebook: safeExternalUrl(row.social_links?.facebook, ['facebook.com']),
+      whatsapp: safeExternalUrl(row.social_links?.whatsapp, ['wa.me', 'whatsapp.com']),
+    },
     bookingFee: Number(row.booking_fee),
     toleranceMinutes: row.tolerance_minutes,
     intervalMinutes: row.interval_minutes,
@@ -228,15 +233,15 @@ export const dataService = {
    * Carrega todos os dados iniciais em paralelo.
    */
   async loadAllData(role?: User['role']): Promise<{
-    config: BarbershopConfig;
-    barbers: Barber[];
+    config: BusinessConfig;
+    professionals: Professional[];
     services: Service[];
     bookings: Booking[];
     users: User[];
     scheduleBlocks: ScheduleBlock[];
     galleryPhotos: GalleryPhoto[];
   }> {
-    const [configRes, barbersRes, servicesRes, blocksRes, galleryRes] = await Promise.all([
+    const [configRes, professionalsRes, servicesRes, blocksRes, galleryRes] = await Promise.all([
       supabase.from('barbershop_config').select('*').eq('id', true).single(),
       supabase.from('barbers').select('*').order('order', { ascending: true }),
       supabase.from('services').select('*').order('order', { ascending: true }),
@@ -245,7 +250,7 @@ export const dataService = {
     ]);
 
     throwIfError(configRes.error);
-    throwIfError(barbersRes.error);
+    throwIfError(professionalsRes.error);
     throwIfError(servicesRes.error);
     throwIfError(blocksRes.error);
     throwIfError(galleryRes.error);
@@ -263,7 +268,7 @@ export const dataService = {
     }
 
     const users: ProfileRow[] = [];
-    if (role === 'admin') {
+    if (isAdministratorRole(role)) {
       for (let from = 0; ; from += 500) {
         const result = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).range(from, from + 499);
         throwIfError(result.error);
@@ -274,7 +279,7 @@ export const dataService = {
 
     return {
       config: mapConfig(configRes.data),
-      barbers: (barbersRes.data || []).map(mapBarber),
+      professionals: (professionalsRes.data || []).map(mapProfessional),
       services: (servicesRes.data || []).map(mapService),
       bookings: bookings.map(mapBooking),
       users: users.map(mapProfile),
@@ -286,7 +291,12 @@ export const dataService = {
   /**
    * Config Operations
    */
-  async saveConfig(updated: BarbershopConfig): Promise<void> {
+  async saveConfig(updated: BusinessConfig): Promise<void> {
+    const socialLinks = {
+      instagram: normalizeExternalUrl(updated.socialLinks.instagram, ['instagram.com']),
+      facebook: normalizeExternalUrl(updated.socialLinks.facebook, ['facebook.com']),
+      whatsapp: normalizeExternalUrl(updated.socialLinks.whatsapp, ['wa.me', 'whatsapp.com']),
+    };
     const { error } = await supabase
       .from('barbershop_config')
       .update({
@@ -295,7 +305,7 @@ export const dataService = {
         address: updated.address,
         phone: updated.phone,
         working_hours: updated.workingHours,
-        social_links: updated.socialLinks,
+        social_links: socialLinks,
         booking_fee: updated.bookingFee,
         tolerance_minutes: updated.toleranceMinutes,
         interval_minutes: updated.intervalMinutes,
@@ -312,49 +322,49 @@ export const dataService = {
   },
 
   /**
-   * Barber Operations
+   * Professional Operations
    */
-  async createBarber(barber: Omit<Barber, 'id'>): Promise<Barber> {
+  async createProfessional(professional: Omit<Professional, 'id'>): Promise<Professional> {
     const { data, error } = await supabase
       .from('barbers')
       .insert({
-        name: barber.name,
-        avatar: barber.avatar,
-        specialty: barber.specialty,
-        active: barber.active,
-        working_hours: barber.workingHours,
-        description: barber.description,
-        order: barber.order ?? 0,
-        user_id: barber.userId,
+        name: professional.name,
+        avatar: professional.avatar,
+        specialty: professional.specialty,
+        active: professional.active,
+        working_hours: professional.workingHours,
+        description: professional.description,
+        order: professional.order ?? 0,
+        user_id: professional.userId,
       })
       .select()
       .single();
     throwIfError(error);
-    return mapBarber(data);
+    return mapProfessional(data);
   },
 
-  async saveBarber(barber: Barber): Promise<void> {
-    // Esta operação sempre recebe um barbeiro já existente. Usar UPSERT aqui
-    // também exige a policy de INSERT do Postgres, que é exclusiva do admin;
-    // por isso o barbeiro conseguia enviar a foto ao Storage, mas a URL não era
+  async saveProfessional(professional: Professional): Promise<void> {
+    // Esta operação sempre recebe um profissional existente. Usar UPSERT aqui
+    // também exige a policy de INSERT do Postgres, que é exclusiva do owner;
+    // por isso o profissional conseguia enviar a foto ao Storage, mas a URL não era
     // salva em `barbers.avatar`. UPDATE usa corretamente `barbers_update_own`.
     const { error } = await supabase
       .from('barbers')
       .update({
-        name: barber.name,
-        avatar: barber.avatar,
-        specialty: barber.specialty,
-        active: barber.active,
-        working_hours: barber.workingHours,
-        description: barber.description,
-        order: barber.order ?? 0,
-        user_id: barber.userId,
+        name: professional.name,
+        avatar: professional.avatar,
+        specialty: professional.specialty,
+        active: professional.active,
+        working_hours: professional.workingHours,
+        description: professional.description,
+        order: professional.order ?? 0,
+        user_id: professional.userId,
       })
-      .eq('id', barber.id);
+      .eq('id', professional.id);
     throwIfError(error);
   },
 
-  async deleteBarber(id: string): Promise<void> {
+  async deleteProfessional(id: string): Promise<void> {
     const { error } = await supabase.from('barbers').delete().eq('id', id);
     throwIfError(error);
   },
@@ -405,8 +415,9 @@ export const dataService = {
    * Contas de usuário em si são criadas via Supabase Auth (cadastro), não
    * por aqui — `profiles` já é populada automaticamente nesse momento
    * (trigger `handle_new_user`). Estas funções só atualizam/removem
-   * perfis já existentes (ex: promover para 'barber'/'admin', linkar a um
-   * registro de `barbers`).
+   * perfis já existentes (por exemplo, promover para uma role operacional e
+   * vincular a um profissional). Os nomes físicos legados ficam restritos às
+   * queries desta camada até a migration definitiva.
    */
   async saveUser(user: User): Promise<void> {
     const { error } = await supabase
@@ -423,16 +434,15 @@ export const dataService = {
   },
 
   /**
-   * Mantém `profiles.profile_id` sincronizado com `barbers.user_id`. É o
-   * lado inverso do vínculo: `barbers.user_id` aponta para a conta de
-   * usuário, e `profiles.profile_id` precisa apontar de volta para o
-   * registro de barbeiro para que `useBarberDashboard` saiba qual agenda é
-   * "a própria" do barbeiro logado. Passe `barberId: null` para desvincular.
+   * Mantém o vínculo bidirecional entre a conta e o registro profissional.
+   * `profiles.profile_id` é o identificador neutro consumido pela aplicação;
+   * `barbers.user_id` permanece apenas como detalhe físico legado. Passe
+   * `professionalId: null` para desvincular.
    */
-  async setUserProfileId(userId: string, barberId: string | null): Promise<void> {
+  async setUserProfileId(userId: string, professionalId: string | null): Promise<void> {
     const { error } = await supabase
       .from('profiles')
-      .update({ profile_id: barberId })
+      .update({ profile_id: professionalId })
       .eq('id', userId);
     throwIfError(error);
   },
@@ -460,7 +470,7 @@ export const dataService = {
       p_customer_id: booking.customerId === 'guest' ? null : booking.customerId,
       p_customer_name: booking.customerName,
       p_customer_phone: booking.customerPhone,
-      p_barber_id: booking.barberId,
+      p_barber_id: booking.professionalId,
       p_service_id: booking.serviceId,
       p_date: booking.date,
       p_time: booking.time,
@@ -494,7 +504,7 @@ export const dataService = {
       .update({
         customer_name: booking.customerName,
         customer_phone: booking.customerPhone,
-        barber_id: booking.barberId,
+        barber_id: booking.professionalId,
         service_id: booking.serviceId,
         date: booking.date,
         time: booking.time,
@@ -520,7 +530,7 @@ export const dataService = {
     const { data, error } = await supabase
       .from('schedule_blocks')
       .insert({
-        barber_id: block.barberId,
+        barber_id: block.professionalId,
         type: block.type,
         date: block.date,
         start_date: block.startDate,
@@ -539,7 +549,7 @@ export const dataService = {
   async saveScheduleBlock(block: ScheduleBlock): Promise<void> {
     const { error } = await supabase.from('schedule_blocks').upsert({
       id: block.id,
-      barber_id: block.barberId,
+      barber_id: block.professionalId,
       type: block.type,
       date: block.date,
       start_date: block.startDate,

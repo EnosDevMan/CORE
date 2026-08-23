@@ -42,7 +42,7 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ formatBRL }) =
     revenueInRange,
     chartData,
     maxChartValue,
-    barberBreakdown,
+    professionalBreakdown,
     serviceBreakdown,
   } = useAdminReports();
 
@@ -186,9 +186,9 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ formatBRL }) =
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6">
           <h3 className="font-extrabold text-slate-900 tracking-tight text-xs uppercase mb-4">Faturamento por Profissional</h3>
-          {barberBreakdown.length > 0 ? (
+          {professionalBreakdown.length > 0 ? (
             <div className="divide-y divide-slate-100">
-              {barberBreakdown.map(item => (
+              {professionalBreakdown.map(item => (
                 <div key={item.id} className="py-3 flex justify-between items-center text-sm">
                   <div>
                     <p className="font-bold text-slate-800">{item.name}</p>

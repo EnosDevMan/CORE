@@ -1,20 +1,22 @@
 import React from 'react';
 import { Scissors, Instagram, Facebook, MapPin, Phone, WalletCards } from 'lucide-react';
-import { Barber, BarbershopConfig, ScheduleBlock } from '../../../types';
-import { getBarbershopTodayStr, summarizeWeeklySchedule } from '../../../utils/validation';
+import { Professional, BusinessConfig, ScheduleBlock } from '../../../types';
+import { getBusinessTodayStr, summarizeWeeklySchedule } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
 
 interface FooterSectionProps {
-  config: BarbershopConfig;
-  barbers: Barber[];
+  config: BusinessConfig;
+  professionals: Professional[];
   scheduleBlocks: ScheduleBlock[];
   onOpenPrivacy: () => void;
 }
 
-export const FooterSection: React.FC<FooterSectionProps> = ({ config, barbers, scheduleBlocks, onOpenPrivacy }) => {
-  const today = getBarbershopTodayStr();
-  const activeBarberIds = new Set(barbers.map(barber => barber.id));
+export const FooterSection: React.FC<FooterSectionProps> = ({ config, professionals, scheduleBlocks, onOpenPrivacy }) => {
+  const { profile } = useBusiness();
+  const today = getBusinessTodayStr(profile.timezone);
+  const activeProfessionalIds = new Set(professionals.map(professional => professional.id));
   const specialOpenings = scheduleBlocks
-    .filter(block => block.type === 'special' && block.specialHours && block.date && block.date >= today && (block.barberId === 'all' || activeBarberIds.has(block.barberId)))
+    .filter(block => block.type === 'special' && block.specialHours && block.date && block.date >= today && (block.professionalId === 'all' || activeProfessionalIds.has(block.professionalId)))
     .sort((a, b) => a.date!.localeCompare(b.date!))
     .slice(0, 4);
   return (
@@ -26,7 +28,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ config, barbers, s
             <Scissors size={20} className="text-brand-copper" /> {config.name}
           </h4>
           <p className="text-xs md:text-sm leading-relaxed max-w-xs text-slate-400 font-light">
-            {config.aboutText || 'Cortes, barba e cuidado masculino com atendimento profissional, qualidade e atenção aos detalhes.'}
+            {config.aboutText || profile.description || 'Atendimento profissional com qualidade e atenção aos detalhes.'}
           </p>
           {/* Social icons */}
           <div className="flex gap-3 pt-2">
@@ -72,7 +74,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ config, barbers, s
             <p className="mb-2 text-[10px] font-extrabold uppercase tracking-widest text-brand-copper">Próximos horários especiais</p>
             <ul className="space-y-2 text-xs text-slate-300">
               {specialOpenings.map(block => {
-                const professional = block.barberId === 'all' ? 'Todos os profissionais' : barbers.find(barber => barber.id === block.barberId)?.name;
+                const professional = block.professionalId === 'all' ? 'Todos os profissionais' : professionals.find(item => item.id === block.professionalId)?.name;
                 const date = new Date(`${block.date}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
                 return <li key={block.id}><strong className="text-white">{date}</strong> · {block.specialHours!.open} - {block.specialHours!.close}{professional ? ` · ${professional}` : ''}</li>;
               })}

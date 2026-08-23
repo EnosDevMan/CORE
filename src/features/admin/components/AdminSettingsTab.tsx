@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Save, ChevronDown } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
 import { getErrorMessage } from '../../../utils/errors';
+import { normalizeExternalUrl } from '../../../utils/externalUrl';
 import { parseBRNumber } from '../../../utils/validation';
 import { DailyWorkingHours } from '../../../types';
 import { resolveDailyHours } from '../../../utils/scheduling';
@@ -146,6 +147,16 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
       return;
     }
 
+    let instagram: string | undefined;
+    let facebook: string | undefined;
+    try {
+      instagram = normalizeExternalUrl(confInsta, ['instagram.com']);
+      facebook = normalizeExternalUrl(confFb, ['facebook.com']);
+    } catch (error) {
+      showFeedback(getErrorMessage(error, 'Informe links sociais HTTPS válidos.'), true);
+      return;
+    }
+
     try {
       setIsSaving(true);
       const firstOpenDay = WEEK_DAYS.find(day => !weeklySchedule[day.id].closed);
@@ -168,8 +179,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
         intervalMinutes,
         bookingWindowDays,
         socialLinks: {
-          instagram: confInsta,
-          facebook: confFb
+          instagram,
+          facebook
         },
         heroTitle: confHeroTitle,
         heroSubtitle: confHeroSubtitle,
@@ -249,7 +260,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
           <div className="space-y-6">
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Agenda semanal da barbearia</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Agenda semanal do estabelecimento</label>
                 <p className="text-xs text-slate-500 mt-1">Defina o funcionamento geral; a disponibilidade individual continua configurada em cada barbeiro.</p>
               </div>
               <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
@@ -308,7 +319,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
 
         <FormSection id="blocks" title="🚫 Intervalos, Bloqueios e Feriados" expandedSection={expandedSection} setExpandedSection={setExpandedSection}>
           <div>
-            <p className="text-sm text-slate-500 mb-5">Centralize indisponibilidades da barbearia e dos profissionais sem ocupar a agenda de consultas.</p>
+            <p className="text-sm text-slate-500 mb-5">Centralize indisponibilidades do estabelecimento e dos profissionais sem ocupar a agenda de atendimentos.</p>
             <ScheduleBlockForm showFeedback={showFeedback} />
           </div>
         </FormSection>

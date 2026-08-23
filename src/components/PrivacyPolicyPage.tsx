@@ -54,7 +54,7 @@ export const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) 
           <h2 className="text-base font-bold text-slate-900 mb-2">1. Quem somos</h2>
           <p>
             Esta política se aplica ao site e sistema de agendamento de{' '}
-            <strong>{config.name || 'nossa barbearia'}</strong>
+            <strong>{config.name || 'nosso estabelecimento'}</strong>
             {config.address ? <> ({config.address})</> : null}.
           </p>
         </section>
@@ -91,7 +91,7 @@ export const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) 
           <h2 className="text-base font-bold text-slate-900 mb-2">5. Compartilhamento e operadores</h2>
           <p>
             Seus dados ficam armazenados no Supabase (nosso provedor de banco de
-            dados e autenticação). A equipe da barbearia (administradores e
+            dados e autenticação). A equipe do estabelecimento (administradores e
             profissionais cadastrados) tem acesso aos dados necessários para
             atender você — profissionais veem apenas os agendamentos da própria
             agenda, não os de outros clientes. Não vendemos nem compartilhamos

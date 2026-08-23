@@ -18,7 +18,7 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ onStartBooking }) =>
             Primeira vez conosco? Aproveite Agendamento Grátis!
           </h3>
           <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-light mt-2">
-            Você só paga o valor do procedimento diretamente na barbearia após o serviço concluído. Sem taxas ocultas de reserva online!
+            Você paga o valor do procedimento diretamente no estabelecimento após o serviço concluído. Sem taxas ocultas de reserva online!
           </p>
         </div>
         <button

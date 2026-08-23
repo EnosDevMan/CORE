@@ -3,9 +3,10 @@ import { Calendar, Scissors, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { useApp } from '../store/useApp';
 import { UserRole } from '../types';
 import { getCompactDisplayName } from '../utils/displayName';
+import { getRoleLabel, isAdministratorRole, isCustomerRole, isProfessionalRole } from '../auth/authorization';
 
 interface NavbarProps {
-  onNavigate: (page: 'landing' | 'booking' | 'customer' | 'admin' | 'barber') => void;
+  onNavigate: (page: 'landing' | 'booking' | 'customer' | 'admin' | 'professional') => void;
   currentPage: string;
   onOpenLogin: () => void;
 }
@@ -20,17 +21,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
   }, []);
   const compactUserName = currentUser ? getCompactDisplayName(currentUser.name) : '';
 
-  const getRoleBadge = (role: UserRole) => {
-    switch (role) {
-      case 'admin':
-        return <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded uppercase font-bold">Admin</span>;
-      case 'barber':
-        return <span className="bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded uppercase font-bold">Barbeiro</span>;
-      case 'customer':
-      default:
-        return <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded uppercase font-bold">Cliente</span>;
-    }
-  };
+  const getRoleBadge = (role: UserRole) => (
+    <span className={`${isAdministratorRole(role) ? 'bg-red-500' : isProfessionalRole(role) ? 'bg-blue-500' : 'bg-emerald-500'} text-white text-[10px] px-1.5 py-0.5 rounded uppercase font-bold`}>
+      {getRoleLabel(role)}
+    </span>
+  );
 
   return (
     <header className="bg-brand-navy text-slate-100 border-b border-white/10 sticky top-0 z-40">
@@ -40,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
             <div className="bg-brand-copper p-2 rounded-xl">
               <Scissors size={20} className="text-white" />
             </div>
-            <span className="text-xl font-black tracking-tight">{config?.name || 'Barbearia'}</span>
+            <span className="text-xl font-black tracking-tight">{config?.name || 'Agenda'}</span>
           </button>
 
           <div className="hidden md:flex items-center gap-6">
@@ -53,17 +48,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
 
             {currentUser && (
               <>
-                {currentUser.role === 'customer' && (
+                {isCustomerRole(currentUser.role) && (
                   <button onClick={() => onNavigate('customer')} className={`text-sm font-semibold transition-colors ${currentPage === 'customer' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}>
                     Meus Agendamentos
                   </button>
                 )}
-                {currentUser.role === 'barber' && (
-                  <button onClick={() => onNavigate('barber')} className={`text-sm font-semibold transition-colors ${currentPage === 'barber' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}>
+                {isProfessionalRole(currentUser.role) && (
+                  <button onClick={() => onNavigate('professional')} className={`text-sm font-semibold transition-colors ${currentPage === 'professional' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}>
                     Minha Agenda
                   </button>
                 )}
-                {currentUser.role === 'admin' && (
+                {isAdministratorRole(currentUser.role) && (
                   <button onClick={() => onNavigate('admin')} className={`text-sm font-semibold transition-colors ${currentPage === 'admin' ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}>
                     Painel Gerencial
                   </button>
@@ -131,7 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
           </button>
           {currentUser && (
             <>
-              {currentUser.role === 'customer' && (
+              {isCustomerRole(currentUser.role) && (
                 <button
                   onClick={() => { onNavigate('customer'); setMobileMenuOpen(false); }}
                   className="min-h-11 w-full text-left py-2 px-3 rounded-lg text-sm text-slate-200 hover:bg-white/5"
@@ -139,15 +134,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
                   Meus Agendamentos
                 </button>
               )}
-              {currentUser.role === 'barber' && (
+              {isProfessionalRole(currentUser.role) && (
                 <button
-                  onClick={() => { onNavigate('barber'); setMobileMenuOpen(false); }}
+                  onClick={() => { onNavigate('professional'); setMobileMenuOpen(false); }}
                   className="min-h-11 w-full text-left py-2 px-3 rounded-lg text-sm text-slate-200 hover:bg-white/5"
                 >
                   Minha Agenda
                 </button>
               )}
-              {currentUser.role === 'admin' && (
+              {isAdministratorRole(currentUser.role) && (
                 <button
                   onClick={() => { onNavigate('admin'); setMobileMenuOpen(false); }}
                   className="min-h-11 w-full text-left py-2 px-3 rounded-lg text-sm text-slate-200 hover:bg-white/5"

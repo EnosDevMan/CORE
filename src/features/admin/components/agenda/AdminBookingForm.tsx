@@ -9,11 +9,11 @@ interface AdminBookingFormProps {
 }
 
 export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback, onSuccess }) => {
-  const { barbers, services, isSlotAvailable, getAvailabilitySlots, addBooking } = useApp();
+  const { professionals, services, isSlotAvailable, getAvailabilitySlots, addBooking } = useApp();
 
   const [adminCustName, setAdminCustName] = useState('');
   const [adminCustPhone, setAdminCustPhone] = useState('');
-  const [adminBarberId, setAdminBarberId] = useState('');
+  const [adminProfessionalId, setAdminProfessionalId] = useState('');
   const [adminServiceId, setAdminServiceId] = useState('');
   const [adminDate, setAdminDate] = useState('');
   const [adminTime, setAdminTime] = useState('');
@@ -23,14 +23,14 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
   const [isSaving, setIsSaving] = useState(false);
   const selectedService = services.find(service => service.id === adminServiceId);
   const hasAvailabilityEngine = typeof getAvailabilitySlots === 'function';
-  const slots = useMemo(() => hasAvailabilityEngine && adminBarberId && adminServiceId && adminDate
-    ? getAvailabilitySlots(adminBarberId, adminServiceId, adminDate, true)
-    : [], [hasAvailabilityEngine, adminBarberId, adminServiceId, adminDate, getAvailabilitySlots]);
+  const slots = useMemo(() => hasAvailabilityEngine && adminProfessionalId && adminServiceId && adminDate
+    ? getAvailabilitySlots(adminProfessionalId, adminServiceId, adminDate, true)
+    : [], [hasAvailabilityEngine, adminProfessionalId, adminServiceId, adminDate, getAvailabilitySlots]);
 
   const handleAdminBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!adminCustName || !adminCustPhone || !adminBarberId || !adminServiceId || !adminDate || !adminTime) {
+    if (!adminCustName || !adminCustPhone || !adminProfessionalId || !adminServiceId || !adminDate || !adminTime) {
       showFeedback('Por favor, preencha todos os campos obrigatórios.', true);
       return;
     }
@@ -40,7 +40,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
       return sum + (s ? s.duration : 0);
     }, 0);
 
-    const isAvailable = isSlotAvailable(adminBarberId, adminDate, adminTime, duration);
+    const isAvailable = isSlotAvailable(adminProfessionalId, adminDate, adminTime, duration);
 
     if (!isAvailable) {
       showFeedback('Erro: Este horário não está mais disponível ou conflita com outro agendamento/bloqueio.', true);
@@ -63,7 +63,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
         customerId: 'guest',
         customerName: adminCustName,
         customerPhone: adminCustPhone,
-        barberId: adminBarberId,
+        professionalId: adminProfessionalId,
         serviceId: adminServiceId,
         date: adminDate,
         time: adminTime,
@@ -78,7 +78,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
       // Limpa e fecha o formulário somente depois da confirmação do banco.
       setAdminCustName('');
       setAdminCustPhone('');
-      setAdminBarberId('');
+      setAdminProfessionalId('');
       setAdminServiceId('');
       setAdminDate('');
       setAdminTime('');
@@ -97,9 +97,9 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
     <form onSubmit={handleAdminBookingSubmit} className="space-y-4 border-t border-slate-100 pt-4 mb-4 text-xs" noValidate>
       <div className="space-y-3">
         <p className="font-bold text-slate-500 uppercase tracking-wide">1. Profissional</p>
-        <select required value={adminBarberId} onChange={(e) => setAdminBarberId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium bg-white">
+        <select required value={adminProfessionalId} onChange={(e) => setAdminProfessionalId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium bg-white">
           <option value="">Selecione o Profissional *</option>
-          {barbers.filter(b => b.active !== false).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          {professionals.filter(b => b.active !== false).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
 
         <p className="font-bold text-slate-500 uppercase tracking-wide">2. Cliente</p>
@@ -116,7 +116,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
         {selectedService && <p className="text-slate-500">Duração: <strong>{selectedService.duration} min</strong></p>}
 
         <p className="font-bold text-slate-500 uppercase tracking-wide">4. Horário</p>
-        {adminDate && slots.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-slate-500">Barbearia ou profissional fechado nesta data.</div>}
+        {adminDate && slots.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-slate-500">Estabelecimento ou profissional fechado nesta data.</div>}
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {slots.map(slot => <button key={slot.time} type="button" disabled={slot.status !== 'available'} title={slot.reason} onClick={() => setAdminTime(slot.time)} className={`rounded-lg border px-2 py-2 font-bold transition-colors ${adminTime === slot.time ? 'bg-indigo-600 text-white border-indigo-600' : slot.status === 'available' ? 'bg-white text-slate-800 border-slate-200 hover:border-indigo-500' : 'bg-slate-100 text-slate-400 border-slate-100 line-through cursor-not-allowed'}`}>
             {slot.time}<span className="block text-[9px] no-underline">{slot.status === 'available' ? 'Livre' : slot.reason}</span>

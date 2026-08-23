@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { supabaseAuthProvider } from '../services/supabaseAuthProvider';
 import { AuthUser, LoginCredentials, RegisterPayload } from '../types';
 import { getErrorMessage } from '../../utils/errors';
+import { parseUserRole } from '../authorization';
 
 interface AuthState {
   currentUser: AuthUser | null;
@@ -39,7 +40,7 @@ async function loadCurrentUser(): Promise<AuthUser | null> {
     id: profile.id,
     email: profile.email,
     name: profile.name,
-    role: profile.role,
+    role: parseUserRole(profile.role),
     phone: profile.phone ?? undefined,
     avatar: profile.avatar ?? undefined,
     profileId: profile.profile_id ?? undefined,

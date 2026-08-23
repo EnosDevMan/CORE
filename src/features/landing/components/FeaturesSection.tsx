@@ -1,11 +1,11 @@
 import React from 'react';
 import { Clock, MapPin, WalletCards } from 'lucide-react';
-import { BarbershopConfig } from '../../../types';
+import { BusinessConfig } from '../../../types';
 import { summarizeWeeklySchedule } from '../../../utils/validation';
 
-export const FeaturesSection: React.FC<{ config: BarbershopConfig }> = ({ config }) => {
+export const FeaturesSection: React.FC<{ config: BusinessConfig }> = ({ config }) => {
   const schedule = summarizeWeeklySchedule(config.workingHours).find(item => item.value !== 'Fechado');
-  return <section aria-label="Informações da barbearia" className="border-b border-white/10 bg-brand-navy-soft px-4 py-6">
+  return <section aria-label="Informações do estabelecimento" className="border-b border-white/10 bg-brand-navy-soft px-4 py-6">
     <div className="mx-auto grid max-w-6xl gap-4 text-sm leading-6 text-slate-200 sm:grid-cols-3 sm:gap-6">
       {config.address && <div className="flex items-start gap-3"><MapPin className="mt-0.5 shrink-0 text-brand-copper" size={19}/><span>{config.address}</span></div>}
       {schedule && <div className="flex items-start gap-3"><Clock className="mt-0.5 shrink-0 text-brand-copper" size={19}/><span>{schedule.label}: {schedule.value}</span></div>}

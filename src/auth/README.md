@@ -19,7 +19,7 @@ auth/
 ## O que já funciona hoje
 
 - `lib/supabaseClient.ts` inicializa o cliente a partir de
-  `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (ver `.env.example`).
+  `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`).
 - `services/supabaseAuthProvider.ts` implementa login, cadastro, logout,
   recuperação/atualização de senha e sessão persistente (refresh token).
 - `store/useAuthStore.ts` expõe `currentUser`, `login`, `register`,

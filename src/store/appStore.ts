@@ -2,13 +2,16 @@ import { useCallback } from 'react';
 import { useAuth } from '../auth/hooks/useAuth';
 import { useConfigStore } from './configStore';
 import { useDataStore } from './dataStore';
-import { getBarbershopNow } from '../utils/validation';
+import { DEFAULT_BUSINESS_TIMEZONE, getBusinessNow } from '../utils/validation';
 import { getAvailability } from '../utils/scheduling';
+import { useOptionalBusiness } from '../core/business/hooks';
 
 export const useAppStore = () => {
   const authState = useAuth();
   const configState = useConfigStore();
   const dataState = useDataStore();
+  const business = useOptionalBusiness();
+  const timeZone = business?.profile.timezone ?? DEFAULT_BUSINESS_TIMEZONE;
 
   /**
    * Verifica conflitos de horário usando os agendamentos já carregados
@@ -20,32 +23,32 @@ export const useAppStore = () => {
    * backend quando ele existir.
    */
   const isSlotAvailable = useCallback((
-    barberId: string,
+    professionalId: string,
     date: string,
     time: string,
     duration: number,
     extraBookedIntervals: { time: string; duration: number }[] = [],
     excludeBookingId?: string
   ): boolean => {
-    const barber = dataState.barbers.find(item => item.id === barberId);
-    const slots = getAvailability({ barberId, date, duration, intervalMinutes: configState.config.intervalMinutes, shopHours: configState.config.workingHours, barber, bookings: dataState.bookings, blocks: dataState.scheduleBlocks, services: dataState.services, excludeBookingId, additionalOccupiedIntervals: extraBookedIntervals });
+    const professional = dataState.professionals.find(item => item.id === professionalId);
+    const slots = getAvailability({ professionalId, date, duration, intervalMinutes: configState.config.intervalMinutes, shopHours: configState.config.workingHours, professional, bookings: dataState.bookings, blocks: dataState.scheduleBlocks, services: dataState.services, excludeBookingId, additionalOccupiedIntervals: extraBookedIntervals });
     return slots.some(slot => slot.time === time && slot.status === 'available');
-  }, [dataState.barbers, dataState.bookings, dataState.scheduleBlocks, dataState.services, configState.config]);
+  }, [dataState.professionals, dataState.bookings, dataState.scheduleBlocks, dataState.services, configState.config]);
 
-  const getAvailabilitySlots = useCallback((barberId: string, serviceId: string, date: string, includeElapsed = false, excludeBookingId?: string) => {
+  const getAvailabilitySlots = useCallback((professionalId: string, serviceId: string, date: string, includeElapsed = false, excludeBookingId?: string) => {
     const duration = serviceId.split(',').reduce((sum, id) => sum + (dataState.services.find(service => service.id === id.trim())?.duration ?? 0), 0);
-    const now = getBarbershopNow();
+    const now = getBusinessNow(timeZone);
     const unavailableBeforeMinutes = !includeElapsed && date === now.dateStr ? now.hours * 60 + now.minutes + 30 : undefined;
-    return getAvailability({ barberId, date, duration, intervalMinutes: configState.config.intervalMinutes, shopHours: configState.config.workingHours, barber: dataState.barbers.find(item => item.id === barberId), bookings: dataState.bookings, blocks: dataState.scheduleBlocks, services: dataState.services, unavailableBeforeMinutes, excludeBookingId });
-  }, [dataState.services, dataState.barbers, dataState.bookings, dataState.scheduleBlocks, configState.config]);
+    return getAvailability({ professionalId, date, duration, intervalMinutes: configState.config.intervalMinutes, shopHours: configState.config.workingHours, professional: dataState.professionals.find(item => item.id === professionalId), bookings: dataState.bookings, blocks: dataState.scheduleBlocks, services: dataState.services, unavailableBeforeMinutes, excludeBookingId });
+  }, [dataState.services, dataState.professionals, dataState.bookings, dataState.scheduleBlocks, configState.config, timeZone]);
 
   /**
-   * Calcula os horários disponíveis para um barbeiro/serviço/data.
+   * Calcula os horários disponíveis para um profissional, serviço e data.
    */
-  const getAvailableSlots = useCallback(async (barberId: string, serviceId: string, date: string, excludeBookingId?: string): Promise<string[]> => {
-    if (!serviceId || !barberId || !date) return [];
+  const getAvailableSlots = useCallback(async (professionalId: string, serviceId: string, date: string, excludeBookingId?: string): Promise<string[]> => {
+    if (!serviceId || !professionalId || !date) return [];
 
-    const slots = getAvailabilitySlots(barberId, serviceId, date, false, excludeBookingId);
+    const slots = getAvailabilitySlots(professionalId, serviceId, date, false, excludeBookingId);
     return slots.filter(slot => slot.status === 'available').map(slot => slot.time);
   }, [getAvailabilitySlots]);
 

@@ -12,25 +12,31 @@ import { Suspense, lazy } from 'react';
 const LandingPage = lazy(() => import('./components/LandingPage').then(module => ({ default: module.LandingPage })));
 const BookingFlow = lazy(() => import('./components/BookingFlow').then(module => ({ default: module.BookingFlow })));
 const CustomerDashboard = lazy(() => import('./components/CustomerDashboard').then(module => ({ default: module.CustomerDashboard })));
-const BarberDashboard = lazy(() => import('./components/BarberDashboard').then(module => ({ default: module.BarberDashboard })));
+const ProfessionalDashboard = lazy(() => import('./components/ProfessionalDashboard').then(module => ({ default: module.ProfessionalDashboard })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage').then(module => ({ default: module.PrivacyPolicyPage })));
 import { LoginModal } from './components/LoginModal';
 import { ResetPasswordView } from './components/ResetPasswordView';
 import { Shield, Scissors } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
+import { OnboardingWizard } from './features/onboarding/components/OnboardingWizard';
+import { onboardingService, type OnboardingState } from './features/onboarding/services/onboardingService';
+import { BusinessRuntimeBoundary } from './core/business/BusinessRuntimeBoundary';
+import { canAccessProfessionalWorkspace, isAdministratorRole } from './auth/authorization';
 
-function BarbeariaApp() {
-  const [currentView, setCurrentView] = useState<'landing' | 'booking' | 'customer' | 'barber' | 'admin' | 'privacy'>('landing');
+function CoreSchedulingApp() {
+  const [currentView, setCurrentView] = useState<'landing' | 'booking' | 'customer' | 'professional' | 'admin' | 'privacy'>('landing');
   const [loginOpen, setLoginOpen] = useState(false);
-  const [bookingSelection, setBookingSelection] = useState<{ serviceId?: string; barberId?: string }>({});
+  const [bookingSelection, setBookingSelection] = useState<{ serviceId?: string; professionalId?: string }>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState('');
+  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { loading, loadError, currentUser, passwordRecoveryMode, completePasswordRecovery, logout } = useApp();
 
   useEffect(() => {
-    const protectedView = currentView === 'customer' || currentView === 'barber' || currentView === 'admin';
+    const protectedView = currentView === 'customer' || currentView === 'professional' || currentView === 'admin';
     if (!loading && !currentUser && protectedView) {
       setCurrentView('landing');
     }
@@ -39,6 +45,21 @@ function BarbeariaApp() {
   useEffect(() => () => {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
   }, []);
+
+  useEffect(() => {
+    if (loading || !currentUser) {
+      setOnboardingState(null);
+      setOnboardingError(null);
+      return;
+    }
+    let active = true;
+    onboardingService.getState()
+      .then(state => { if (active) setOnboardingState(state); })
+      .catch(error => {
+        if (active) setOnboardingError(error instanceof Error ? error.message : 'Não foi possível verificar a configuração inicial.');
+      });
+    return () => { active = false; };
+  }, [currentUser, loading]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -52,17 +73,33 @@ function BarbeariaApp() {
     return <ResetPasswordView onComplete={completePasswordRecovery} />;
   }
 
+  if (currentUser && onboardingError) {
+    return <LoadingScreen error={onboardingError} onRetry={() => window.location.reload()} />;
+  }
+
+  if (currentUser && onboardingState === null) {
+    return <LoadingScreen />;
+  }
+
+  if (currentUser && !onboardingState?.completed && (isAdministratorRole(currentUser.role) || !onboardingState?.ownerExists)) {
+    return <OnboardingWizard currentRole={currentUser.role} />;
+  }
+
+  if (currentUser && !onboardingState?.completed) {
+    return <LoadingScreen error="A configuração inicial ainda precisa ser concluída pelo proprietário." onRetry={() => window.location.reload()} />;
+  }
+
   // O AdminDashboard tem seu próprio header/sidebar completo (marca, botão
   // "voltar" e logout), então quando ele está de fato visível a Navbar global
   // fica oculta para não duplicar essa navegação (e não sobrepor no mobile).
-  const isAdminShell = currentView === 'admin' && currentUser?.role === 'admin';
+  const isAdminShell = currentView === 'admin' && isAdministratorRole(currentUser?.role);
 
-  const navigateTo = (view: typeof currentView, selection?: { serviceId?: string; barberId?: string }) => {
+  const navigateTo = (view: typeof currentView, selection?: { serviceId?: string; professionalId?: string }) => {
     // Validação de RBAC
-    if (view === 'admin' && currentUser?.role !== 'admin') {
+    if (view === 'admin' && !isAdministratorRole(currentUser?.role)) {
       return;
     }
-    if (view === 'barber' && !['admin', 'barber'].includes(currentUser?.role || '')) {
+    if (view === 'professional' && !canAccessProfessionalWorkspace(currentUser?.role)) {
       return;
     }
     // 'booking' propositalmente NÃO exige login: o fluxo de agendamento
@@ -122,7 +159,7 @@ function BarbeariaApp() {
         return (
           <BookingFlow
             initialServiceId={bookingSelection.serviceId}
-            initialBarberId={bookingSelection.barberId}
+            initialProfessionalId={bookingSelection.professionalId}
             onNavigateToView={(view) => navigateTo(view === 'home' ? 'landing' : view)}
           />
         );
@@ -130,14 +167,14 @@ function BarbeariaApp() {
         return <CustomerDashboard />;
       case 'privacy':
         return <PrivacyPolicyPage onBack={() => navigateTo('landing')} />;
-      case 'barber':
-        // Aceita 'admin' também: é o modo de simulação, em que um admin
-        // visualiza o painel "como se fosse" um barbeiro (ver
-        // useBarberDashboard e withRoleGuard em BarberDashboard.tsx). Antes,
-        // esta checagem só liberava role === 'barber', então o admin — que
+      case 'professional':
+        // Proprietários também podem usar o modo de simulação para
+        // visualizar o painel de um profissional (ver
+        // useProfessionalDashboard e withRoleGuard em ProfessionalDashboard.tsx). Antes,
+        // A autorização central mantém compatibilidade com as roles legadas enquanto
         // navigateTo já deixava passar — caía nesta tela de "Acesso
         // Restrito" em vez do painel.
-        if (!currentUser || !['admin', 'barber'].includes(currentUser.role)) {
+        if (!currentUser || !canAccessProfessionalWorkspace(currentUser.role)) {
           return (
             <div className="max-w-md mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-100 shadow-xl text-center flex flex-col items-center">
               <div className="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
@@ -147,7 +184,7 @@ function BarbeariaApp() {
               <p className="text-slate-500 text-sm mt-2 leading-relaxed">
                 Esta área é reservada exclusivamente para os profissionais da equipe.
               </p>
-              <button 
+              <button
                 onClick={() => setLoginOpen(true)}
                 className="mt-6 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-colors cursor-pointer"
               >
@@ -156,9 +193,9 @@ function BarbeariaApp() {
             </div>
           );
         }
-        return <BarberDashboard />;
+        return <ProfessionalDashboard />;
       case 'admin':
-        if (!currentUser || currentUser.role !== 'admin') {
+        if (!currentUser || !isAdministratorRole(currentUser.role)) {
           return (
             <div className="max-w-md mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-100 shadow-xl text-center flex flex-col items-center">
               <div className="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
@@ -166,9 +203,9 @@ function BarbeariaApp() {
               </div>
               <h2 className="text-xl font-bold text-slate-900">Painel Gerencial Restrito</h2>
               <p className="text-slate-500 text-sm mt-2 leading-relaxed">
-                Esta área é reservada para a administração da barbearia. Por favor, autentique-se para continuar.
+                Esta área é reservada para a administração do negócio. Por favor, autentique-se para continuar.
               </p>
-              <button 
+              <button
                 onClick={() => setLoginOpen(true)}
                 className="mt-6 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-colors cursor-pointer"
               >
@@ -198,7 +235,7 @@ function BarbeariaApp() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-[var(--core-background,#f8fafc)] flex flex-col font-sans antialiased text-[var(--core-foreground,#1e293b)]">
       {!isAdminShell && (
         <Navbar
           onOpenLogin={() => setLoginOpen(true)}
@@ -235,7 +272,9 @@ function BarbeariaApp() {
 export default function App() {
   return (
     <AppDataLoader>
-      <BarbeariaApp />
+      <BusinessRuntimeBoundary>
+        <CoreSchedulingApp />
+      </BusinessRuntimeBoundary>
     </AppDataLoader>
   );
 }

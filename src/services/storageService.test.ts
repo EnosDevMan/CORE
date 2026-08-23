@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPublicStoragePath } from './storageService';
+import { getPublicStoragePath, validateStorageObjectPath } from './storagePath';
 
 describe('getPublicStoragePath', () => {
   it('extrai e decodifica o caminho de uma URL pública do bucket', () => {
@@ -19,4 +19,15 @@ describe('getPublicStoragePath', () => {
       'gallery',
     )).toThrow();
   });
+});
+
+describe('validateStorageObjectPath', () => {
+  it('accepts the canonical professional namespace', () => {
+    expect(validateStorageObjectPath('professionals/id-123/avatar.webp')).toBe('professionals/id-123/avatar.webp');
+  });
+
+  it.each(['/absolute.webp', '../secret.webp', 'professionals//avatar.webp', 'professionals\\avatar.webp', 'professionals/./avatar.webp'])(
+    'rejects an unsafe object path: %s',
+    path => expect(() => validateStorageObjectPath(path)).toThrow('inválido'),
+  );
 });

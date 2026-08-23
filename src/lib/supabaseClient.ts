@@ -1,14 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+import { resolveSupabaseEnvironment } from '../utils/environment';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias. ' +
-    'Copie .env.example para .env.local e preencha com os dados do seu projeto Supabase.'
-  );
-}
+const environment = resolveSupabaseEnvironment({
+  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
+});
 
 /**
  * Instância única do cliente Supabase, compartilhada entre o módulo de
@@ -17,4 +14,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * instâncias geram avisos de "Multiple GoTrueClient" e podem dessincronizar
  * o estado de sessão.
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(environment.url, environment.publishableKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});

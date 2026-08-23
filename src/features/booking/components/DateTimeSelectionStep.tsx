@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calendar as CalendarIcon, Clock, Loader2 } from 'lucide-react';
-import { getBarbershopTodayStr, getBarbershopMaxBookingDateStr } from '../../../utils/validation';
+import { getBusinessTodayStr, getBusinessMaxBookingDateStr } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
 
 interface Props {
   selectedDate: string;
@@ -23,6 +24,8 @@ export const DateTimeSelectionStep: React.FC<Props> = ({
   slotsError,
   bookingWindowDays
 }) => {
+  const { profile } = useBusiness();
+  const today = getBusinessTodayStr(profile.timezone);
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div>
@@ -35,8 +38,8 @@ export const DateTimeSelectionStep: React.FC<Props> = ({
             aria-label="Data do Agendamento"
             type="date"
             value={selectedDate}
-            min={getBarbershopTodayStr()}
-            max={getBarbershopMaxBookingDateStr(bookingWindowDays)}
+            min={today}
+            max={getBusinessMaxBookingDateStr(bookingWindowDays, profile.timezone)}
             onChange={(e) => setSelectedDate(e.target.value)}
             className="w-full pl-4 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 font-medium"
           />
