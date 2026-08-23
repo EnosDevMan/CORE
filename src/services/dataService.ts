@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { Professional, Service, BusinessConfig, Booking, User, ScheduleBlock, GalleryPhoto, WorkingHours, UserRole } from '../types';
-import { isAdministratorRole, parseUserRole } from '../auth/authorization';
+import { isAdministratorRole, isProfessionalRole, parseUserRole } from '../auth/authorization';
 export { DEFAULT_PROFESSIONAL_AVATAR as DEFAULT_AVATAR } from '../features/professionals/constants';
 
 /**
@@ -65,6 +65,9 @@ type BookingRow = {
   customer_confirmed?: boolean;
   value: number | string;
   created_at: string;
+  starts_at?: string;
+  ends_at?: string;
+  duration_minutes?: number;
 };
 
 type ScheduleBlockRow = {
@@ -107,6 +110,18 @@ type ConfigRow = {
   hero_description?: string;
   about_text?: string;
   updated_at: string;
+};
+
+type BookingSettingsRow = {
+  interval_minutes: number;
+  booking_window_days: number;
+  minimum_notice_minutes: number;
+  cancellation_notice_minutes: number;
+};
+
+type OccupiedIntervalRow = {
+  start_time: string;
+  duration_minutes: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -171,6 +186,9 @@ function mapBooking(row: BookingRow): Booking {
     customerConfirmed: row.customer_confirmed ?? undefined,
     value: Number(row.value),
     createdAt: row.created_at,
+    startsAt: row.starts_at ?? undefined,
+    endsAt: row.ends_at ?? undefined,
+    durationMinutes: row.duration_minutes ?? undefined,
   };
 }
 
@@ -199,7 +217,7 @@ function mapGalleryPhoto(row: GalleryPhotoRow): GalleryPhoto {
   };
 }
 
-function mapConfig(row: ConfigRow): BusinessConfig {
+function mapConfig(row: ConfigRow, bookingSettings?: BookingSettingsRow | null): BusinessConfig {
   return {
     name: row.name,
     logo: row.logo,
@@ -209,8 +227,10 @@ function mapConfig(row: ConfigRow): BusinessConfig {
     socialLinks: row.social_links ?? {},
     bookingFee: Number(row.booking_fee),
     toleranceMinutes: row.tolerance_minutes,
-    intervalMinutes: row.interval_minutes,
-    bookingWindowDays: row.booking_window_days ?? 3,
+    intervalMinutes: bookingSettings?.interval_minutes ?? row.interval_minutes,
+    bookingWindowDays: bookingSettings?.booking_window_days ?? row.booking_window_days ?? 3,
+    minimumNoticeMinutes: bookingSettings?.minimum_notice_minutes ?? 30,
+    cancellationNoticeMinutes: bookingSettings?.cancellation_notice_minutes ?? 0,
     pixKey: row.pix_key ?? undefined,
     heroTitle: row.hero_title ?? undefined,
     heroSubtitle: row.hero_subtitle ?? undefined,
@@ -236,15 +256,20 @@ export const dataService = {
     scheduleBlocks: ScheduleBlock[];
     galleryPhotos: GalleryPhoto[];
   }> {
-    const [configRes, professionalsRes, servicesRes, blocksRes, galleryRes] = await Promise.all([
+    const canReadPrivateBlocks = isAdministratorRole(role) || isProfessionalRole(role);
+    const [configRes, settingsRes, professionalsRes, servicesRes, blocksRes, galleryRes] = await Promise.all([
       supabase.from('barbershop_config').select('*').eq('id', true).single(),
+      supabase.from('booking_settings').select('interval_minutes, booking_window_days, minimum_notice_minutes, cancellation_notice_minutes').eq('id', true).maybeSingle(),
       supabase.from('barbers').select('*').order('order', { ascending: true }),
       supabase.from('services').select('*').order('order', { ascending: true }),
-      supabase.from('schedule_blocks').select('*'),
+      canReadPrivateBlocks
+        ? supabase.from('schedule_blocks').select('*')
+        : supabase.rpc('get_public_schedule_blocks'),
       supabase.from('gallery_photos').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
     ]);
 
     throwIfError(configRes.error);
+    throwIfError(settingsRes.error);
     throwIfError(professionalsRes.error);
     throwIfError(servicesRes.error);
     throwIfError(blocksRes.error);
@@ -273,7 +298,7 @@ export const dataService = {
     }
 
     return {
-      config: mapConfig(configRes.data),
+      config: mapConfig(configRes.data, settingsRes.data as BookingSettingsRow | null),
       professionals: (professionalsRes.data || []).map(mapProfessional),
       services: (servicesRes.data || []).map(mapService),
       bookings: bookings.map(mapBooking),
@@ -445,16 +470,31 @@ export const dataService = {
   },
 
   async deleteUser(id: string): Promise<void> {
-    // Remove apenas o perfil de aplicação. A conta de autenticação em
-    // `auth.users` só pode ser removida com a service role key (backend
-    // administrativo), nunca a partir do cliente.
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    // A RPC valida o proprietário no banco, encerra sessões e remove a conta
+    // de autenticação sem enviar qualquer chave administrativa ao navegador.
+    const { error } = await supabase.rpc('delete_user_account', { p_user_id: id });
     throwIfError(error);
   },
 
   /**
    * Booking Operations
    */
+  async getOccupiedIntervals(professionalId: string, date: string, excludeBookingId?: string): Promise<{ time: string; duration: number }[]> {
+    const { data, error } = await supabase.rpc('get_public_occupied_intervals', {
+      p_professional_id: professionalId,
+      p_date: date,
+      p_exclude_booking_id: excludeBookingId ?? null,
+    });
+    throwIfError(error);
+
+    return ((data ?? []) as OccupiedIntervalRow[]).map(interval => {
+      if (!interval.start_time || !Number.isInteger(interval.duration_minutes) || interval.duration_minutes <= 0) {
+        throw new Error('O banco retornou um intervalo de agendamento inválido.');
+      }
+      return { time: toHHMM(interval.start_time) as string, duration: interval.duration_minutes };
+    });
+  },
+
   async createBooking(booking: Omit<Booking, 'id' | 'createdAt'>, _duration: number): Promise<Booking> {
     const { data, error } = await supabase.rpc('create_booking', {
       p_customer_id: booking.customerId === 'guest' ? null : booking.customerId,

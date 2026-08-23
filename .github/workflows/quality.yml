@@ -14,3 +14,36 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: core_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: core_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate consolidated schema and authorization boundaries
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --file supabase/tests/standalone_bootstrap.sql
+          --file supabase/schema.sql
+          --file supabase/tests/authorization_roles.sql
+          --file supabase/tests/booking_overlap.sql
+          --file supabase/tests/booking_security.sql

@@ -59,6 +59,10 @@ export interface Booking {
   customerConfirmed?: boolean;
   value: number; // service value at booking time
   createdAt: string;
+  /** Immutable server-side snapshots used to preserve historical scheduling. */
+  startsAt?: string;
+  endsAt?: string;
+  durationMinutes?: number;
 }
 
 export interface SocialLinks {
@@ -78,6 +82,8 @@ export interface BusinessConfig {
   toleranceMinutes: number; // 15 minutes typical
   intervalMinutes: number; // 60 minutes typical
   bookingWindowDays: number; // number of calendar days shown to customers, including today
+  minimumNoticeMinutes?: number;
+  cancellationNoticeMinutes?: number;
   pixKey?: string; // PIX key for booking fee
   heroTitle?: string;
   heroSubtitle?: string;

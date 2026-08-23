@@ -28,13 +28,18 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
   const [professionals, setProfessionals] = useState([{ name: '' }]);
   const [intervalMinutes, setIntervalMinutes] = useState(30);
   const [bookingWindowDays, setBookingWindowDays] = useState(30);
+  const [ownerSetupCode, setOwnerSetupCode] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const step = steps[stepIndex];
   const niche = NICHE_REGISTRY[nicheId];
   const themes = useMemo(() => Object.values(THEME_REGISTRY).filter(theme => theme.recommendedNiches.includes(nicheId) || theme.category === 'universal'), [nicheId]);
   const validHours = open < close && daysOpen.length > 0;
-  const canContinue = step !== 'business' || businessName.trim().length >= 2;
+  const requiresOwnerClaim = shouldClaimInstallation(currentRole);
+  const canContinue = step !== 'business' || (
+    businessName.trim().length >= 2
+    && (!requiresOwnerClaim || /^[a-f0-9]{64}$/i.test(ownerSetupCode.trim()))
+  );
 
   const chooseNiche = (id: NicheId) => {
     setNicheId(id);
@@ -52,7 +57,7 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
         capabilities: niche.recommendedCapabilities, businessHours: { open, close, daysOpen },
         services: services.filter(item => item.name.trim().length >= 2),
         professionals: professionals.filter(item => item.name.trim().length >= 2),
-        intervalMinutes, bookingWindowDays }, shouldClaimInstallation(currentRole));
+        intervalMinutes, bookingWindowDays, ownerSetupCode }, requiresOwnerClaim);
       window.location.reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a configuração.');
@@ -64,7 +69,7 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
     <header className="mb-8"><p className="text-xs font-bold uppercase tracking-[.2em] text-amber-400">Configuração inicial</p><h1 className="mt-2 text-2xl font-black">Prepare seu novo negócio</h1><p className="mt-1 text-sm text-slate-400">Etapa {stepIndex + 1} de {steps.length}</p><div className="mt-4 flex gap-1" aria-hidden="true">{steps.map((item,index)=><span key={item} className={`h-1.5 flex-1 rounded-full ${index<=stepIndex?'bg-amber-400':'bg-slate-700'}`} />)}</div></header>
     <section className="flex-1">
       {step==='niche' && <fieldset><legend className="mb-4 text-lg font-bold">Qual é o seu segmento?</legend><div className="grid gap-3 sm:grid-cols-2">{Object.values(NICHE_REGISTRY).map(item=><label key={item.id} className={`cursor-pointer rounded-2xl border p-4 ${nicheId===item.id?'border-amber-400 bg-amber-400/10':'border-slate-700'}`}><input className="sr-only" type="radio" name="niche" checked={nicheId===item.id} onChange={()=>chooseNiche(item.id)} /><strong>{item.name}</strong><span className="mt-1 block text-sm text-slate-400">{item.professionalLabel} · {item.customerLabel}</span></label>)}</div></fieldset>}
-      {step==='business' && <div className="space-y-4"><Field label="Nome do negócio" required minLength={2} value={businessName} onChange={e=>setBusinessName(e.target.value)} autoComplete="organization" /><Field label="Telefone" hint="Opcional" value={phone} onChange={e=>setPhone(e.target.value)} inputMode="tel" /><Field label="Endereço" hint="Opcional" value={address} onChange={e=>setAddress(e.target.value)} /></div>}
+      {step==='business' && <div className="space-y-4"><Field label="Nome do negócio" required minLength={2} value={businessName} onChange={e=>setBusinessName(e.target.value)} autoComplete="organization" />{requiresOwnerClaim && <Field label="Código de instalação do proprietário" hint="Gerado no SQL Editor do Supabase; válido por 24 horas." required minLength={64} maxLength={64} value={ownerSetupCode} onChange={e=>setOwnerSetupCode(e.target.value)} autoComplete="off" />}<Field label="Telefone" hint="Opcional" value={phone} onChange={e=>setPhone(e.target.value)} inputMode="tel" /><Field label="Endereço" hint="Opcional" value={address} onChange={e=>setAddress(e.target.value)} /></div>}
       {step==='theme' && <fieldset><legend className="mb-4 text-lg font-bold">Escolha uma identidade visual</legend><div className="grid gap-3 sm:grid-cols-2">{themes.map(item=><label key={item.id} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 ${themeId===item.id?'border-amber-400':'border-slate-700'}`}><input className="sr-only" type="radio" checked={themeId===item.id} onChange={()=>setThemeId(item.id)} /><span className="h-10 w-10 rounded-full" style={{background:item.tokens.primary}} /><strong>{item.name}</strong>{themeId===item.id&&<Check className="ml-auto text-amber-400" />}</label>)}</div></fieldset>}
       {step==='hours' && <div><h2 className="mb-4 text-lg font-bold">Horários de funcionamento</h2><div className="grid grid-cols-2 gap-3"><Field label="Abertura" type="time" value={open} onChange={e=>setOpen(e.target.value)} /><Field label="Fechamento" type="time" value={close} onChange={e=>setClose(e.target.value)} /></div><fieldset className="mt-5"><legend className="mb-3 text-sm font-bold">Dias abertos</legend><div className="grid grid-cols-4 gap-2 sm:grid-cols-7">{weekdays.map(day=><label key={day.id} className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border text-sm font-bold ${daysOpen.includes(day.id)?'border-amber-400 bg-amber-400/10':'border-slate-700'}`}><input className="sr-only" type="checkbox" checked={daysOpen.includes(day.id)} onChange={()=>setDaysOpen(current=>current.includes(day.id)?current.filter(id=>id!==day.id):[...current,day.id])} />{day.label}</label>)}</div></fieldset>{!validHours&&<p role="alert" className="mt-3 text-sm text-red-300">Escolha ao menos um dia e um fechamento posterior à abertura.</p>}</div>}
       {step==='services' && <div><h2 className="text-lg font-bold">Serviços iniciais</h2><p className="mb-4 text-sm text-slate-400">Sugestões do nicho; edite ou remova livremente.</p><div className="space-y-3">{services.map((item,index)=><div key={index} className="grid grid-cols-[1fr_90px_44px] gap-2"><input aria-label={`Serviço ${index+1}`} className="ui-input" value={item.name} onChange={e=>setServices(current=>current.map((value,i)=>i===index?{...value,name:e.target.value}:value))} /><input aria-label={`Duração do serviço ${index+1}`} type="number" min={5} max={480} className="ui-input" value={item.duration} onChange={e=>setServices(current=>current.map((value,i)=>i===index?{...value,duration:Number(e.target.value)}:value))} /><Button variant="ghost" aria-label={`Remover ${item.name}`} onClick={()=>setServices(current=>current.filter((_,i)=>i!==index))}><Trash2 size={18}/></Button></div>)}</div><Button variant="secondary" className="mt-3" onClick={()=>setServices(current=>[...current,{name:'',duration:30,category:''}])}><Plus size={18}/> Adicionar</Button></div>}

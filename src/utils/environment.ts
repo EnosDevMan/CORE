@@ -35,16 +35,44 @@ function validateSupabaseUrl(value: string): string {
   return url.toString().replace(/\/$/, '');
 }
 
+function validatePublicSupabaseKey(value: string): string {
+  if (/^(sua-|your-|change-me|placeholder)/i.test(value) || value.length < 20) {
+    throw new Error('A chave pública do Supabase ainda está vazia ou usa um placeholder.');
+  }
+
+  if (value.startsWith('sb_publishable_')) return value;
+
+  if (/^sb_secret_/i.test(value)) {
+    throw new Error('Uma chave secreta do Supabase nunca pode ser enviada ao navegador.');
+  }
+
+  const segments = value.split('.');
+  if (segments.length !== 3) {
+    throw new Error('Use uma chave sb_publishable_ ou um JWT legado com role anon.');
+  }
+
+  let payload: unknown;
+  try {
+    const normalized = segments[1].replace(/-/g, '+').replace(/_/g, '/');
+    payload = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')));
+  } catch {
+    throw new Error('O JWT legado do Supabase possui um payload inválido.');
+  }
+
+  if (!payload || typeof payload !== 'object' || !('role' in payload) || payload.role !== 'anon') {
+    throw new Error('Somente a role anon pode ser utilizada no navegador; service_role é proibida.');
+  }
+
+  return value;
+}
+
 /** Validates public client configuration before creating any Supabase client. */
 export function resolveSupabaseEnvironment(source: SupabaseEnvironmentSource): SupabaseEnvironment {
   const url = validateSupabaseUrl(requiredString(source, ['VITE_SUPABASE_URL']));
-  const publishableKey = requiredString(source, [
+  const publishableKey = validatePublicSupabaseKey(requiredString(source, [
     'VITE_SUPABASE_PUBLISHABLE_KEY',
     'VITE_SUPABASE_ANON_KEY',
-  ]);
-  if (/^(sua-|your-|change-me|placeholder)/i.test(publishableKey) || publishableKey.length < 20) {
-    throw new Error('A chave pública do Supabase ainda está vazia ou usa um placeholder.');
-  }
+  ]));
   return { url, publishableKey };
 }
 

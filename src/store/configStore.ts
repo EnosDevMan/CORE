@@ -25,6 +25,8 @@ const PLACEHOLDER_CONFIG: BusinessConfig = {
   toleranceMinutes: 15,
   intervalMinutes: 30,
   bookingWindowDays: 3,
+  minimumNoticeMinutes: 30,
+  cancellationNoticeMinutes: 0,
 };
 
 export const useConfigStore = create<ConfigState>((set, get) => ({

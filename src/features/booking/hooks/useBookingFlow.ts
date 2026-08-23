@@ -67,35 +67,44 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
 
   useEffect(() => {
     let cancelled = false;
+    let refreshInterval: ReturnType<typeof setInterval> | undefined;
 
     if (selectedProfessional && selectedDate && selectedServices.length > 0) {
       const serviceIds = selectedServices.map(s => s.id).join(",");
       setLoadingTimes(true);
       setSlotsError('');
-      getAvailableSlots(selectedProfessional.id, serviceIds, selectedDate)
-        .then(times => {
-          if (cancelled) return;
-          setAvailableTimes(times);
-          // Se o horário selecionado deixou de estar disponível (ex: outro
-          // cliente acabou de reservá-lo), limpa a seleção para o usuário
-          // escolher novamente.
-          setSelectedTime(prevTime => (prevTime && !times.includes(prevTime) ? '' : prevTime));
-        })
-        .catch((err: unknown) => {
-          if (!cancelled) {
-            setAvailableTimes([]);
-            setSlotsError(getErrorMessage(err, 'Não foi possível consultar os horários. Tente novamente.'));
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setLoadingTimes(false);
-        });
+
+      const refreshAvailability = () => {
+        getAvailableSlots(selectedProfessional.id, serviceIds, selectedDate)
+          .then(times => {
+            if (cancelled) return;
+            setAvailableTimes(times);
+            setSlotsError('');
+            // Remove imediatamente horários escolhidos por outros clientes.
+            setSelectedTime(prevTime => (prevTime && !times.includes(prevTime) ? '' : prevTime));
+          })
+          .catch((err: unknown) => {
+            if (!cancelled) {
+              setAvailableTimes([]);
+              setSlotsError(getErrorMessage(err, 'Não foi possível consultar os horários. Tente novamente.'));
+            }
+          })
+          .finally(() => {
+            if (!cancelled) setLoadingTimes(false);
+          });
+      };
+
+      refreshAvailability();
+      refreshInterval = setInterval(refreshAvailability, 15_000);
     } else {
       setAvailableTimes([]);
       setSlotsError('');
     }
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (refreshInterval) clearInterval(refreshInterval);
+    };
   }, [selectedProfessional, selectedDate, selectedServices, getAvailableSlots]);
 
   const handleNext = () => {

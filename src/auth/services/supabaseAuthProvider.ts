@@ -64,7 +64,7 @@ export const supabaseAuthProvider: IAuthProvider = {
       email,
       password,
       options: {
-        data: { name, phone },
+        data: { name, phone, privacy_policy_version: '2026-08-23' },
         // Sem isto, o link de confirmação por e-mail usa o "Site URL"
         // configurado no painel do Supabase (Authentication > URL
         // Configuration) — que por padrão, num projeto novo, aponta para

@@ -58,8 +58,12 @@ export function generateSlotStartMinutes(open: number, close: number, duration: 
   return starts;
 }
 
-const bookingDuration = (booking: Booking, services: Service[]) =>
-  booking.serviceId.split(',').reduce((total, id) => total + (services.find(service => service.id === id.trim())?.duration ?? 30), 0);
+const bookingDuration = (booking: Booking, services: Service[]) => {
+  if (Number.isInteger(booking.durationMinutes) && (booking.durationMinutes ?? 0) > 0) {
+    return booking.durationMinutes as number;
+  }
+  return booking.serviceId.split(',').reduce((total, id) => total + (services.find(service => service.id === id.trim())?.duration ?? 30), 0);
+};
 
 /**
  * Single, side-effect-free availability engine used by public, customer and

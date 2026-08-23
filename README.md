@@ -28,6 +28,9 @@ ou IDE desktop não são requisitos.
 Em um Supabase vazio, aplique somente `supabase/schema.sql`, que representa o
 estado final consolidado. `supabase/migrations` é reservado para atualizar
 instalações que já existiam; não repita as migrations após o schema. Nunca versione a `.env.local`.
+Antes de abrir o cadastro, gere no SQL Editor o código de uso único do proprietário
+com `select public.prepare_installation_owner('seu-email@exemplo.com');` e
+confirme esse mesmo e-mail durante o onboarding.
 Consulte [nova instalação](docs/NEW_BUSINESS_SETUP.md),
 [deploy](docs/DEPLOYMENT.md) e [arquitetura](docs/ARCHITECTURE.md).
 

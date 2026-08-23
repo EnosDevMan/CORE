@@ -7,6 +7,14 @@ const validEnvironment = {
   VITE_SUPABASE_PUBLISHABLE_KEY: validKey,
 };
 
+const legacyJwt = (role: string): string => {
+  const encode = (value: object) => btoa(JSON.stringify(value))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ role })}.test-signature`;
+};
+
 describe('Supabase environment', () => {
   it('accepts and normalizes the current publishable key contract', () => {
     expect(resolveSupabaseEnvironment({ ...validEnvironment, VITE_SUPABASE_URL: `${validEnvironment.VITE_SUPABASE_URL}/` }))
@@ -15,10 +23,23 @@ describe('Supabase environment', () => {
   });
 
   it('keeps the legacy anonymous key as a migration fallback', () => {
+    const anonymousKey = legacyJwt('anon');
     expect(resolveSupabaseEnvironment({
       VITE_SUPABASE_URL: 'http://localhost:54321',
-      VITE_SUPABASE_ANON_KEY: 'legacy-public-key-that-is-long-enough',
-    }).publishableKey).toContain('legacy');
+      VITE_SUPABASE_ANON_KEY: anonymousKey,
+    }).publishableKey).toBe(anonymousKey);
+  });
+
+  it.each([
+    [`sb_secret_${'x'.repeat(32)}`, 'chave secreta'],
+    [legacyJwt('service_role'), 'service_role'],
+    [legacyJwt('supabase_admin'), 'role anon'],
+    ['not-a-public-key-but-long-enough', 'sb_publishable_'],
+    ['header.not-valid-json.signature', 'payload inválido'],
+  ])('rejects credentials that cannot be exposed in the browser', (key, message) => {
+    const source = { ...validEnvironment, VITE_SUPABASE_PUBLISHABLE_KEY: key };
+    expect(() => resolveSupabaseEnvironment(source)).toThrow(message);
+    expect(getSupabaseConfigError(source)).toContain(message);
   });
 
   it.each([
