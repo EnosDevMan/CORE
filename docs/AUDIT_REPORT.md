@@ -1,4 +1,12 @@
-# Auditoria inicial — 2026-08-22
+# Auditoria de prontidão — atualizada em 2026-08-23
+
+## Parecer de produção
+
+O código passa pelos gates automatizados locais, mas a promoção ainda é
+**condicional**. Permanecem pendências arquiteturais P0/P1 descritas abaixo e
+validações que só podem ocorrer no Supabase/Vercel de destino. O procedimento e
+os critérios bloqueantes estão em `docs/DEPLOYMENT.md`; `npm run verify` agora é
+o gate reproduzível usado também pela CI.
 
 ## Escopo
 

@@ -8,6 +8,28 @@ Antes de promover: backup, migration em staging, quatro checks de qualidade,
 smoke test anônimo/autenticado e plano de rollback. Nunca conecte uma preview ao
 banco de produção nem compartilhe chaves entre clientes.
 
+## Gate de promoção
+
+Execute `npm ci && npm run verify` no commit exato que será promovido. O comando
+único executa lint, tipos, testes, build, orçamento de bundle e uma inspeção
+estática dos artefatos, versão do Node, arquivos de ambiente rastreados e headers
+da Vercel. Ele reduz erro humano, mas não substitui os passos operacionais abaixo.
+
+Uma versão só está pronta para produção depois de registrar evidência de:
+
+- migration aplicada e testada em staging, seguida de backup restaurável;
+- URLs de redirect do Supabase Auth limitadas aos domínios reais;
+- smoke tests como anônimo, customer, professional e owner em viewport móvel;
+- criação, remarcação, cancelamento e conflito simultâneo de agendamentos;
+- upload/leitura no Storage e entrega de recuperação de senha;
+- headers conferidos na URL implantada (não apenas no arquivo `vercel.json`);
+- monitoramento de erros, responsável pelo incidente e rollback ensaiado;
+- aceite de privacidade/LGPD e política de retenção definidos pelo operador.
+
+Os itens dependentes de Supabase, Vercel, domínio e operação não podem ser
+certificados pelo repositório ou pela CI. Devem bloquear a promoção enquanto
+não houver evidência no ambiente de destino.
+
 ## Variáveis técnicas
 
 Configure separadamente nos ambientes Production, Preview e Development:
