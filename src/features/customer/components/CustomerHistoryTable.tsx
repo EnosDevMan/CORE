@@ -5,7 +5,7 @@ import { Booking } from '../../../types';
 interface CustomerHistoryTableProps {
   pastBookings: Booking[];
   getServiceName: (id: string) => string;
-  getBarberName: (id: string) => string;
+  getProfessionalName: (id: string) => string;
   formatBRL: (val: number) => string;
   getStatusBadge: (status: string) => React.ReactNode;
 }
@@ -13,7 +13,7 @@ interface CustomerHistoryTableProps {
 export const CustomerHistoryTable: React.FC<CustomerHistoryTableProps> = ({
   pastBookings,
   getServiceName,
-  getBarberName,
+  getProfessionalName,
   formatBRL,
   getStatusBadge
 }) => {
@@ -43,7 +43,7 @@ export const CustomerHistoryTable: React.FC<CustomerHistoryTableProps> = ({
                   <p className="font-extrabold text-slate-900 text-sm leading-tight truncate">{getServiceName(booking.serviceId)}</p>
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mt-1">
                     <User size={11} className="text-slate-400 shrink-0" />
-                    <span className="truncate">{getBarberName(booking.barberId)}</span>
+                    <span className="truncate">{getProfessionalName(booking.professionalId)}</span>
                   </div>
                 </div>
               </div>
@@ -67,7 +67,7 @@ export const CustomerHistoryTable: React.FC<CustomerHistoryTableProps> = ({
             <thead className="bg-slate-50 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-100">
               <tr>
                 <th className="py-3 px-6 font-bold">Serviço</th>
-                <th className="py-3 px-6 font-bold">Barbeiro</th>
+                <th className="py-3 px-6 font-bold">Profissional</th>
                 <th className="py-3 px-6 font-bold">Data / Hora</th>
                 <th className="py-3 px-6 font-bold text-right">Valor</th>
                 <th className="py-3 px-6 text-right font-bold">Status</th>
@@ -77,7 +77,7 @@ export const CustomerHistoryTable: React.FC<CustomerHistoryTableProps> = ({
               {pastBookings.map(booking => (
                 <tr key={booking.id} className="hover:bg-slate-50/50">
                   <td className="py-3.5 px-6 font-bold text-slate-900">{getServiceName(booking.serviceId)}</td>
-                  <td className="py-3.5 px-6 font-medium">{getBarberName(booking.barberId)}</td>
+                  <td className="py-3.5 px-6 font-medium">{getProfessionalName(booking.professionalId)}</td>
                   <td className="py-3.5 px-6 whitespace-nowrap">{new Date(booking.date + "T12:00:00").toLocaleDateString('pt-BR')} às {booking.time}h</td>
                   <td className="py-3.5 px-6 text-right font-bold text-slate-900">{formatBRL(booking.value)}</td>
                   <td className="py-3.5 px-6 text-right">{getStatusBadge(booking.status)}</td>

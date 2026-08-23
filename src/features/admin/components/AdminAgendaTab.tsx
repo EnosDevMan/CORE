@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Calendar as CalendarIcon, Search } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
-import { getBarbershopTodayStr } from '../../../utils/validation';
-import { getServiceName as getSharedServiceName, getBarberName as getSharedBarberName } from '../../../utils/lookups';
+import { getBusinessTodayStr } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
+import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
 import { Booking, BookingStatus } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
@@ -12,20 +13,21 @@ interface AdminAgendaTabProps {
 }
 
 export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) => {
-  const { bookings, barbers, services, updateBookingStatus } = useApp();
+  const { bookings, professionals, services, updateBookingStatus } = useApp();
+  const { profile } = useBusiness();
 
-  // Usa a data "de hoje" no fuso horário da barbearia (não o fuso do
+  // Usa a data "de hoje" no fuso horário do negócio (não o fuso do
   // dispositivo do admin), para que o filtro padrão da agenda sempre
-  // corresponda ao dia real de funcionamento da barbearia, mesmo que o
+  // corresponda ao dia real de funcionamento do estabelecimento, mesmo que o
   // administrador esteja acessando de outro fuso horário.
-  const [dateFilter, setDateFilter] = useState(getBarbershopTodayStr);
-  const [barberFilter, setBarberFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState(() => getBusinessTodayStr(profile.timezone));
+  const [professionalFilter, setProfessionalFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState<'day' | 'tomorrow' | 'week' | 'month'>('day');
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
 
-  const getBarberName = (id: string) => getSharedBarberName(barbers, id);
+  const getProfessionalName = (id: string) => getSharedProfessionalName(professionals, id);
 
   const getServiceName = (id: string) => getSharedServiceName(services, id);
 
@@ -53,11 +55,11 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
     if (period === 'month') end.setMonth(end.getMonth() + 1, 0);
     const date = new Date(`${b.date}T12:00:00`);
     const matchDate = date >= start && date <= end;
-    const matchBarber = barberFilter === 'all' || b.barberId === barberFilter;
+    const matchProfessional = professionalFilter === 'all' || b.professionalId === professionalFilter;
     const matchStatus = statusFilter === 'all' || b.status === statusFilter;
     const query = search.trim().toLocaleLowerCase('pt-BR');
     const matchSearch = !query || `${b.customerName} ${b.customerPhone} ${getServiceName(b.serviceId)}`.toLocaleLowerCase('pt-BR').includes(query);
-    return matchDate && matchBarber && matchStatus && matchSearch;
+    return matchDate && matchProfessional && matchStatus && matchSearch;
   }).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 
   return (
@@ -81,12 +83,12 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
             />
           </div>
           <select
-            value={barberFilter}
-            onChange={(e) => setBarberFilter(e.target.value)}
+            value={professionalFilter}
+            onChange={(e) => setProfessionalFilter(e.target.value)}
             className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900"
           >
             <option value="all">Todos os Profissionais</option>
-            {barbers.map(b => (
+            {professionals.map(b => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
@@ -140,7 +142,7 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
                       
                       <div className="flex flex-col sm:items-end justify-center gap-2">
                         <div className="text-sm font-bold text-slate-700 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm w-fit">
-                          👤 {getBarberName(booking.barberId)}
+                          👤 {getProfessionalName(booking.professionalId)}
                         </div>
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
                           booking.status === 'Confirmado' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :

@@ -1,8 +1,8 @@
 import React from 'react';
 import { ArrowRight, Scissors } from 'lucide-react';
-import { BarbershopConfig } from '../../../types';
+import { BusinessConfig } from '../../../types';
 
-interface HeroSectionProps { config: BarbershopConfig; onStartBooking: () => void; onOpenLogin: () => void; }
+interface HeroSectionProps { config: BusinessConfig; onStartBooking: () => void; onOpenLogin: () => void; }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ config, onStartBooking, onOpenLogin }) => (
   <section className="bg-brand-navy text-white px-4 py-14 sm:py-16 lg:py-24">

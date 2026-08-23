@@ -2,14 +2,14 @@ import { useRef, useState } from 'react';
 import { useApp } from '../../../store/useApp';
 import { Booking } from '../../../types';
 import { getErrorMessage } from '../../../utils/errors';
-import { getServiceName as getSharedServiceName, getBarberName as getSharedBarberName } from '../../../utils/lookups';
+import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
 import { formatBRL } from '../../../utils/validation';
 
 export const useCustomerDashboard = () => {
   const {
     bookings,
     services,
-    barbers,
+    professionals,
     currentUser,
     updateBookingStatus,
     confirmBookingAttendance,
@@ -43,7 +43,7 @@ export const useCustomerDashboard = () => {
     return b.time.localeCompare(a.time);
   });
 
-  const getBarberName = (id: string) => getSharedBarberName(barbers, id);
+  const getProfessionalName = (id: string) => getSharedProfessionalName(professionals, id);
 
   const getServiceName = (id: string) => getSharedServiceName(services, id);
 
@@ -84,7 +84,7 @@ export const useCustomerDashboard = () => {
       // Exclui o próprio agendamento do motor de disponibilidade. Apenas
       // recolocar o horário atual não liberava outros horários que se
       // sobrepunham a ele e divergia da validação transacional do backend.
-      const slots = await getAvailableSlots(booking.barberId, booking.serviceId, date, booking.id);
+      const slots = await getAvailableSlots(booking.professionalId, booking.serviceId, date, booking.id);
       if (requestId !== slotRequestId.current) return;
       setAvailableTimes(slots);
     } catch (err) {
@@ -144,7 +144,7 @@ export const useCustomerDashboard = () => {
     handleOpenReschedule,
     handleDateChange,
     handleConfirmReschedule,
-    getBarberName,
+    getProfessionalName,
     getServiceName,
     getServiceDuration,
     formatBRL

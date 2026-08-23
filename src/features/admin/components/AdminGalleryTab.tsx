@@ -161,7 +161,7 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
                 <span aria-hidden="true" className="absolute left-2 top-2 rounded bg-slate-900/70 p-1 text-white"><GripVertical size={14} /></span>
                 <img
                   src={photo.imageUrl}
-                  alt={photo.caption || 'Corte realizado na barbearia'}
+                  alt={photo.caption || 'Trabalho realizado pelo estabelecimento'}
                   className="w-full h-full object-cover"
                 />
               </div>

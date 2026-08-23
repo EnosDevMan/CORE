@@ -42,7 +42,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <div className="max-w-sm w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center space-y-4">
             <h1 className="text-lg font-extrabold text-slate-900">Algo deu errado</h1>
             <p className="text-sm text-slate-500">
-              Ocorreu um erro inesperado. Tente voltar para a página inicial; se o problema continuar, entre em contato com a barbearia.
+              Ocorreu um erro inesperado. Tente voltar para a página inicial; se o problema continuar, entre em contato com o estabelecimento.
             </p>
             <button
               onClick={this.handleReload}

@@ -60,30 +60,31 @@ export const minutesToTime = (minutes: number): string => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-/**
- * Fuso horário fixo da barbearia. Como este é um sistema single-tenant para
- * um único estabelecimento físico, usamos o fuso do Brasil (São Paulo) em vez
- * de confiar no fuso horário local do dispositivo do cliente/barbeiro, que
- * pode divergir (ex: cliente acessando de fora do Brasil) e gerar horários
- * de "hoje" e disponibilidade incorretos.
- */
-export const BARBERSHOP_TIMEZONE = 'America/Sao_Paulo';
+/** Fallback used only before a new installation completes onboarding. */
+export const DEFAULT_BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 
 /**
- * Retorna a data/hora atual "wall-clock" no fuso horário da barbearia,
+ * Retorna a data/hora atual "wall-clock" no fuso horário do negócio,
  * independentemente do fuso horário do dispositivo do usuário.
  */
-export const getBarbershopNow = (): { dateStr: string; hours: number; minutes: number } => {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: BARBERSHOP_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(now);
+export const getBusinessNow = (
+  timeZone: string,
+  now = new Date(),
+): { dateStr: string; hours: number; minutes: number } => {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+  } catch {
+    throw new Error(`Fuso horário inválido: ${timeZone}.`);
+  }
 
   const map: Record<string, string> = {};
   for (const part of parts) {
@@ -97,8 +98,8 @@ export const getBarbershopNow = (): { dateStr: string; hours: number; minutes: n
   };
 };
 
-/** Retorna a data de hoje (YYYY-MM-DD) no fuso horário da barbearia. */
-export const getBarbershopTodayStr = (): string => getBarbershopNow().dateStr;
+/** Retorna a data de hoje (YYYY-MM-DD) no fuso horário do negócio. */
+export const getBusinessTodayStr = (timeZone: string): string => getBusinessNow(timeZone).dateStr;
 
 /** Retorna o dia da semana de uma data ISO sem depender do fuso do navegador. */
 export const getWeekdayFromISODate = (date: string): number | null => {
@@ -120,8 +121,8 @@ export const getWeekdayFromISODate = (date: string): number | null => {
  * Retorna a última data (YYYY-MM-DD) que o cliente pode selecionar no
  * agendamento, respeitando a quantidade configurada pelo administrador.
  */
-export const getBarbershopMaxBookingDateStr = (bookingWindowDays: number): string => {
-  const { dateStr } = getBarbershopNow();
+export const getBusinessMaxBookingDateStr = (bookingWindowDays: number, timeZone: string, now = new Date()): string => {
+  const { dateStr } = getBusinessNow(timeZone, now);
   const [y, m, d] = dateStr.split('-').map(Number);
   // Usa Date.UTC para somar dias sem risco de bugs de fuso/horário de verão.
   const max = new Date(Date.UTC(y, m - 1, d));

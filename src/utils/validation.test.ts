@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { timeToMinutes, minutesToTime, formatBRL, validateEmail, validatePhoneBR, summarizeWorkingDays, summarizeWeeklySchedule, getWeekdayFromISODate } from './validation';
+import { timeToMinutes, minutesToTime, formatBRL, validateEmail, validatePhoneBR, summarizeWorkingDays, summarizeWeeklySchedule, getWeekdayFromISODate, getBusinessNow, getBusinessMaxBookingDateStr } from './validation';
 
 describe('Validation Utils', () => {
   it('should correctly convert time to minutes', () => {
@@ -14,6 +14,23 @@ describe('Validation Utils', () => {
     expect(minutesToTime(90)).toBe('01:30');
     expect(minutesToTime(720)).toBe('12:00');
     expect(minutesToTime(1439)).toBe('23:59');
+  });
+});
+
+describe('business timezone', () => {
+  const instant = new Date('2026-08-22T01:30:00.000Z');
+
+  it('resolves the business calendar day independently from the device timezone', () => {
+    expect(getBusinessNow('America/Sao_Paulo', instant).dateStr).toBe('2026-08-21');
+    expect(getBusinessNow('Europe/Lisbon', instant).dateStr).toBe('2026-08-22');
+  });
+
+  it('rejects invalid IANA timezone configuration', () => {
+    expect(() => getBusinessNow('Invalid/Timezone', instant)).toThrow(/Fuso horário inválido/);
+  });
+
+  it('calculates the booking horizon from the business calendar day', () => {
+    expect(getBusinessMaxBookingDateStr(3, 'America/Sao_Paulo', instant)).toBe('2026-08-23');
   });
 });
 

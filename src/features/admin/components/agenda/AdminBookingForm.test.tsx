@@ -11,7 +11,7 @@ describe('AdminBookingForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useApp).mockReturnValue({
-      barbers: [{ id: 'barber-1', name: 'Paulo', active: true }],
+      professionals: [{ id: 'barber-1', name: 'Paulo', active: true }],
       services: [{ id: 'service-1', name: 'Corte', duration: 30, price: 40 }],
       isSlotAvailable: vi.fn(() => true),
       addBooking,

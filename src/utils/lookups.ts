@@ -1,4 +1,4 @@
-import { Service, Barber } from '../types';
+import { Service, Professional } from '../types';
 
 /**
  * Resolve o nome de um ou mais serviços a partir do `serviceId` gravado no
@@ -6,7 +6,7 @@ import { Service, Barber } from '../types';
  * quando o cliente seleciona mais de um serviço).
  *
  * Esta lógica estava duplicada, com pequenas variações, em
- * useAdminDashboard, useCustomerDashboard, useBarberDashboard e
+ * useAdminDashboard, useCustomerDashboard, useProfessionalDashboard e
  * AdminAgendaTab. Centralizada aqui (DRY) — qualquer ajuste futuro no
  * critério de exibição só precisa ser feito em um lugar.
  */
@@ -19,7 +19,7 @@ export function getServiceName(services: Service[], id: string): string {
   return names.length ? names.join(' + ') : 'Desconhecido';
 }
 
-/** Resolve o nome de um barbeiro pelo id. Mesma duplicação de getServiceName. */
-export function getBarberName(barbers: Barber[], id: string): string {
-  return barbers.find(b => b.id === id)?.name || 'Desconhecido';
+/** Resolve o nome de um profissional pelo id. Mesma duplicação de getServiceName. */
+export function getProfessionalName(professionals: Professional[], id: string): string {
+  return professionals.find(professional => professional.id === id)?.name || 'Desconhecido';
 }

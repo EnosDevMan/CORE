@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Phone, Mail, Calendar as CalendarIcon, Search } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
+import { isCustomerRole } from '../../../auth/authorization';
 
 interface AdminClientsTabProps {
   formatBRL: (value: number) => string;
@@ -10,7 +11,7 @@ export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) =
   const { users, bookings } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const clientsList = users.filter(u => u.role === 'customer');
+  const clientsList = users.filter(u => isCustomerRole(u.role));
 
   const filteredClients = clientsList.filter(client => 
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) || 

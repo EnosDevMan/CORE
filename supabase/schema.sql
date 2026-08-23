@@ -1,8 +1,8 @@
 -- ============================================================================
--- Barbearia Paulo Gledson — schema.sql (consolidado)
+-- CORE Universal de Agendamento — schema.sql consolidado
 -- ============================================================================
--- Este arquivo substitui, para um PROJETO NOVO/VAZIO, a execução em
--- sequência de:
+-- Este arquivo é a única fonte necessária para um PROJETO NOVO/VAZIO e
+-- substitui a execução sequencial das migrations históricas, incluindo:
 --   0001_initial_schema.sql
 --   0002_create_booking_rpc.sql
 --   0003_storage_avatars.sql
@@ -16,7 +16,7 @@
 --   0011_single_admin_pix_key.sql
 --   0012_serialize_booking_rate_limits.sql
 --
--- Não é uma concatenação: é o ESTADO FINAL depois das 12 migrations —
+-- Ele representa o ESTADO FINAL do banco —
 -- funções que foram substituídas (create_booking, reschedule_booking)
 -- aparecem aqui só na versão final; policies/triggers adicionados depois
 -- (ex: as de DELETE) já nascem junto com as demais da mesma tabela; e todo
@@ -25,11 +25,11 @@
 -- havia CREATE) foi removido, por não fazer sentido numa criação do zero.
 --
 -- ⚠️ USO: rode este arquivo INTEIRO, uma única vez, num banco Supabase
--- VAZIO (projeto novo). Se seu projeto já rodou as 12 migrations acima,
+-- VAZIO (projeto novo). Se seu projeto já possui schema/migrations aplicados,
 -- NÃO rode este arquivo nele — as tabelas/tipos já existem e todo `create
 -- table`/`create type` vai falhar com "already exists". Neste caso os dois
--- caminhos já levam exatamente ao mesmo estado final; use este arquivo
--- apenas como referência de schema, ou para provisionar um projeto novo.
+-- use somente as novas migrations incrementais. Nunca execute schema e depois
+-- migrations no mesmo banco novo.
 --
 -- Todas as funções `security definer` usam `set search_path = public,
 -- pg_temp`, inclusive as funções anteriores à migration 0010. É uma
@@ -58,7 +58,7 @@ create extension if not exists "pgcrypto";
 -- ============================================================================
 -- 2. TYPES
 -- ============================================================================
-create type user_role as enum ('admin', 'barber', 'customer');
+create type user_role as enum ('owner', 'manager', 'receptionist', 'professional', 'customer');
 
 create type booking_status as enum (
   'Aguardando pagamento', 'Confirmado', 'Em atendimento',
@@ -76,7 +76,7 @@ create type block_type as enum ('block', 'offday', 'vacation', 'special');
 --     via trigger `handle_new_user` (ver seção FUNCTIONS/TRIGGERS).
 --   * "single-tenant": existe apenas 1 barbearia por projeto Supabase, por
 --     isso `barbershop_config` tem sempre uma única linha (id fixo `true`).
---   * `profiles.profile_id` (aponta para barbers.id quando role='barber') é
+--   * `profiles.profile_id` (aponta para barbers.id quando role='professional') é
 --     uma referência lógica, não uma foreign key de verdade — mantido
 --     assim de propósito, igual ao schema original.
 
@@ -90,7 +90,7 @@ create table profiles (
   role user_role not null default 'customer',
   phone text,
   avatar text,
-  profile_id uuid, -- aponta para barbers.id quando role = 'barber'
+  profile_id uuid, -- aponta para barbers.id quando role = 'professional'
   created_at timestamptz not null default now()
 );
 
@@ -231,7 +231,7 @@ begin
   if auth.uid() is null and new.customer_id is not null then
     raise exception 'Agendamentos de convidados devem usar customer_id nulo.';
   end if;
-  if auth.uid() is not null and auth_role() <> 'admin'
+  if auth.uid() is not null and auth_role() <> 'owner'
      and new.customer_id is distinct from auth.uid() then
     raise exception 'Não é possível criar um agendamento em nome de outro usuário.';
   end if;
@@ -240,7 +240,7 @@ end;
 $$ language plpgsql security definer set search_path = public, pg_temp;
 
 -- Cria automaticamente um profile 'customer' quando um usuário se cadastra.
--- Promover para 'admin'/'barber' é feito manualmente (painel admin ou SQL),
+-- Promover para 'owner'/'professional' é feito manualmente (painel admin ou SQL),
 -- nunca pelo próprio cadastro público.
 create function handle_new_user()
 returns trigger as $$
@@ -254,13 +254,13 @@ $$ language plpgsql security definer set search_path = public, pg_temp;
 -- Impede que um usuário não-admin altere seu próprio `role` ou
 -- `profile_id` através de um UPDATE em `profiles` (ex: chamando a REST API
 -- do Supabase diretamente, fora da UI). Sem isto, a policy de UPDATE
--- (`auth.uid() = id or auth_role() = 'admin'`) sozinha permite que
+-- (`auth.uid() = id or auth_role() = 'owner'`) sozinha permite que
 -- qualquer cliente autenticado se autopromova a admin, já que "sou dono da
 -- própria linha" continua verdadeiro mesmo depois de trocar o `role`.
 create function prevent_profile_privilege_escalation()
 returns trigger as $$
 begin
-  if auth_role() <> 'admin' then
+  if auth_role() <> 'owner' then
     if new.role <> old.role then
       raise exception 'Apenas administradores podem alterar o papel (role) de um usuário.';
     end if;
@@ -287,11 +287,11 @@ declare
 begin
   v_actor_role := auth_role();
 
-  if v_actor_role = 'admin' then
+  if v_actor_role = 'owner' then
     return new;
   end if;
 
-  if v_actor_role = 'barber' then
+  if v_actor_role = 'professional' then
     select profile_id into v_actor_profile_id from profiles where id = auth.uid();
     if v_actor_profile_id is not null and old.barber_id = v_actor_profile_id then
       return new;
@@ -388,10 +388,10 @@ begin
     raise exception 'Telefone inválido. Informe DDD e número.';
   end if;
 
-  -- `auth_role() <> 'admin'` resulta em NULL para visitantes anônimos nas
+  -- `auth_role() <> 'owner'` resulta em NULL para visitantes anônimos nas
   -- versões anteriores da RPC e, em PL/pgSQL, o IF não era executado. Use
   -- IS DISTINCT FROM para que o rate limit cubra convidados de verdade.
-  if tg_op = 'INSERT' and v_actor_role is distinct from 'admin' then
+  if tg_op = 'INSERT' and v_actor_role is distinct from 'owner' then
     -- O lock por telefone deve vir antes das contagens e permanecer até o fim
     -- da transação. Assim, inserts concorrentes para barbeiros/datas diferentes
     -- não observam a mesma contagem antes de gravarem seus agendamentos.
@@ -444,7 +444,7 @@ begin
     raise exception 'Profissional inválido ou indisponível.';
   end if;
 
-  if v_actor_role is distinct from 'admin' then
+  if v_actor_role is distinct from 'owner' then
     if new.date < v_today or new.date > v_today + (v_booking_window_days - 1) then
       raise exception 'A data deve estar dentro da janela pública de agendamento.';
     end if;
@@ -572,7 +572,7 @@ $$;
 create function protect_barber_updates()
 returns trigger as $$
 begin
-  if auth_role() = 'admin' then
+  if auth_role() = 'owner' then
     return new;
   end if;
 
@@ -651,11 +651,11 @@ declare
   v_recent_count int;
   v_new_booking bookings;
 begin
-  if auth_role() <> 'admin' and auth.uid() is not null and p_customer_id is distinct from auth.uid() then
+  if auth_role() <> 'owner' and auth.uid() is not null and p_customer_id is distinct from auth.uid() then
     raise exception 'Não é possível criar um agendamento em nome de outro usuário.';
   end if;
 
-  if auth_role() <> 'admin' then
+  if auth_role() <> 'owner' then
     select count(*) into v_pending_count
     from bookings
     where regexp_replace(customer_phone, '\D', '', 'g') = regexp_replace(p_customer_phone, '\D', '', 'g')
@@ -791,8 +791,8 @@ begin
 
   if not (
     auth.uid() = v_booking.customer_id
-    or v_actor_role = 'admin'
-    or (v_actor_role = 'barber' and v_booking.barber_id = (select profile_id from profiles where id = auth.uid()))
+    or v_actor_role = 'owner'
+    or (v_actor_role = 'professional' and v_booking.barber_id = (select profile_id from profiles where id = auth.uid()))
   ) then
     raise exception 'Você não tem permissão para reagendar este agendamento.';
   end if;
@@ -924,13 +924,13 @@ create policy "avatars_public_read" on storage.objects for select
   using (bucket_id = 'avatars');
 
 create policy "avatars_admin_write" on storage.objects for insert
-  with check (bucket_id = 'avatars' and auth_role() = 'admin');
+  with check (bucket_id = 'avatars' and auth_role() = 'owner');
 
 create policy "avatars_admin_update" on storage.objects for update
-  using (bucket_id = 'avatars' and auth_role() = 'admin');
+  using (bucket_id = 'avatars' and auth_role() = 'owner');
 
 create policy "avatars_admin_delete" on storage.objects for delete
-  using (bucket_id = 'avatars' and auth_role() = 'admin');
+  using (bucket_id = 'avatars' and auth_role() = 'owner');
 
 -- Bucket para a galeria de cortes (home page): mesmo padrão do 'avatars'.
 insert into storage.buckets (id, name, public)
@@ -941,13 +941,13 @@ create policy "gallery_public_read" on storage.objects for select
   using (bucket_id = 'gallery');
 
 create policy "gallery_admin_write" on storage.objects for insert
-  with check (bucket_id = 'gallery' and auth_role() = 'admin');
+  with check (bucket_id = 'gallery' and auth_role() = 'owner');
 
 create policy "gallery_admin_update" on storage.objects for update
-  using (bucket_id = 'gallery' and auth_role() = 'admin');
+  using (bucket_id = 'gallery' and auth_role() = 'owner');
 
 create policy "gallery_admin_delete" on storage.objects for delete
-  using (bucket_id = 'gallery' and auth_role() = 'admin');
+  using (bucket_id = 'gallery' and auth_role() = 'owner');
 
 
 -- A validação do navegador é apenas UX; o Storage também limita tamanho e MIME.
@@ -960,18 +960,18 @@ where id in ('avatars', 'gallery');
 create policy "avatars_barber_insert_own" on storage.objects for insert
   with check (
     bucket_id = 'avatars'
-    and auth_role() = 'barber'
+    and auth_role() = 'professional'
     and name like 'barbers/' || (select profile_id::text from profiles where id = auth.uid()) || '-%'
   );
 create policy "avatars_barber_update_own" on storage.objects for update
   using (
     bucket_id = 'avatars'
-    and auth_role() = 'barber'
+    and auth_role() = 'professional'
     and name like 'barbers/' || (select profile_id::text from profiles where id = auth.uid()) || '-%'
   )
   with check (
     bucket_id = 'avatars'
-    and auth_role() = 'barber'
+    and auth_role() = 'professional'
     and name like 'barbers/' || (select profile_id::text from profiles where id = auth.uid()) || '-%'
   );
 
@@ -992,25 +992,25 @@ alter table gallery_photos enable row level security;
 -- bloqueada pelo trigger `profiles_prevent_privilege_escalation`, não por
 -- esta policy — ver seção FUNCTIONS/TRIGGERS.)
 create policy "profiles_select_own_or_admin" on profiles for select
-  using (auth.uid() = id or auth_role() = 'admin');
+  using (auth.uid() = id or auth_role() = 'owner');
 create policy "profiles_insert_admin" on profiles for insert
-  with check (auth_role() = 'admin');
+  with check (auth_role() = 'owner');
 create policy "profiles_update_own_or_admin" on profiles for update
-  using (auth.uid() = id or auth_role() = 'admin');
+  using (auth.uid() = id or auth_role() = 'owner');
 create policy "profiles_delete_admin" on profiles for delete
-  using (auth_role() = 'admin');
+  using (auth_role() = 'owner');
 
 -- barbershop_config: leitura pública (site institucional), escrita só admin.
 create policy "config_select_public" on barbershop_config for select using (true);
 create policy "config_update_admin" on barbershop_config for update
-  using (auth_role() = 'admin');
+  using (auth_role() = 'owner');
 
 -- barbers: leitura pública, escrita só admin (exceto o próprio barbeiro,
 -- que pode atualizar seu nome/foto/especialidade/descrição — ver policy
 -- abaixo e a trigger protect_barber_updates, que bloqueia campos sensíveis).
 create policy "barbers_select_public" on barbers for select using (true);
 create policy "barbers_write_admin" on barbers for all
-  using (auth_role() = 'admin') with check (auth_role() = 'admin');
+  using (auth_role() = 'owner') with check (auth_role() = 'owner');
 create policy "barbers_update_own" on barbers for update
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
@@ -1018,7 +1018,7 @@ create policy "barbers_update_own" on barbers for update
 -- services: leitura pública, escrita só admin.
 create policy "services_select_public" on services for select using (true);
 create policy "services_write_admin" on services for all
-  using (auth_role() = 'admin') with check (auth_role() = 'admin');
+  using (auth_role() = 'owner') with check (auth_role() = 'owner');
 
 -- bookings: cliente vê/cancela os seus; barbeiro vê e gerencia os da
 -- própria agenda; admin vê/edita/exclui tudo. (a restrição de QUAIS campos
@@ -1027,31 +1027,31 @@ create policy "services_write_admin" on services for all
 create policy "bookings_select_own_barber_or_admin" on bookings for select
   using (
     auth.uid() = customer_id
-    or auth_role() = 'admin'
-    or (auth_role() = 'barber' and barber_id = (select profile_id from profiles where id = auth.uid()))
+    or auth_role() = 'owner'
+    or (auth_role() = 'professional' and barber_id = (select profile_id from profiles where id = auth.uid()))
   );
 create policy "bookings_insert_admin_only" on bookings for insert
-  with check (auth_role() = 'admin');
+  with check (auth_role() = 'owner');
 create policy "bookings_update_own_barber_or_admin" on bookings for update
   using (
     auth.uid() = customer_id
-    or auth_role() = 'admin'
-    or (auth_role() = 'barber' and barber_id = (select profile_id from profiles where id = auth.uid()))
+    or auth_role() = 'owner'
+    or (auth_role() = 'professional' and barber_id = (select profile_id from profiles where id = auth.uid()))
   );
 create policy "bookings_delete_admin" on bookings for delete
-  using (auth_role() = 'admin');
+  using (auth_role() = 'owner');
 
 -- schedule_blocks: leitura pública (para calcular disponibilidade), escrita
 -- por admin ou pelo próprio barbeiro (bloqueios da própria agenda).
 create policy "blocks_select_public" on schedule_blocks for select using (true);
 create policy "blocks_write_admin_or_own_barber" on schedule_blocks for all
-  using (auth_role() = 'admin' or barber_id = (select profile_id::text from profiles where id = auth.uid()))
-  with check (auth_role() = 'admin' or barber_id = (select profile_id::text from profiles where id = auth.uid()));
+  using (auth_role() = 'owner' or barber_id = (select profile_id::text from profiles where id = auth.uid()))
+  with check (auth_role() = 'owner' or barber_id = (select profile_id::text from profiles where id = auth.uid()));
 
 -- gallery_photos: leitura pública (aparece na home), escrita só admin.
 create policy "gallery_photos_select_public" on gallery_photos for select using (true);
 create policy "gallery_photos_write_admin" on gallery_photos for all
-  using (auth_role() = 'admin') with check (auth_role() = 'admin');
+  using (auth_role() = 'owner') with check (auth_role() = 'owner');
 
 
 -- ============================================================================
@@ -1068,5 +1068,581 @@ grant execute on function create_booking(
 -- convidado não tem uma agenda própria para reagendar por conta própria.
 revoke all on function reschedule_booking(uuid, date, time) from public, anon;
 grant execute on function reschedule_booking(uuid, date, time) to authenticated;
+
+
+-- ============================================================================
+-- 10. UNIVERSAL CORE (consolidated final state)
+-- ============================================================================
+-- Migrations remain available only for existing installations. New projects
+-- execute this schema once and must not replay the migrations afterward.
+
+-- Universal, single-installation business configuration. This migration is
+-- additive so existing barbershop installations can migrate without downtime.
+create type public.business_niche as enum ('barbershop', 'beauty_salon', 'nail_studio', 'pet_shop');
+
+create table public.business_profile (
+  id boolean primary key default true constraint business_profile_singleton check (id),
+  business_name text not null,
+  description text,
+  logo_url text,
+  cover_url text,
+  favicon_url text,
+  phone text,
+  whatsapp text,
+  email text,
+  instagram text,
+  facebook text,
+  website text,
+  address jsonb not null default '{}'::jsonb,
+  timezone text not null default 'America/Sao_Paulo',
+  currency char(3) not null default 'BRL',
+  locale text not null default 'pt-BR',
+  niche_id public.business_niche not null,
+  theme_id text not null default 'minimal_light',
+  onboarding_completed boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.feature_settings (
+  capability text primary key check (capability ~ '^[a-z][a-z0-9_]*$'),
+  enabled boolean not null default false,
+  configuration jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+create table public.booking_settings (
+  id boolean primary key default true constraint booking_settings_singleton check (id),
+  interval_minutes integer not null default 30 check (interval_minutes between 5 and 480),
+  booking_window_days integer not null default 30 check (booking_window_days between 1 and 365),
+  minimum_notice_minutes integer not null default 0 check (minimum_notice_minutes >= 0),
+  cancellation_notice_minutes integer not null default 0 check (cancellation_notice_minutes >= 0),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.business_profile enable row level security;
+alter table public.feature_settings enable row level security;
+alter table public.booking_settings enable row level security;
+
+create policy business_profile_public_read on public.business_profile for select using (true);
+create policy business_profile_admin_write on public.business_profile for all
+  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy feature_settings_public_read on public.feature_settings for select using (true);
+create policy feature_settings_admin_write on public.feature_settings for all
+  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy booking_settings_public_read on public.booking_settings for select using (true);
+create policy booking_settings_admin_write on public.booking_settings for all
+  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+
+comment on table public.business_profile is 'Singleton identity of this independent installation.';
+comment on table public.feature_settings is 'Central capability switches; billing is intentionally out of scope.';
+
+-- P0: snapshot appointment duration and enforce non-overlap in PostgreSQL.
+-- The legacy date/time/service_id columns remain during the compatibility
+-- window, but are no longer the database's source of truth for conflicts.
+create extension if not exists btree_gist;
+
+alter table public.bookings
+  add column starts_at timestamptz,
+  add column ends_at timestamptz,
+  add column duration_minutes integer;
+
+create table public.booking_services (
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  service_id uuid not null references public.services(id) on delete restrict,
+  position smallint not null check (position >= 0),
+  name_snapshot text not null,
+  duration_minutes integer not null check (duration_minutes > 0),
+  price_snapshot numeric(10,2) not null check (price_snapshot >= 0),
+  primary key (booking_id, service_id),
+  unique (booking_id, position)
+);
+
+create index booking_services_service_idx on public.booking_services(service_id);
+alter table public.booking_services enable row level security;
+
+create policy booking_services_select_with_booking on public.booking_services
+for select using (
+  exists (select 1 from public.bookings b where b.id = booking_id)
+);
+create policy booking_services_admin_write on public.booking_services
+for all using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+
+create or replace function public.snapshot_booking_interval()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_duration integer;
+  v_timezone text;
+begin
+  if tg_op = 'UPDATE'
+     and old.starts_at is not null
+     and old.ends_at is not null
+     and old.duration_minutes is not null
+     and new.date is not distinct from old.date
+     and new.time is not distinct from old.time
+     and new.service_id is not distinct from old.service_id then
+    return new;
+  end if;
+
+  select coalesce(sum(s.duration), 0)::integer into v_duration
+  from public.services s
+  where s.id::text = any(string_to_array(new.service_id, ','));
+
+  if v_duration <= 0 then
+    raise exception using errcode = '23514', message = 'Agendamento sem serviço válido.';
+  end if;
+
+  select coalesce(
+    (select bp.timezone from public.business_profile bp where bp.id = true),
+    'America/Sao_Paulo'
+  ) into v_timezone;
+
+  new.duration_minutes := v_duration;
+  new.starts_at := (new.date + new.time) at time zone v_timezone;
+  new.ends_at := new.starts_at + make_interval(mins => v_duration);
+  return new;
+end;
+$$;
+
+create trigger bookings_snapshot_interval
+before insert or update of date, time, service_id on public.bookings
+for each row execute function public.snapshot_booking_interval();
+
+-- Invokes the trigger for all legacy records and intentionally aborts when a
+-- booking references no valid service. Bad data must be corrected, not hidden.
+-- The existing privilege trigger rejects maintenance UPDATEs without an Auth
+-- session, so it is disabled only for this transactional backfill.
+alter table public.bookings disable trigger bookings_protect_updates;
+update public.bookings set service_id = service_id;
+alter table public.bookings enable trigger bookings_protect_updates;
+
+alter table public.bookings
+  alter column starts_at set not null,
+  alter column ends_at set not null,
+  alter column duration_minutes set not null,
+  add constraint bookings_positive_interval check (
+    duration_minutes > 0 and ends_at > starts_at
+  );
+
+-- This is the definitive double-booking barrier. Concurrent transactions can
+-- no longer insert overlapping active appointments for one professional.
+alter table public.bookings add constraint bookings_no_professional_overlap
+exclude using gist (
+  barber_id with =,
+  tstzrange(starts_at, ends_at, '[)') with &&
+)
+where (status <> 'Cancelado');
+
+create or replace function public.sync_booking_service_items()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  delete from public.booking_services where booking_id = new.id;
+
+  insert into public.booking_services (
+    booking_id, service_id, position, name_snapshot, duration_minutes, price_snapshot
+  )
+  select new.id, s.id, requested.ordinality - 1, s.name, s.duration, s.price
+  from unnest(string_to_array(new.service_id, ',')) with ordinality requested(id, ordinality)
+  join public.services s on s.id::text = trim(requested.id)
+  order by requested.ordinality;
+
+  return new;
+end;
+$$;
+
+create trigger bookings_sync_service_items
+after insert or update of service_id on public.bookings
+for each row execute function public.sync_booking_service_items();
+
+-- Backfill normalized service lines after installing the synchronization trigger.
+insert into public.booking_services (
+  booking_id, service_id, position, name_snapshot, duration_minutes, price_snapshot
+)
+select b.id, s.id, requested.ordinality - 1, s.name, s.duration, s.price
+from public.bookings b
+cross join lateral unnest(string_to_array(b.service_id, ','))
+  with ordinality requested(id, ordinality)
+join public.services s on s.id::text = trim(requested.id)
+order by b.id, requested.ordinality;
+
+comment on column public.bookings.starts_at is 'Immutable scheduling instant snapshot in UTC.';
+comment on column public.bookings.duration_minutes is 'Service duration snapshot used by conflict enforcement.';
+comment on table public.booking_services is 'Normalized service lines with historical name/duration/price snapshots.';
+
+-- P0: safe, one-time owner bootstrap and atomic installation onboarding.
+create table public.installation_owners (
+  user_id uuid primary key references public.profiles(id) on delete restrict,
+  claimed_at timestamptz not null default now()
+);
+alter table public.installation_owners enable row level security;
+comment on table public.installation_owners is 'Internal bootstrap lock and canonical installation owner; no direct API policies.';
+
+create or replace function public.auth_role()
+returns public.user_role
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select case
+    when exists(select 1 from public.installation_owners where user_id = auth.uid()) then 'owner'::public.user_role
+    else (select role from public.profiles where id = auth.uid())
+  end;
+$$;
+
+create or replace function public.get_onboarding_state()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select jsonb_build_object(
+    'completed', coalesce((select onboarding_completed from public.business_profile where id = true), false),
+    'ownerExists', exists(select 1 from public.installation_owners)
+      or exists(select 1 from public.profiles where role = 'owner')
+  );
+$$;
+
+create or replace function public.claim_first_owner()
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_profile public.profiles;
+begin
+  if auth.uid() is null then
+    raise exception using errcode = '42501', message = 'Autenticação obrigatória.';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('core:first-owner', 0));
+
+  if exists (select 1 from public.installation_owners)
+     or exists (select 1 from public.profiles where role = 'owner') then
+    raise exception using errcode = '42501', message = 'O proprietário inicial já foi definido.';
+  end if;
+
+  insert into public.installation_owners(user_id) values (auth.uid());
+
+  update public.profiles
+  set role = 'owner'
+  where id = auth.uid()
+  returning * into v_profile;
+
+  if v_profile.id is null then
+    raise exception using errcode = '42501', message = 'Perfil autenticado não encontrado.';
+  end if;
+
+  return v_profile;
+end;
+$$;
+
+create or replace function public.complete_business_onboarding(
+  p_business_name text,
+  p_niche_id public.business_niche,
+  p_theme_id text,
+  p_phone text default null,
+  p_address text default null,
+  p_capabilities text[] default array[]::text[]
+) returns public.business_profile
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_profile public.business_profile;
+  v_capability text;
+begin
+  if public.auth_role() <> 'owner' then
+    raise exception using errcode = '42501', message = 'Somente o proprietário pode concluir a configuração inicial.';
+  end if;
+  if length(trim(p_business_name)) < 2 then
+    raise exception using errcode = '23514', message = 'Informe um nome de negócio válido.';
+  end if;
+  if p_theme_id !~ '^[a-z][a-z0-9_]*$' then
+    raise exception using errcode = '23514', message = 'Tema inválido.';
+  end if;
+  if exists (
+    select 1 from unnest(p_capabilities) capability
+    where capability !~ '^[a-z][a-z0-9_]*$'
+  ) then
+    raise exception using errcode = '23514', message = 'Capability inválida.';
+  end if;
+
+  insert into public.business_profile (
+    id, business_name, phone, address, niche_id, theme_id, onboarding_completed
+  ) values (
+    true, trim(p_business_name), nullif(trim(p_phone), ''),
+    case when nullif(trim(p_address), '') is null then '{}'::jsonb else jsonb_build_object('formatted', trim(p_address)) end,
+    p_niche_id, p_theme_id, true
+  )
+  on conflict (id) do update set
+    business_name = excluded.business_name,
+    phone = excluded.phone,
+    address = excluded.address,
+    niche_id = excluded.niche_id,
+    theme_id = excluded.theme_id,
+    onboarding_completed = true,
+    updated_at = now()
+  returning * into v_profile;
+
+  delete from public.feature_settings;
+  foreach v_capability in array p_capabilities loop
+    insert into public.feature_settings (capability, enabled)
+    values (v_capability, true)
+    on conflict (capability) do update set enabled = true, updated_at = now();
+  end loop;
+
+  -- Compatibility bridge while the old UI still reads barbershop_config.
+  update public.barbershop_config set
+    name = v_profile.business_name,
+    phone = coalesce(v_profile.phone, ''),
+    address = coalesce(v_profile.address->>'formatted', ''),
+    updated_at = now()
+  where id = true;
+
+  insert into public.booking_settings (id) values (true)
+  on conflict (id) do nothing;
+
+  return v_profile;
+end;
+$$;
+
+revoke all on function public.claim_first_owner() from public, anon;
+grant execute on function public.claim_first_owner() to authenticated;
+revoke all on function public.get_onboarding_state() from public, anon;
+grant execute on function public.get_onboarding_state() to authenticated;
+revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) from public, anon;
+grant execute on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) to authenticated;
+
+-- P1: generic professional boundary and optional Pet Shop entities.
+create or replace view public.professionals
+with (security_invoker = true)
+as
+select id, name, avatar, specialty, active, working_hours, description,
+       "order", user_id, created_at
+from public.barbers;
+
+comment on view public.professionals is 'Generic API name over the legacy barbers table during its migration window.';
+grant select on public.professionals to anon, authenticated;
+grant insert, update, delete on public.professionals to authenticated;
+
+create or replace function public.capability_enabled(p_capability text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select coalesce((
+    select enabled from public.feature_settings where capability = p_capability
+  ), false);
+$$;
+
+create table public.pets (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 80),
+  species text not null check (length(trim(species)) between 2 and 40),
+  breed text check (breed is null or length(trim(breed)) between 2 and 80),
+  size text check (size is null or size in ('small', 'medium', 'large')),
+  birth_date date check (birth_date is null or birth_date <= current_date),
+  sex text check (sex is null or sex in ('female', 'male', 'unknown')),
+  restrictions text check (restrictions is null or length(restrictions) <= 1000),
+  behavior_notes text check (behavior_notes is null or length(behavior_notes) <= 1000),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.pet_notes (
+  id uuid primary key default gen_random_uuid(),
+  pet_id uuid not null references public.pets(id) on delete cascade,
+  author_id uuid references public.profiles(id) on delete set null,
+  note text not null check (length(trim(note)) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create table public.booking_pets (
+  booking_id uuid primary key references public.bookings(id) on delete cascade,
+  pet_id uuid not null references public.pets(id) on delete restrict
+);
+
+create index pets_owner_active_idx on public.pets(owner_id, active);
+create index pet_notes_pet_created_idx on public.pet_notes(pet_id, created_at desc);
+create index booking_pets_pet_idx on public.booking_pets(pet_id);
+
+alter table public.pets enable row level security;
+alter table public.pet_notes enable row level security;
+alter table public.booking_pets enable row level security;
+
+create policy pets_owner_or_admin_read on public.pets for select
+using (owner_id = auth.uid() or public.auth_role() = 'owner');
+create policy pets_owner_or_admin_insert on public.pets for insert
+with check (
+  public.capability_enabled('pets')
+  and (owner_id = auth.uid() or public.auth_role() = 'owner')
+);
+create policy pets_owner_or_admin_update on public.pets for update
+using (owner_id = auth.uid() or public.auth_role() = 'owner')
+with check (
+  public.capability_enabled('pets')
+  and (owner_id = auth.uid() or public.auth_role() = 'owner')
+);
+create policy pets_admin_delete on public.pets for delete
+using (public.auth_role() = 'owner');
+
+create policy pet_notes_related_read on public.pet_notes for select
+using (
+  public.auth_role() = 'owner'
+  or exists (select 1 from public.pets p where p.id = pet_id and p.owner_id = auth.uid())
+  or exists (
+    select 1 from public.booking_pets bp
+    join public.bookings b on b.id = bp.booking_id
+    where bp.pet_id = pet_id
+      and public.auth_role() = 'professional'
+      and b.barber_id = (select profile_id from public.profiles where id = auth.uid())
+  )
+);
+create policy pet_notes_staff_write on public.pet_notes for insert
+with check (
+  public.capability_enabled('pets')
+  and author_id = auth.uid()
+  and public.auth_role() in ('owner', 'professional')
+);
+create policy pet_notes_admin_change on public.pet_notes for update
+using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy pet_notes_admin_delete on public.pet_notes for delete
+using (public.auth_role() = 'owner');
+
+create policy booking_pets_related_read on public.booking_pets for select
+using (exists (select 1 from public.bookings b where b.id = booking_id));
+create policy booking_pets_admin_write on public.booking_pets for all
+using (public.auth_role() = 'owner')
+with check (public.auth_role() = 'owner' and public.capability_enabled('pets'));
+
+grant select, insert, update, delete on public.pets to authenticated;
+grant select, insert, update, delete on public.pet_notes to authenticated;
+grant select, insert, update, delete on public.booking_pets to authenticated;
+revoke all on function public.capability_enabled(text) from public;
+grant execute on function public.capability_enabled(text) to anon, authenticated;
+
+-- P1: complete onboarding with hours, starter services, team and booking rules.
+revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) from public, anon, authenticated;
+drop function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]);
+
+create function public.complete_business_onboarding(
+  p_business_name text,
+  p_niche_id public.business_niche,
+  p_theme_id text,
+  p_phone text,
+  p_address text,
+  p_capabilities text[],
+  p_business_hours jsonb,
+  p_services jsonb,
+  p_professionals jsonb,
+  p_interval_minutes integer,
+  p_booking_window_days integer
+) returns public.business_profile
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_profile public.business_profile;
+  v_capability text;
+  v_service record;
+  v_professional record;
+begin
+  if public.auth_role() <> 'owner' then
+    raise exception using errcode = '42501', message = 'Somente o proprietário pode concluir a configuração inicial.';
+  end if;
+  if length(trim(p_business_name)) < 2 then
+    raise exception using errcode = '23514', message = 'Informe um nome de negócio válido.';
+  end if;
+  if p_theme_id !~ '^[a-z][a-z0-9_]*$' then
+    raise exception using errcode = '23514', message = 'Tema inválido.';
+  end if;
+  if p_business_hours->>'open' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+     or p_business_hours->>'close' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+     or (p_business_hours->>'open')::time >= (p_business_hours->>'close')::time
+     or jsonb_typeof(p_business_hours->'daysOpen') <> 'array' then
+    raise exception using errcode = '23514', message = 'Horário de funcionamento inválido.';
+  end if;
+  if p_interval_minutes < 5 or p_interval_minutes > 480
+     or p_booking_window_days < 1 or p_booking_window_days > 365 then
+    raise exception using errcode = '23514', message = 'Configuração da agenda inválida.';
+  end if;
+  if exists (select 1 from unnest(p_capabilities) item where item !~ '^[a-z][a-z0-9_]*$') then
+    raise exception using errcode = '23514', message = 'Capability inválida.';
+  end if;
+
+  insert into public.business_profile (
+    id, business_name, phone, address, niche_id, theme_id, onboarding_completed
+  ) values (
+    true, trim(p_business_name), nullif(trim(p_phone), ''),
+    case when nullif(trim(p_address), '') is null then '{}'::jsonb else jsonb_build_object('formatted', trim(p_address)) end,
+    p_niche_id, p_theme_id, true
+  )
+  on conflict (id) do update set
+    business_name = excluded.business_name, phone = excluded.phone,
+    address = excluded.address, niche_id = excluded.niche_id,
+    theme_id = excluded.theme_id, onboarding_completed = true, updated_at = now()
+  returning * into v_profile;
+
+  delete from public.feature_settings;
+  foreach v_capability in array p_capabilities loop
+    insert into public.feature_settings(capability, enabled) values (v_capability, true)
+    on conflict (capability) do update set enabled = true, updated_at = now();
+  end loop;
+
+  update public.barbershop_config set
+    name = v_profile.business_name, phone = coalesce(v_profile.phone, ''),
+    address = coalesce(v_profile.address->>'formatted', ''), working_hours = p_business_hours,
+    interval_minutes = p_interval_minutes, booking_window_days = p_booking_window_days,
+    updated_at = now()
+  where id = true;
+
+  insert into public.booking_settings(id, interval_minutes, booking_window_days)
+  values (true, p_interval_minutes, p_booking_window_days)
+  on conflict (id) do update set interval_minutes = excluded.interval_minutes,
+    booking_window_days = excluded.booking_window_days, updated_at = now();
+
+  for v_service in select * from jsonb_to_recordset(p_services)
+    as item(name text, duration integer, category text)
+  loop
+    if length(trim(v_service.name)) between 2 and 100
+       and v_service.duration between 5 and 480
+       and not exists (select 1 from public.services s where lower(s.name) = lower(trim(v_service.name))) then
+      insert into public.services(name, duration, price, description, category)
+      values (trim(v_service.name), v_service.duration, 0, '', coalesce(trim(v_service.category), ''));
+    end if;
+  end loop;
+
+  for v_professional in select * from jsonb_to_recordset(p_professionals) as item(name text)
+  loop
+    if length(trim(v_professional.name)) between 2 and 100
+       and not exists (select 1 from public.barbers p where lower(p.name) = lower(trim(v_professional.name))) then
+      insert into public.barbers(name, avatar, specialty, working_hours)
+      values (trim(v_professional.name), '', '', p_business_hours);
+    end if;
+  end loop;
+
+  return v_profile;
+end;
+$$;
+
+revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer) from public, anon;
+grant execute on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer) to authenticated;
 
 commit;

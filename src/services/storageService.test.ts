@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPublicStoragePath } from './storageService';
+import { getPublicStoragePath } from './storagePath';
 
 describe('getPublicStoragePath', () => {
   it('extrai e decodifica o caminho de uma URL pública do bucket', () => {

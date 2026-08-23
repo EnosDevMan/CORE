@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { CalendarClock, X } from 'lucide-react';
 import { Booking } from '../../../../types';
 import { useApp } from '../../../../store/useApp';
-import { getBarbershopTodayStr } from '../../../../utils/validation';
+import { getBusinessTodayStr } from '../../../../utils/validation';
 import { getErrorMessage } from '../../../../utils/errors';
+import { useBusiness } from '../../../../core/business/hooks';
 
 interface Props {
   booking: Booking;
@@ -13,11 +14,12 @@ interface Props {
 
 export const AdminRescheduleDialog: React.FC<Props> = ({ booking, onClose, showFeedback }) => {
   const { services, getAvailabilitySlots, rescheduleBooking } = useApp();
+  const { profile } = useBusiness();
   const [date, setDate] = useState(booking.date);
   const [time, setTime] = useState(booking.time);
   const [saving, setSaving] = useState(false);
   const slots = useMemo(() => getAvailabilitySlots(
-    booking.barberId, booking.serviceId, date, true, booking.id
+    booking.professionalId, booking.serviceId, date, true, booking.id
   ), [booking, date, getAvailabilitySlots]);
   const service = services.find(item => item.id === booking.serviceId);
 
@@ -41,7 +43,7 @@ export const AdminRescheduleDialog: React.FC<Props> = ({ booking, onClose, showF
         <button type="button" onClick={onClose} aria-label="Fechar" className="p-2 rounded-lg hover:bg-slate-100"><X size={18} /></button>
       </div>
       <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Nova data</label>
-      <input type="date" min={getBarbershopTodayStr()} value={date} onChange={event => { setDate(event.target.value); setTime(''); }} className="w-full border border-slate-200 rounded-xl p-3 bg-white mb-4" required />
+      <input type="date" min={getBusinessTodayStr(profile.timezone)} value={date} onChange={event => { setDate(event.target.value); setTime(''); }} className="w-full border border-slate-200 rounded-xl p-3 bg-white mb-4" required />
       <p className="text-xs font-bold text-slate-600 uppercase mb-2">Novo horário</p>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-5">
         {slots.map(slot => <button key={slot.time} type="button" disabled={slot.status !== 'available'} onClick={() => setTime(slot.time)} className={`p-2 rounded-lg border text-xs font-bold ${time === slot.time ? 'bg-indigo-600 border-indigo-600 text-white' : slot.status === 'available' ? 'border-slate-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>{slot.time}</button>)}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { CalendarDays, TriangleAlert } from 'lucide-react';
 
 interface LoadingScreenProps {
   /** Se definido, mostra um estado de erro com botão de retentativa em vez do spinner de carregamento. */
@@ -18,7 +19,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ error, onRetry }) 
       {/* Main loading element container */}
       <div className="relative z-10 flex flex-col items-center max-w-sm px-6 text-center animate-float">
         
-        {/* Animated Double-Ring with Scissors Emoji */}
+        {/* Animated status mark kept niche-neutral for every installation. */}
         <div className="relative w-32 h-32 flex items-center justify-center">
           {/* Outer dashed slow rotating decoration ring */}
           <div className="absolute -inset-3 border border-slate-800/40 border-dashed rounded-full animate-spin-slow pointer-events-none" />
@@ -31,20 +32,16 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ error, onRetry }) 
 
           {/* Centered Scissors Emoji with custom 3D shadow and shaking snip motion */}
           <div className="relative z-20 flex items-center justify-center">
-            <span 
-              role="img" 
-              aria-label="scissors"
-              className={`text-5xl select-none block filter drop-shadow-[0_4px_12px_rgba(245,158,11,0.45)] ${error ? '' : 'animate-scissor-shake'}`}
-            >
-              {error ? '⚠️' : '✂️'}
-            </span>
+            {error
+              ? <TriangleAlert aria-label="Aviso" className="h-12 w-12 text-red-400" />
+              : <CalendarDays aria-label="Agenda" className="h-12 w-12 animate-pulse text-amber-400" />}
           </div>
         </div>
 
         {/* Brand Typography & Status Messages */}
         <div className="mt-10 space-y-3">
           <h2 className="text-2xl font-black tracking-tight text-white font-sans bg-gradient-to-r from-white via-slate-100 to-amber-200 bg-clip-text text-transparent">
-            Paulo Gledson Barbearia
+            Agenda do negócio
           </h2>
           
           <div className={`h-[2px] w-12 mx-auto rounded-full bg-gradient-to-r from-transparent to-transparent ${error ? 'via-red-500' : 'via-amber-500'}`} />
@@ -72,7 +69,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ error, onRetry }) 
           ) : (
             <>
               <p className="text-xs font-semibold tracking-widest text-amber-500/90 uppercase animate-pulse">
-                Carregando Agenda
+                Preparando sua agenda
               </p>
               <p className="text-slate-400 text-xs font-medium max-w-[280px] leading-relaxed">
                 Sincronizando horários e serviços atualizados...

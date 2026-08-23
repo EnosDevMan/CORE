@@ -1,15 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { Booking, BarbershopConfig } from '../../../types';
+import { Booking, BusinessConfig } from '../../../types';
 import { CheckCircle2, Calendar as CalendarIcon, Clock, Copy, ArrowRight, MessageCircle } from 'lucide-react';
 import { buildBookingWhatsAppLink } from '../../../utils/whatsapp';
 
 interface Props {
   booking: Booking;
-  config: BarbershopConfig;
+  config: BusinessConfig;
   copiedPix: boolean;
   copyPix: () => void;
   onNavigateToView: (view: 'home' | 'admin' | 'customer', id?: string) => void;
-  barberName?: string;
+  professionalName?: string;
   serviceNames?: string;
 }
 
@@ -19,10 +19,10 @@ export const SuccessStep: React.FC<Props> = ({
   copiedPix,
   copyPix,
   onNavigateToView,
-  barberName,
+  professionalName,
   serviceNames,
 }) => {
-  const whatsappLink = buildBookingWhatsAppLink({ booking, config, barberName, serviceNames });
+  const whatsappLink = buildBookingWhatsAppLink({ booking, config, professionalName, serviceNames });
   const awaitingPayment = booking.status === 'Aguardando pagamento';
   const attemptedWhatsApp = useRef(false);
 
@@ -40,7 +40,7 @@ export const SuccessStep: React.FC<Props> = ({
         <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-20"></div>
         <CheckCircle2 size={40} />
       </div>
-      
+
       <div>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
           {awaitingPayment ? 'Agendamento recebido!' : 'Agendamento confirmado!'}
@@ -81,7 +81,7 @@ export const SuccessStep: React.FC<Props> = ({
             <div className="bg-white border border-indigo-100 px-3 py-2 rounded-lg text-xs font-mono text-slate-600 flex-1 truncate">
               {config.pixKey}
             </div>
-            <button 
+            <button
               type="button"
               onClick={copyPix}
               aria-label={copiedPix ? 'Chave PIX copiada' : 'Copiar chave PIX'}

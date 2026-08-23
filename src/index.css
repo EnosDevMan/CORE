@@ -40,6 +40,40 @@ body {
   background-color: var(--color-brand-cream);
 }
 
+.core-theme-root {
+  min-height: 100vh;
+  background: var(--core-background);
+  color: var(--core-foreground);
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 44px;
+  border-radius: var(--core-radius, .75rem);
+  padding: .75rem 1rem;
+  font-weight: 700;
+  transition: background-color 150ms, color 150ms, border-color 150ms, opacity 150ms;
+}
+.ui-button:disabled { cursor: not-allowed; opacity: .5; }
+.ui-button--primary { background: var(--core-primary, #1d4ed8); color: var(--core-primary-foreground, #fff); }
+.ui-button--secondary { background: var(--core-secondary, #e2e8f0); color: var(--core-secondary-foreground, #0f172a); }
+.ui-button--danger { background: var(--core-danger, #b91c1c); color: white; }
+.ui-button--ghost { background: transparent; color: var(--core-foreground, #f8fafc); border: 1px solid var(--core-border, #475569); }
+.ui-input {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--core-border, #475569);
+  border-radius: var(--core-radius, .75rem);
+  background: var(--core-input, #020617);
+  color: var(--core-foreground, #f8fafc);
+  padding: .75rem 1rem;
+}
+.ui-input::placeholder { color: var(--core-muted-foreground, #94a3b8); }
+.ui-input:focus-visible, .ui-button:focus-visible { outline-color: var(--core-ring, #f59e0b); }
+
 /* 16px prevents Safari/iOS from zooming focused form controls. */
 @media (max-width: 639px) {
   input, textarea, select { font-size: 16px !important; }

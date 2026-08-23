@@ -23,7 +23,7 @@ export const CustomerDashboard: React.FC = () => {
     handleOpenReschedule,
     handleDateChange,
     handleConfirmReschedule,
-    getBarberName,
+    getProfessionalName,
     getServiceName,
     getServiceDuration,
     formatBRL
@@ -95,7 +95,7 @@ export const CustomerDashboard: React.FC = () => {
                 bookingWindowDays={config.bookingWindowDays}
                 getServiceName={getServiceName}
                 getServiceDuration={getServiceDuration}
-                getBarberName={getBarberName}
+                getProfessionalName={getProfessionalName}
                 formatBRL={formatBRL}
                 getStatusBadge={getStatusBadge}
                 isRescheduling={reschedulingBookingId === booking.id}
@@ -128,12 +128,12 @@ export const CustomerDashboard: React.FC = () => {
           <h3 className="font-sans font-extrabold text-lg text-slate-900 flex items-center gap-2">
             Histórico de Serviços ({pastBookings.length})
           </h3>
-          <p className="text-xs text-slate-500 mt-1">Registros das suas visitas anteriores à barbearia.</p>
+          <p className="text-xs text-slate-500 mt-1">Registros dos seus atendimentos anteriores.</p>
         </div>
         <CustomerHistoryTable
           pastBookings={pastBookings}
           getServiceName={getServiceName}
-          getBarberName={getBarberName}
+          getProfessionalName={getProfessionalName}
           formatBRL={formatBRL}
           getStatusBadge={getStatusBadge}
         />
