@@ -18,7 +18,7 @@ export default defineConfig(() => {
     // continuam no deploy, mas não são baixados/executados como JavaScript em
     // cada visita e não incham artificialmente o orçamento dos chunks.
     esbuild: {
-      legalComments: 'external',
+      legalComments: 'external' as const,
     },
     resolve: {
       alias: {
