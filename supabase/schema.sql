@@ -1842,8 +1842,10 @@ create table public.business_profile (
   locale text not null default 'pt-BR' check (char_length(locale) between 2 and 35),
   niche_id public.business_niche not null,
   theme_id text not null default 'minimal_light' check (theme_id in (
-    'minimal_light', 'premium_dark', 'rose_elegance',
-    'lavender_studio', 'forest_clean'
+    'minimal_light', 'graphite_modern',
+    'premium_dark', 'heritage_copper', 'urban_steel',
+    'rose_elegance', 'champagne_blush', 'lavender_studio', 'blush_glass',
+    'forest_clean', 'ocean_playful', 'sunshine_pet'
   )),
   onboarding_completed boolean not null default false,
   created_at timestamptz not null default now(),
@@ -2627,7 +2629,13 @@ begin
     theme_id = excluded.theme_id, onboarding_completed = true, updated_at = now()
   returning * into v_profile;
 
-  delete from public.feature_settings;
+  -- Preserve capability rows/configuration and disable only currently enabled
+  -- switches before enabling the onboarding selection. Avoiding a whole-table
+  -- DELETE keeps the operation compatible with safe-update protections.
+  update public.feature_settings
+  set enabled = false, updated_at = now()
+  where enabled = true;
+
   foreach v_capability in array p_capabilities loop
     insert into public.feature_settings(capability, enabled) values (v_capability, true)
     on conflict (capability) do update set enabled = true, updated_at = now();
