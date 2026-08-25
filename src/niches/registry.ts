@@ -1,6 +1,23 @@
-import type { NicheId, NichePreset } from './types';
+import type { NicheId, NichePreset, RuntimeNicheId } from './types';
 
 const shared = ['online_booking', 'customers', 'professionals', 'services'] as const;
+
+/**
+ * Internal-only preset for a fresh installation. It exists solely so shared
+ * providers can render authentication/onboarding before a real business is
+ * configured. Because it is not exported through `NICHE_REGISTRY`, it never
+ * appears as an onboarding option and can never be persisted to Supabase.
+ */
+const CORE_BOOTSTRAP_NICHE: NichePreset = {
+  id: 'core_bootstrap',
+  name: 'CORE',
+  professionalLabel: 'Profissionais',
+  customerLabel: 'Clientes',
+  recommendedCapabilities: [],
+  recommendedThemeIds: ['minimal_light'],
+  dashboard: { todayLabel: 'Atendimentos de hoje', scheduleLabel: 'Agenda de hoje' },
+  serviceSuggestions: [],
+};
 
 export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset>> = {
   barbershop: {
@@ -29,6 +46,6 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset>> = {
   },
 };
 
-export function getNichePreset(id: NicheId): NichePreset {
-  return NICHE_REGISTRY[id];
+export function getNichePreset(id: RuntimeNicheId): NichePreset {
+  return id === 'core_bootstrap' ? CORE_BOOTSTRAP_NICHE : NICHE_REGISTRY[id];
 }
