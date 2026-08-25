@@ -58,6 +58,7 @@ jobs:
           --file supabase/tests/data_api_grants.sql
           --file supabase/tests/extensions_security.sql
           --file supabase/tests/universal_defaults.sql
+          --file supabase/tests/rpc_surface_security.sql
           --file supabase/tests/authorization_roles.sql
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql
