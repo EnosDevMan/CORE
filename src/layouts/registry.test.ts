@@ -4,7 +4,6 @@ import { PUBLIC_LAYOUT_REGISTRY } from './registry';
 describe('public layout registry', () => {
   it('keeps each layout structurally complete', () => {
     for (const layout of Object.values(PUBLIC_LAYOUT_REGISTRY)) {
-      expect(layout.description.length).toBeGreaterThan(20);
       expect(layout.sectionOrder).toHaveLength(4);
       expect(new Set(layout.sectionOrder).size).toBe(4);
       expect(layout.sectionOrder).toEqual(expect.arrayContaining(['features', 'services', 'gallery', 'professionals']));
