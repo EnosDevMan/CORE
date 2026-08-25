@@ -13,19 +13,16 @@ Atualização: 24 de agosto de 2026.
 | 5. Integridade de dados | Concluída | Validações, FKs, triggers, estado histórico e desativação segura. |
 | 6. UX crítica e acessibilidade | Concluída para fluxos principais | Formulários, dialogs, erros, loading, cobrança e ações duplicadas. |
 | 7. Storage e galeria | Concluída | Limites de bucket, caminhos por identidade, compensação e ordem atômica. |
-| 8. Limpeza e documentação | Em validação | Código morto removido; relatórios atualizados; depende do CI final. |
+| 8. Limpeza e documentação | Concluída | Código morto removido; relatórios atualizados; CI completo aprovado. |
 | 9. Staging e operação | Não iniciada | Depende da criação autorizada de Supabase/Vercel e decisões do operador. |
 
-## Próxima sequência obrigatória
+## Próxima sequência operacional obrigatória
 
-1. Publicar o branch de auditoria e aguardar os jobs `quality` e `database`.
-2. Corrigir qualquer falha sem desabilitar lint, teste, constraint ou policy.
-3. Fazer merge somente com o SHA esperado e checks verdes.
-4. Criar um Supabase de staging e aplicar apenas o schema consolidado.
-5. Criar Vercel de staging, configurar variáveis e redirects reais do Auth.
-6. Executar a matriz de smoke tests de `docs/DEPLOYMENT.md`.
-7. Decidir jurídico, retenção, notificação, anti-bot, backup e observabilidade.
-8. Repetir o release em produção com backup, aprovação e rollback.
+1. Criar um Supabase de staging e aplicar apenas o schema consolidado.
+2. Criar Vercel de staging, configurar variáveis e redirects reais do Auth.
+3. Executar a matriz de smoke tests de `docs/DEPLOYMENT.md`.
+4. Decidir jurídico, retenção, notificação, anti-bot, backup e observabilidade.
+5. Repetir o release em produção com backup, aprovação e rollback.
 
 ## Evolução após o primeiro lançamento
 

@@ -4,22 +4,34 @@ Atualização: 24 de agosto de 2026.
 
 ## Parecer executivo
 
-O fluxo principal do CORE está implementado e recebeu defesa em profundidade no
-frontend e no PostgreSQL. A revisão atual ainda precisa passar pelo CI do commit
-que será promovido. Como o projeto não foi instalado no Supabase nem na Vercel,
-nenhuma análise séria pode declarar a operação como 100% pronta neste momento.
+O fluxo principal do CORE está implementado, recebeu defesa em profundidade no
+frontend e no PostgreSQL e passou pelo pipeline completo no commit candidato.
+Como o projeto ainda não foi instalado no Supabase nem na Vercel, nenhuma
+análise séria pode declarar a operação real como 100% pronta neste momento.
 
 Há duas métricas diferentes:
 
 | Métrica | Situação deste checkpoint | Para chegar a 100% |
 |---|---:|---|
-| Implementação verificável no repositório | 97% | CI verde no commit final e correção de qualquer regressão encontrada |
-| Prontidão real de lançamento | 78% | staging/produção, testes no navegador e domínio reais, operação, jurídico e monitoramento |
+| Implementação verificável no repositório | 100% | Manter os checks obrigatórios verdes em toda alteração |
+| Prontidão real de lançamento | 80% | Staging/produção, testes no navegador e domínio reais, operação, jurídico e monitoramento |
 
 A primeira nota mede somente aquilo que código e CI conseguem provar. A segunda
 inclui dependências que ainda não existem e não podem ser simuladas como
-concluídas. A nota deve ser recalculada após cada evidência do checklist de
-deploy.
+concluídas. Os 20 pontos restantes estão distribuídos entre ambientes e domínio
+reais (6), smoke/E2E com Auth e Storage (5), backup/observabilidade/rollback (4),
+jurídico e retenção (3) e proteção contra abuso/notificações (2). A nota deve ser
+recalculada após cada evidência do checklist de deploy.
+
+## Evidência automatizada do checkpoint
+
+- GitHub Actions `Quality` #15: instalação limpa com `npm ci` e `npm run verify`
+  concluídos sem vulnerabilidades conhecidas nas dependências de produção;
+- lint e TypeScript sem erros;
+- 24 arquivos de teste e 124 testes aprovados;
+- build de produção e orçamento de bundle aprovados;
+- job `database` aprovado em PostgreSQL 17, aplicando o schema consolidado e os
+  testes SQL de roles, sobreposição e segurança de reservas.
 
 ## Escopo revisado
 
@@ -79,7 +91,7 @@ deploy.
 
 ## Critério objetivo de 100%
 
-1. CI verde no SHA exato que será implantado.
+1. Manter CI verde no SHA exato que será implantado — atendido neste checkpoint.
 2. Supabase novo criado e `supabase/schema.sql` aplicado uma única vez.
 3. Staging Vercel ligada ao Supabase de staging, sem usar dados de produção.
 4. Owner preparado, e-mail confirmado e onboarding completo.
