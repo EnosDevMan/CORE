@@ -7,5 +7,6 @@ describe('theme contrast', () => {
     expect(contrastRatio(theme.tokens.foreground, theme.tokens.background)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(theme.tokens.primaryForeground, theme.tokens.primary)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(theme.tokens.secondaryForeground, theme.tokens.secondary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(theme.tokens.accentForeground, theme.tokens.accent)).toBeGreaterThanOrEqual(4.5);
   });
 });
