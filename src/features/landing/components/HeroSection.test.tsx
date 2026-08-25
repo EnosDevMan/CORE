@@ -18,42 +18,35 @@ const config: BusinessConfig = {
   cancellationNoticeMinutes: 0,
 };
 
+const profile = {
+  name: 'Studio Teste',
+  timezone: 'America/Sao_Paulo',
+  currency: 'BRL',
+  locale: 'pt-BR',
+  nicheId: 'nail_studio' as const,
+  themeId: 'rose_elegance' as const,
+};
+
 describe('HeroSection', () => {
-  it('uses the persisted niche defaults and semantic theme surface', () => {
+  it('uses the persisted niche defaults and the requested layout variant', () => {
     const { container } = render(
-      <BusinessProvider
-        profile={{
-          name: 'Studio Teste',
-          timezone: 'America/Sao_Paulo',
-          currency: 'BRL',
-          locale: 'pt-BR',
-          nicheId: 'nail_studio',
-          themeId: 'rose_elegance',
-        }}
-      >
-        <HeroSection config={config} onStartBooking={vi.fn()} onOpenLogin={vi.fn()} />
+      <BusinessProvider profile={profile}>
+        <HeroSection variant="showcase" config={config} onStartBooking={vi.fn()} onOpenLogin={vi.fn()} />
       </BusinessProvider>,
     );
 
     expect(screen.getByRole('heading', { name: 'Seu estilo, em cada detalhe.' })).toBeInTheDocument();
     expect(screen.getByText(/cuidados para suas unhas/i)).toBeInTheDocument();
     expect(screen.queryByText(/cabelo e barba/i)).not.toBeInTheDocument();
-    expect(container.querySelector('section')).toHaveClass('core-public-primary');
+    expect(container.querySelector('section')).toHaveAttribute('data-hero-variant', 'showcase');
+    expect(container.querySelector('section')).toHaveClass('core-public-secondary');
   });
 
   it('keeps owner-configured hero copy above niche defaults', () => {
     render(
-      <BusinessProvider
-        profile={{
-          name: 'Studio Teste',
-          timezone: 'America/Sao_Paulo',
-          currency: 'BRL',
-          locale: 'pt-BR',
-          nicheId: 'nail_studio',
-          themeId: 'rose_elegance',
-        }}
-      >
+      <BusinessProvider profile={profile}>
         <HeroSection
+          variant="showcase"
           config={{ ...config, heroTitle: 'Minha mensagem', heroDescription: 'Minha descrição personalizada.' }}
           onStartBooking={vi.fn()}
           onOpenLogin={vi.fn()}
