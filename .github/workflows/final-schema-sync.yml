@@ -29,7 +29,7 @@ jobs:
 
           def replace_policy(name: str, replacement: str):
               global text
-              pattern = rf"create policy {re.escape(name)}\b[\s\S]*?;\n"
+              pattern = rf'create policy\s+"?{re.escape(name)}"?\s+on\b[\s\S]*?;\n'
               matches = re.findall(pattern, text, flags=re.IGNORECASE)
               if len(matches) != 1:
                   raise SystemExit(f'Expected exactly one policy {name}, found {len(matches)}')
@@ -184,7 +184,7 @@ jobs:
               'services_write_admin', 'blocks_write_admin_or_own_barber',
           ]
           for name in forbidden:
-              if f'create policy {name}' in text.lower():
+              if re.search(rf'create policy\s+"?{re.escape(name)}"?\s+on\b', text, flags=re.IGNORECASE):
                   raise SystemExit(f'Legacy broad policy still present: {name}')
           if 'where bp.pet_id = pet_notes.pet_id' not in text:
               raise SystemExit('Correlated pet_notes policy is missing')
