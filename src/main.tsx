@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { capturePasswordRecoveryIntent } from './auth/passwordRecoveryIntent.ts';
 import { getSupabaseConfigError } from './utils/environment.ts';
 import './index.css';
 
@@ -25,6 +26,11 @@ const renderStartupError = (message: string) => {
     </StrictMode>,
   );
 };
+
+// `App` importa o cliente Supabase dinamicamente abaixo. Capture primeiro a
+// sessão que veio no fragmento do link de recovery: depois que o SDK iniciar,
+// `detectSessionInUrl` pode consumir/limpar esses parâmetros.
+capturePasswordRecoveryIntent();
 
 const supabaseConfigError = getSupabaseConfigError({
   VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
