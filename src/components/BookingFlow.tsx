@@ -142,6 +142,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ onSuccess, onNavigateT
             selectedTime={selectedTime}
             totalDuration={totalDuration}
             totalPrice={totalPrice}
+            config={config}
           />
         )}
 

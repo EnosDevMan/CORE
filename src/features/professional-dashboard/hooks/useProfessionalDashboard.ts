@@ -182,7 +182,6 @@ export const useProfessionalDashboard = () => {
       case 'Concluído': return 'bg-slate-100 text-slate-800 border-slate-200';
       case 'Cancelado': return 'bg-red-100 text-red-800 border-red-200';
       case 'Não compareceu': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'Reagendado': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };

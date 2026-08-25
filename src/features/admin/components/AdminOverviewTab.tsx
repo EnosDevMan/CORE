@@ -78,7 +78,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   );
 
   const renderActions = (booking: typeof todayBookings[number]) => {
-    if (booking.status === 'Concluído' || booking.status === 'Cancelado' || booking.status === 'Não compareceu' || booking.status === 'Reagendado') return null;
+    if (booking.status === 'Concluído' || booking.status === 'Cancelado' || booking.status === 'Não compareceu') return null;
     return (
       <div className="flex items-center gap-2 flex-wrap">
         <BookingStatusActions booking={booking} handleStatusChange={handleUpdateBookingStatus} onReschedule={setRescheduling} />

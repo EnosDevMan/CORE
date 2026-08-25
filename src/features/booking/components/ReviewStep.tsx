@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Service } from '../../../types';
+import { BusinessConfig, User, Service } from '../../../types';
 import type { Professional } from '../../professionals/types';
 import { User as UserIcon, Phone, FileText } from 'lucide-react';
 import { formatBRL } from '../../../utils/validation';
@@ -18,7 +18,14 @@ interface Props {
   selectedTime: string;
   totalDuration: number;
   totalPrice: number;
+  config: BusinessConfig;
 }
+
+const formatNotice = (minutes: number): string => {
+  if (minutes % 1440 === 0) return `${minutes / 1440} ${minutes === 1440 ? 'dia' : 'dias'}`;
+  if (minutes % 60 === 0) return `${minutes / 60} ${minutes === 60 ? 'hora' : 'horas'}`;
+  return `${minutes} minutos`;
+};
 
 export const ReviewStep: React.FC<Props> = ({
   currentUser,
@@ -30,7 +37,8 @@ export const ReviewStep: React.FC<Props> = ({
   selectedDate,
   selectedTime,
   totalDuration,
-  totalPrice
+  totalPrice,
+  config,
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -60,13 +68,40 @@ export const ReviewStep: React.FC<Props> = ({
           </div>
 
           <div className="flex justify-between items-center pt-2">
-            <span className="text-slate-500">Total</span>
+            <span className="text-slate-500">Valor dos serviços</span>
             <div className="text-right">
               <div className="font-bold text-lg text-indigo-600">{formatBRL(totalPrice)}</div>
               <div className="text-xs text-slate-400">Duração: ~{totalDuration} min</div>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        {config.bookingFee > 0 ? (
+          <p>
+            <strong>Taxa de reserva: {formatBRL(config.bookingFee)}.</strong>{' '}
+            Ela é cobrada separadamente via PIX para confirmar o horário e não é reembolsável em caso de cancelamento.
+          </p>
+        ) : (
+          <p><strong>Sem taxa de reserva.</strong> O horário será confirmado ao concluir esta etapa.</p>
+        )}
+        <p className="mt-2 text-xs leading-relaxed text-amber-900">
+          {(config.cancellationNoticeMinutes ?? 0) > 0
+            ? `Cancelamentos online exigem pelo menos ${formatNotice(config.cancellationNoticeMinutes ?? 0)} de antecedência.`
+            : 'Cancelamentos online são permitidos até o início do horário reservado.'}
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-amber-900">
+          Ao confirmar, você solicita a reserva e reconhece os{' '}
+          <a
+            href="#privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="font-bold underline underline-offset-2"
+          >
+            Termos de Uso e a Política de Privacidade
+          </a>.
+        </p>
       </div>
 
       <div className="space-y-4">
@@ -89,6 +124,7 @@ export const ReviewStep: React.FC<Props> = ({
                 <div className="relative">
                   <input
                     type="tel"
+                    maxLength={32}
                     inputMode="tel"
                     autoComplete="tel"
                     aria-label="WhatsApp com DDD"
@@ -107,6 +143,10 @@ export const ReviewStep: React.FC<Props> = ({
             <div className="relative">
               <input
                 type="text"
+                aria-label="Nome completo"
+                autoComplete="name"
+                minLength={2}
+                maxLength={100}
                 placeholder="Seu nome completo"
                 value={custName}
                 onChange={(e) => setCustName(e.target.value)}
@@ -116,7 +156,7 @@ export const ReviewStep: React.FC<Props> = ({
             </div>
 
             <div className="relative">
-              <input type="tel" inputMode="tel" autoComplete="tel" aria-label="WhatsApp com DDD" placeholder="Seu WhatsApp com DDD" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} className="w-full min-h-12 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-base" />
+              <input type="tel" inputMode="tel" autoComplete="tel" maxLength={32} aria-label="WhatsApp com DDD" placeholder="Seu WhatsApp com DDD" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} className="w-full min-h-12 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-base" />
               <Phone size={16} className="absolute left-3.5 top-4 text-slate-400" />
             </div>
           </div>
@@ -124,9 +164,11 @@ export const ReviewStep: React.FC<Props> = ({
 
         <div className="relative">
           <textarea
+            aria-label="Observações para o profissional"
             placeholder="Alguma observação para o profissional? (Opcional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            maxLength={1000}
             rows={2}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm resize-none"
           />

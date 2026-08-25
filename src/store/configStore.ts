@@ -22,7 +22,6 @@ const PLACEHOLDER_CONFIG: BusinessConfig = {
   workingHours: { open: '09:00', close: '19:00', daysOpen: [1, 2, 3, 4, 5, 6] },
   socialLinks: {},
   bookingFee: 0,
-  toleranceMinutes: 15,
   intervalMinutes: 30,
   bookingWindowDays: 3,
   minimumNoticeMinutes: 30,

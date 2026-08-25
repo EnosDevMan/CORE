@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { timeToMinutes, minutesToTime, formatBRL, validateEmail, validatePhoneBR, summarizeWorkingDays, summarizeWeeklySchedule, getWeekdayFromISODate, getBusinessNow, getBusinessMaxBookingDateStr } from './validation';
+import { timeToMinutes, minutesToTime, formatBRL, validateEmail, validatePhoneBR, validateOptionalHttpUrl, summarizeWorkingDays, summarizeWeeklySchedule, getWeekdayFromISODate, getBusinessNow, getBusinessMaxBookingDateStr } from './validation';
 
 describe('Validation Utils', () => {
   it('should correctly convert time to minutes', () => {
@@ -78,10 +78,27 @@ describe('validatePhoneBR', () => {
     expect(validatePhoneBR('5511987654321')).toBe(true);
   });
 
-  it('rejects too short/too long/empty input', () => {
+  it('rejects too short, too long, empty or alphabetic input', () => {
     expect(validatePhoneBR('123')).toBe(false);
     expect(validatePhoneBR('')).toBe(false);
     expect(validatePhoneBR('119876543210000')).toBe(false);
+    expect(validatePhoneBR('telefone 11987654321')).toBe(false);
+    expect(validatePhoneBR('11+987654321')).toBe(false);
+  });
+});
+
+describe('validateOptionalHttpUrl', () => {
+  it('accepts empty values and absolute HTTP(S) links', () => {
+    expect(validateOptionalHttpUrl('')).toBe(true);
+    expect(validateOptionalHttpUrl(' https://instagram.com/core ')).toBe(true);
+    expect(validateOptionalHttpUrl('http://localhost:4173/perfil')).toBe(true);
+  });
+
+  it('rejects unsafe, relative, credentialed and malformed links', () => {
+    expect(validateOptionalHttpUrl('javascript:alert(1)')).toBe(false);
+    expect(validateOptionalHttpUrl('/perfil')).toBe(false);
+    expect(validateOptionalHttpUrl('https://usuario:senha@example.com')).toBe(false);
+    expect(validateOptionalHttpUrl('instagram.com/core')).toBe(false);
   });
 });
 

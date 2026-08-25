@@ -21,11 +21,12 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   setSuccessMessage,
   setErrorMessage,
 }) => {
-  const { galleryPhotos, addGalleryPhoto, updateGalleryPhoto, deleteGalleryPhoto } = useApp();
+  const { galleryPhotos, addGalleryPhoto, updateGalleryPhoto, reorderGalleryPhotos, deleteGalleryPhoto } = useApp();
 
   const [isUploading, setIsUploading] = useState(false);
   const [captionDrafts, setCaptionDrafts] = useState<Record<string, string>>({});
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
 
   const sortedPhotos = [...galleryPhotos].sort((a, b) =>
     (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
@@ -33,21 +34,22 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   );
 
   const persistOrder = async (photos: GalleryPhoto[]) => {
-    await Promise.all(photos.map((photo, index) =>
-      updateGalleryPhoto({ ...photo, order: index })
-    ));
+    await reorderGalleryPhotos(photos);
   };
 
   const movePhoto = async (from: number, to: number) => {
-    if (to < 0 || to >= sortedPhotos.length || from === to) return;
+    if (isReordering || to < 0 || to >= sortedPhotos.length || from === to) return;
     const reordered = [...sortedPhotos];
     const [photo] = reordered.splice(from, 1);
     reordered.splice(to, 0, photo);
+    setIsReordering(true);
     try {
       await persistOrder(reordered);
       setSuccessMessage('Ordem da galeria atualizada.');
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'Não foi possível salvar a ordem.'));
+    } finally {
+      setIsReordering(false);
     }
   };
 
@@ -55,13 +57,27 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
+    let uploadedUrl: string | null = null;
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
+      const extensionByMime: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+      };
+      const ext = extensionByMime[file.type] ?? 'bin';
       const path = `cortes/${crypto.randomUUID()}-${Date.now()}.${ext}`;
-      const url = await uploadImage(file, path, 'gallery');
-      await addGalleryPhoto({ imageUrl: url, caption: '', order: sortedPhotos.length });
+      uploadedUrl = await uploadImage(file, path, 'gallery');
+      await addGalleryPhoto({ imageUrl: uploadedUrl, caption: '', order: sortedPhotos.length });
       setSuccessMessage('Foto adicionada à galeria!');
     } catch (err) {
+      if (uploadedUrl) {
+        try {
+          await removePublicImage(uploadedUrl, 'gallery');
+        } catch {
+          // O erro original é mais útil; o objeto órfão pode ser removido na
+          // rotina operacional de limpeza do bucket.
+        }
+      }
       setErrorMessage(getErrorMessage(err, 'Não foi possível enviar a foto.'));
     } finally {
       setIsUploading(false);
@@ -71,9 +87,11 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
 
   const handleCaptionBlur = async (photo: GalleryPhoto) => {
     const draft = captionDrafts[photo.id];
-    if (draft === undefined || draft === (photo.caption || '')) return;
+    const normalizedCaption = draft?.trim();
+    if (normalizedCaption === undefined || normalizedCaption === (photo.caption || '')) return;
     try {
-      await updateGalleryPhoto({ ...photo, caption: draft });
+      await updateGalleryPhoto(photo.id, normalizedCaption);
+      setCaptionDrafts(previous => ({ ...previous, [photo.id]: normalizedCaption }));
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'Não foi possível salvar a legenda.'));
     }
@@ -82,11 +100,19 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   const handleDelete = async (photo: GalleryPhoto) => {
     if (window.confirm('Tem certeza que deseja excluir esta foto da galeria?')) {
       try {
-        // Mantém o registro caso a exclusão física falhe, evitando uma foto
-        // órfã e invisível no bucket. A policy permite esta operação só ao admin.
-        await removePublicImage(photo.imageUrl, 'gallery');
+        // Remove primeiro o registro público. Se o banco falhar, a imagem
+        // continua íntegra; se só a limpeza do bucket falhar, sobra um objeto
+        // órfão, mas nunca uma foto quebrada na página pública.
         await deleteGalleryPhoto(photo.id);
-        setSuccessMessage('Foto removida da galeria!');
+        try {
+          await removePublicImage(photo.imageUrl, 'gallery');
+          setSuccessMessage('Foto removida da galeria!');
+        } catch (cleanupError) {
+          setErrorMessage(getErrorMessage(
+            cleanupError,
+            'A foto saiu da galeria, mas o arquivo precisa ser removido do Storage.',
+          ));
+        }
       } catch (err) {
         setErrorMessage(getErrorMessage(err, 'Erro ao remover foto.'));
       }
@@ -144,7 +170,7 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {sortedPhotos.map((photo, index) => (
             <div
-              draggable
+              draggable={!isReordering}
               onDragStart={() => setDraggedId(photo.id)}
               onDragEnd={() => setDraggedId(null)}
               onDragOver={(event) => event.preventDefault()}
@@ -175,12 +201,13 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
                 <Trash2 size={14} />
               </button>
               <div className="flex justify-center gap-2 border-t border-slate-100 p-2">
-                <button type="button" onClick={() => void movePhoto(index, index - 1)} disabled={index === 0} aria-label={`Mover foto ${index + 1} para a esquerda`} className="rounded p-2 hover:bg-slate-100 disabled:opacity-30"><ArrowLeft size={16} /></button>
-                <button type="button" onClick={() => void movePhoto(index, index + 1)} disabled={index === sortedPhotos.length - 1} aria-label={`Mover foto ${index + 1} para a direita`} className="rounded p-2 hover:bg-slate-100 disabled:opacity-30"><ArrowRight size={16} /></button>
+                <button type="button" onClick={() => void movePhoto(index, index - 1)} disabled={isReordering || index === 0} aria-label={`Mover foto ${index + 1} para a esquerda`} className="rounded p-2 hover:bg-slate-100 disabled:opacity-30"><ArrowLeft size={16} /></button>
+                <button type="button" onClick={() => void movePhoto(index, index + 1)} disabled={isReordering || index === sortedPhotos.length - 1} aria-label={`Mover foto ${index + 1} para a direita`} className="rounded p-2 hover:bg-slate-100 disabled:opacity-30"><ArrowRight size={16} /></button>
               </div>
               <input
                 aria-label={`Legenda da foto ${index + 1}`}
                 type="text"
+                maxLength={500}
                 defaultValue={photo.caption || ''}
                 onChange={(e) => setCaptionDrafts(prev => ({ ...prev, [photo.id]: e.target.value }))}
                 onBlur={() => handleCaptionBlur(photo)}

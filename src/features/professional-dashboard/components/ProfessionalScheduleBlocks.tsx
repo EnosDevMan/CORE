@@ -75,7 +75,7 @@ export const ProfessionalScheduleBlocks: React.FC<Props> = ({ professionalId, sh
         <label className="text-xs font-bold text-slate-600 lg:col-span-1">Motivo
           <input aria-label="Motivo do bloqueio" type="text" required maxLength={120} value={reason} onChange={event => setReason(event.target.value)} placeholder="Ex.: consulta" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-900" />
         </label>
-        <button disabled={saving || !professionalId} className="self-end rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-slate-800 disabled:opacity-50">
+        <button type="submit" disabled={saving || !professionalId} className="self-end rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-slate-800 disabled:opacity-50">
           <Ban className="mr-1.5 inline" size={14} />{saving ? 'Salvando...' : 'Bloquear'}
         </button>
       </form>

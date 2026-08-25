@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, User, Camera, Loader2 } from 'lucide-react';
 import type { Professional } from '../../../professionals/types';
 import { useProfessionalAdmin } from '../../../professionals/hooks/useProfessionalAdmin';
-import { uploadImage } from '../../../../services/storageService';
+import { getPublicStoragePath, removePublicImage, uploadImage } from '../../../../services/storageService';
 import { getErrorMessage } from '../../../../utils/errors';
 import { isProfessionalRole } from '../../../../auth/authorization';
 
@@ -39,6 +39,7 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
   const [professionalUserId, setProfessionalUserId] = useState('');
   const [professionalActive, setProfessionalActive] = useState(true);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [useCustomSchedule, setUseCustomSchedule] = useState(false);
   const [professionalOpenTime, setProfessionalOpenTime] = useState('08:00');
   const [professionalCloseTime, setProfessionalCloseTime] = useState('19:00');
@@ -46,6 +47,16 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
   const [professionalHasBreak, setProfessionalHasBreak] = useState(false);
   const [professionalBreakStart, setProfessionalBreakStart] = useState('12:00');
   const [professionalBreakEnd, setProfessionalBreakEnd] = useState('13:00');
+  const [newProfessionalId] = useState(() => crypto.randomUUID());
+  const pendingAvatarRef = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    const pendingAvatar = pendingAvatarRef.current;
+    if (pendingAvatar) {
+      pendingAvatarRef.current = null;
+      void removePublicImage(pendingAvatar, 'avatars').catch(() => undefined);
+    }
+  }, []);
 
   useEffect(() => {
     if (editingProfessional) {
@@ -88,10 +99,24 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
     if (!file) return;
     setIsUploadingPhoto(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const path = `professionals/${editingProfessional?.id || crypto.randomUUID()}-${Date.now()}.${ext}`;
+      const extensionByMime: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+      };
+      const ext = extensionByMime[file.type] ?? 'bin';
+      const path = `professionals/${editingProfessional?.id ?? newProfessionalId}-${crypto.randomUUID()}.${ext}`;
       const url = await uploadImage(file, path);
+      const previousPendingAvatar = pendingAvatarRef.current;
+      pendingAvatarRef.current = url;
       setProfessionalAvatar(url);
+      if (previousPendingAvatar) {
+        try {
+          await removePublicImage(previousPendingAvatar, 'avatars');
+        } catch {
+          setErrorMessage('A nova foto foi enviada, mas não foi possível remover o rascunho anterior.');
+        }
+      }
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'Não foi possível enviar a foto.'));
     } finally {
@@ -100,20 +125,76 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
     }
   };
 
+  const handleClose = async () => {
+    if (isUploadingPhoto || isSaving) return;
+    const pendingAvatar = pendingAvatarRef.current;
+    pendingAvatarRef.current = null;
+    if (pendingAvatar) {
+      try {
+        await removePublicImage(pendingAvatar, 'avatars');
+      } catch {
+        setErrorMessage('Não foi possível remover a foto enviada como rascunho.');
+      }
+    }
+    onClose();
+  };
+
   const handleProfessionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!professionalName.trim()) {
-      setErrorMessage('Informe o nome do profissional.');
+    if (isSaving) return;
+
+    const normalizedName = professionalName.trim();
+    const normalizedSpecialty = professionalSpecialty.trim();
+    const normalizedDescription = professionalDescription.trim();
+    if (normalizedName.length < 2 || normalizedName.length > 100) {
+      setErrorMessage('O nome do profissional deve ter entre 2 e 100 caracteres.');
       return;
     }
+    if (normalizedSpecialty.length > 120) {
+      setErrorMessage('A especialidade deve ter no máximo 120 caracteres.');
+      return;
+    }
+    if (normalizedDescription.length > 1000) {
+      setErrorMessage('A descrição deve ter no máximo 1000 caracteres.');
+      return;
+    }
+    if (professionalAvatar.length > 2048) {
+      setErrorMessage('A URL da foto é muito longa. Envie a imagem novamente.');
+      return;
+    }
+    const parsedOrder = Number(professionalOrder);
+    if (!Number.isInteger(parsedOrder) || parsedOrder < -2_147_483_648 || parsedOrder > 2_147_483_647) {
+      setErrorMessage('A ordem de exibição deve ser um número inteiro válido.');
+      return;
+    }
+    if (useCustomSchedule) {
+      if (professionalOpenTime >= professionalCloseTime) {
+        setErrorMessage('O horário final precisa ser posterior ao horário inicial.');
+        return;
+      }
+      if (professionalDaysOpen.length === 0) {
+        setErrorMessage('Selecione pelo menos um dia de trabalho.');
+        return;
+      }
+      if (professionalHasBreak && (
+        professionalBreakStart < professionalOpenTime
+        || professionalBreakStart >= professionalBreakEnd
+        || professionalBreakEnd > professionalCloseTime
+      )) {
+        setErrorMessage('O intervalo precisa estar dentro do expediente e terminar depois de começar.');
+        return;
+      }
+    }
+
+    setIsSaving(true);
     try {
       const professionalData: Omit<Professional, 'id'> = {
-        name: professionalName,
+        name: normalizedName,
         avatar: professionalAvatar || '/favicon.svg',
-        specialty: professionalSpecialty,
+        specialty: normalizedSpecialty,
         active: professionalActive,
-        description: professionalDescription,
-        order: Number(professionalOrder),
+        description: normalizedDescription,
+        order: parsedOrder,
         userId: professionalUserId || undefined,
         workingHours: useCustomSchedule ? {
           open: professionalOpenTime,
@@ -126,14 +207,34 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
 
       if (editingProfessional) {
         await updateProfessional({ ...professionalData, id: editingProfessional.id });
-        setSuccessMessage('Profissional atualizado com sucesso!');
       } else {
-        await addProfessional(professionalData);
-        setSuccessMessage('Profissional adicionado com sucesso!');
+        await addProfessional({ ...professionalData, id: newProfessionalId });
       }
+
+      // A linha do banco já aponta para a foto nova; a partir daqui ela não
+      // é mais rascunho e não deve ser removida no cleanup do componente.
+      pendingAvatarRef.current = null;
+
+      const previousAvatar = editingProfessional?.avatar;
+      if (previousAvatar && previousAvatar !== professionalAvatar) {
+        try {
+          getPublicStoragePath(previousAvatar, 'avatars');
+          await removePublicImage(previousAvatar, 'avatars');
+        } catch (cleanupError) {
+          // URLs externas/default não pertencem ao bucket; falha real de
+          // limpeza não invalida o perfil que já foi salvo no banco.
+          if (previousAvatar.includes('/storage/v1/object/public/avatars/')) {
+            setErrorMessage(getErrorMessage(cleanupError, 'Perfil salvo, mas a foto anterior não pôde ser removida.'));
+          }
+        }
+      }
+
+      setSuccessMessage(editingProfessional ? 'Profissional atualizado com sucesso!' : 'Profissional adicionado com sucesso!');
       onClose();
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'Erro ao salvar profissional.'));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -143,7 +244,7 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
         <h3 className="text-lg font-extrabold text-slate-900">
           {editingProfessional ? 'Editar Profissional' : 'Cadastrar Novo Profissional'}
         </h3>
-        <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+        <button type="button" onClick={() => void handleClose()} disabled={isUploadingPhoto || isSaving} aria-label="Fechar formulário" className="p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50 rounded-full transition-colors">
           <X size={20} />
         </button>
       </div>
@@ -153,7 +254,7 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Nome Completo *</label>
             <input
-              type="text" required value={professionalName} onChange={(e) => setProfessionalName(e.target.value)}
+              type="text" required minLength={2} maxLength={100} value={professionalName} onChange={(e) => setProfessionalName(e.target.value)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-medium"
               placeholder="Ex: João Silva"
             />
@@ -161,7 +262,7 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Especialidade</label>
             <input
-              type="text" value={professionalSpecialty} onChange={(e) => setProfessionalSpecialty(e.target.value)}
+              type="text" maxLength={120} value={professionalSpecialty} onChange={(e) => setProfessionalSpecialty(e.target.value)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-medium"
               placeholder="Ex: Especialista em Degradê"
             />
@@ -205,7 +306,7 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Ordem de Exibição</label>
             <input
-              type="number" value={professionalOrder} onChange={(e) => setProfessionalOrder(e.target.value)}
+              type="number" step="1" value={professionalOrder} onChange={(e) => setProfessionalOrder(e.target.value)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-medium"
               placeholder="0"
             />
@@ -248,6 +349,7 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
           <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Descrição Curta (Opcional)</label>
           <textarea
             value={professionalDescription} onChange={(e) => setProfessionalDescription(e.target.value)}
+            maxLength={1000}
             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 resize-none font-medium text-sm"
             rows={2} placeholder="Fale um pouco sobre o profissional..."
           ></textarea>
@@ -342,17 +444,17 @@ export const AdminProfessionalForm: React.FC<AdminProfessionalFormProps> = ({
         <div className="flex justify-end pt-4 border-t border-slate-100">
           <div className="flex gap-3">
             <button
-              type="button" onClick={onClose}
+              type="button" onClick={() => void handleClose()} disabled={isUploadingPhoto || isSaving}
               className="px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isUploadingPhoto}
+              disabled={isUploadingPhoto || isSaving}
               className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md transition-all active:scale-[0.98]"
             >
-              {editingProfessional ? 'Salvar Alterações' : 'Cadastrar Profissional'}
+              {isSaving ? 'Salvando...' : editingProfessional ? 'Salvar Alterações' : 'Cadastrar Profissional'}
             </button>
           </div>
         </div>

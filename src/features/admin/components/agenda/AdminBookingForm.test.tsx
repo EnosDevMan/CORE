@@ -5,7 +5,7 @@ import { useApp } from '../../../../store/useApp';
 
 vi.mock('../../../../store/useApp', () => ({ useApp: vi.fn() }));
 
-const addBooking = vi.fn();
+const addAdministrativeBooking = vi.fn();
 
 describe('AdminBookingForm', () => {
   beforeEach(() => {
@@ -14,13 +14,14 @@ describe('AdminBookingForm', () => {
       professionals: [{ id: 'barber-1', name: 'Paulo', active: true }],
       services: [{ id: 'service-1', name: 'Corte', duration: 30, price: 40 }],
       isSlotAvailable: vi.fn(() => true),
-      addBooking,
+      getAvailabilitySlots: vi.fn(() => [{ time: '10:00', status: 'available' }]),
+      addAdministrativeBooking,
     } as unknown as ReturnType<typeof useApp>);
   });
 
   it('exibe sucesso somente depois que a persistência é confirmada', async () => {
     let confirmSave!: () => void;
-    addBooking.mockReturnValue(new Promise<void>(resolve => { confirmSave = resolve; }));
+    addAdministrativeBooking.mockReturnValue(new Promise<void>(resolve => { confirmSave = resolve; }));
     const showFeedback = vi.fn();
     const onSuccess = vi.fn();
 
@@ -31,10 +32,10 @@ describe('AdminBookingForm', () => {
     fireEvent.change(inputs[0], { target: { value: 'barber-1' } });
     fireEvent.change(inputs[1], { target: { value: 'service-1' } });
     fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2026-08-08' } });
-    fireEvent.change(document.querySelector('input[type="time"]')!, { target: { value: '10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /10:00/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
-    expect(addBooking).toHaveBeenCalledOnce();
+    expect(addAdministrativeBooking).toHaveBeenCalledOnce();
     expect(showFeedback).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
 
@@ -44,7 +45,7 @@ describe('AdminBookingForm', () => {
   });
 
   it('exibe o erro da persistência e não informa sucesso', async () => {
-    addBooking.mockRejectedValue(new Error('Falha no banco'));
+    addAdministrativeBooking.mockRejectedValue(new Error('Falha no banco'));
     const showFeedback = vi.fn();
     const onSuccess = vi.fn();
 
@@ -55,7 +56,7 @@ describe('AdminBookingForm', () => {
     fireEvent.change(inputs[0], { target: { value: 'barber-1' } });
     fireEvent.change(inputs[1], { target: { value: 'service-1' } });
     fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2026-08-08' } });
-    fireEvent.change(document.querySelector('input[type="time"]')!, { target: { value: '10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /10:00/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => expect(showFeedback).toHaveBeenCalledWith('Falha no banco', true));

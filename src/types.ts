@@ -41,8 +41,7 @@ export type BookingStatus =
   | 'Em atendimento'
   | 'Concluído'
   | 'Cancelado'
-  | 'Não compareceu'
-  | 'Reagendado';
+  | 'Não compareceu';
 
 export interface Booking {
   id: string;
@@ -79,7 +78,6 @@ export interface BusinessConfig {
   workingHours: WorkingHours;
   socialLinks: SocialLinks;
   bookingFee: number; // R$ 10,00 typical
-  toleranceMinutes: number; // 15 minutes typical
   intervalMinutes: number; // 60 minutes typical
   bookingWindowDays: number; // number of calendar days shown to customers, including today
   minimumNoticeMinutes?: number;

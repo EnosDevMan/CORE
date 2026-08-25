@@ -3,9 +3,11 @@ import { useApp } from '../../../store/useApp';
 import { Booking } from '../../../types';
 import { getErrorMessage } from '../../../utils/errors';
 import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
-import { formatBRL } from '../../../utils/validation';
+import { formatBRL, getBusinessNow } from '../../../utils/validation';
+import { useBusiness } from '../../../core/business/hooks';
 
 export const useCustomerDashboard = () => {
+  const { profile } = useBusiness();
   const {
     bookings,
     services,
@@ -28,16 +30,24 @@ export const useCustomerDashboard = () => {
   const slotRequestId = useRef(0);
 
   const clientBookings = currentUser ? bookings.filter(b => b.customerId === currentUser.id) : [];
+  const businessNow = getBusinessNow(profile.timezone);
+  const isPast = (booking: Booking) => booking.date < businessNow.dateStr || (
+    booking.date === businessNow.dateStr
+    && booking.time <= `${String(businessNow.hours).padStart(2, '0')}:${String(businessNow.minutes).padStart(2, '0')}`
+  );
+  const isFinal = (booking: Booking) => booking.status === 'Concluído'
+    || booking.status === 'Cancelado'
+    || booking.status === 'Não compareceu';
 
   const upcomingBookings = clientBookings.filter(
-    b => b.status !== 'Concluído' && b.status !== 'Cancelado' && b.status !== 'Não compareceu'
+    b => !isFinal(b) && !isPast(b)
   ).sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return a.time.localeCompare(b.time);
   });
 
   const pastBookings = clientBookings.filter(
-    b => b.status === 'Concluído' || b.status === 'Cancelado' || b.status === 'Não compareceu'
+    b => isFinal(b) || isPast(b)
   ).sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.time.localeCompare(a.time);
@@ -84,7 +94,13 @@ export const useCustomerDashboard = () => {
       // Exclui o próprio agendamento do motor de disponibilidade. Apenas
       // recolocar o horário atual não liberava outros horários que se
       // sobrepunham a ele e divergia da validação transacional do backend.
-      const slots = await getAvailableSlots(booking.professionalId, booking.serviceId, date, booking.id);
+      const slots = await getAvailableSlots(
+        booking.professionalId,
+        booking.serviceId,
+        date,
+        booking.id,
+        booking.durationMinutes,
+      );
       if (requestId !== slotRequestId.current) return;
       setAvailableTimes(slots);
     } catch (err) {

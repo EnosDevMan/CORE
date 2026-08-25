@@ -48,10 +48,11 @@ usam exclusivamente `professionalId`. A tradução temporária para
 motor de disponibilidade não conhecem mais o identificador físico legado.
 
 A coleção canônica em memória também se chama `professionals`. Operações de
-cadastro usam `addProfessional`, `updateProfessional` e `deleteProfessional`,
+cadastro usam `addProfessional`, `updateProfessional` e `deactivateProfessional`,
 e a configuração compartilhada usa `BusinessConfig`. Aliases antigos não são
 mais exportados pelo Core; somente nomes SQL e caminhos de Storage aguardando
-migration permanecem na fronteira externa.
+migration permanecem na fronteira externa. Desativação é usada no lugar de
+exclusão física para preservar agendamentos, snapshots e relatórios históricos.
 
 Metadados públicos também são configurados em runtime. O HTML, manifest e seed
 versionados usam somente textos genéricos; `BusinessProvider` publica título,

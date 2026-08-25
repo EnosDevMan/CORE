@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../../../../store/useApp';
 import { BookingStatus } from '../../../../types';
 import { getErrorMessage } from '../../../../utils/errors';
+import { validatePhoneBR } from '../../../../utils/validation';
 
 interface AdminBookingFormProps {
   showFeedback: (msg: string, isError: boolean) => void;
@@ -9,7 +10,7 @@ interface AdminBookingFormProps {
 }
 
 export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback, onSuccess }) => {
-  const { professionals, services, isSlotAvailable, getAvailabilitySlots, addBooking } = useApp();
+  const { professionals, services, isSlotAvailable, getAvailabilitySlots, addAdministrativeBooking } = useApp();
 
   const [adminCustName, setAdminCustName] = useState('');
   const [adminCustPhone, setAdminCustPhone] = useState('');
@@ -22,16 +23,25 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
   const [adminStatus, setAdminStatus] = useState<BookingStatus>('Confirmado');
   const [isSaving, setIsSaving] = useState(false);
   const selectedService = services.find(service => service.id === adminServiceId);
-  const hasAvailabilityEngine = typeof getAvailabilitySlots === 'function';
-  const slots = useMemo(() => hasAvailabilityEngine && adminProfessionalId && adminServiceId && adminDate
+  const slots = useMemo(() => adminProfessionalId && adminServiceId && adminDate
     ? getAvailabilitySlots(adminProfessionalId, adminServiceId, adminDate, true)
-    : [], [hasAvailabilityEngine, adminProfessionalId, adminServiceId, adminDate, getAvailabilitySlots]);
+    : [], [adminProfessionalId, adminServiceId, adminDate, getAvailabilitySlots]);
 
   const handleAdminBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!adminCustName || !adminCustPhone || !adminProfessionalId || !adminServiceId || !adminDate || !adminTime) {
+    const customerName = adminCustName.trim();
+    const customerPhone = adminCustPhone.trim();
+    if (!customerName || !customerPhone || !adminProfessionalId || !adminServiceId || !adminDate || !adminTime) {
       showFeedback('Por favor, preencha todos os campos obrigatórios.', true);
+      return;
+    }
+    if (customerName.length < 2 || customerName.length > 100) {
+      showFeedback('O nome do cliente deve ter entre 2 e 100 caracteres.', true);
+      return;
+    }
+    if (!validatePhoneBR(customerPhone)) {
+      showFeedback('Informe um telefone brasileiro válido com DDD.', true);
       return;
     }
 
@@ -54,15 +64,15 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
 
     setIsSaving(true);
     try {
-      await addBooking({
+      await addAdministrativeBooking({
         // 'guest' é o sentinel que dataService.createBooking já converte para
         // customer_id = null. O valor anterior (`cust-admin-${Date.now()}`)
         // não é um UUID válido e fazia essa gravação falhar sempre, com um
         // erro de tipo do Postgres, todas as vezes que o admin cadastrava um
         // agendamento manualmente (walk-in).
         customerId: 'guest',
-        customerName: adminCustName,
-        customerPhone: adminCustPhone,
+        customerName,
+        customerPhone,
         professionalId: adminProfessionalId,
         serviceId: adminServiceId,
         date: adminDate,
@@ -70,7 +80,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
         status: adminStatus,
         value: val,
         feePaid: adminFeePaid,
-        notes: adminNotes
+        notes: adminNotes.trim()
       });
 
       showFeedback('Agendamento confirmado com sucesso', false);
@@ -83,6 +93,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
       setAdminDate('');
       setAdminTime('');
       setAdminNotes('');
+      setAdminFeePaid(true);
       setAdminStatus('Confirmado');
 
       onSuccess?.();
@@ -103,13 +114,13 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
         </select>
 
         <p className="font-bold text-slate-500 uppercase tracking-wide">2. Cliente</p>
-        <input type="text" required value={adminCustName} onChange={(e) => setAdminCustName(e.target.value)} placeholder="Nome do Cliente *" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
-        <input type="tel" required value={adminCustPhone} onChange={(e) => setAdminCustPhone(e.target.value)} placeholder="WhatsApp *" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
+        <input type="text" required minLength={2} maxLength={100} value={adminCustName} onChange={(e) => setAdminCustName(e.target.value)} placeholder="Nome do Cliente *" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
+        <input type="tel" required maxLength={32} value={adminCustPhone} onChange={(e) => setAdminCustPhone(e.target.value)} placeholder="WhatsApp *" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
 
         <p className="font-bold text-slate-500 uppercase tracking-wide">3. Serviço e data</p>
         <select required value={adminServiceId} onChange={(e) => setAdminServiceId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium bg-white">
           <option value="">Selecione o Serviço *</option>
-          {services.map(s => <option key={s.id} value={s.id}>{s.name} - R$ {s.price}</option>)}
+          {services.filter(service => service.active !== false).map(s => <option key={s.id} value={s.id}>{s.name} - R$ {s.price}</option>)}
         </select>
 
         <input type="date" required value={adminDate} onChange={(e) => { setAdminDate(e.target.value); setAdminTime(''); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium bg-white text-base" />
@@ -122,9 +133,7 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
             {slot.time}<span className="block text-[9px] no-underline">{slot.status === 'available' ? 'Livre' : slot.reason}</span>
           </button>)}
         </div>
-        {!hasAvailabilityEngine && <input aria-label="Horário" type="time" required value={adminTime} onChange={event => setAdminTime(event.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" />}
-
-        <input type="text" value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Observações" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
+        <input type="text" maxLength={1000} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Observações" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
         
         <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
           <input type="checkbox" checked={adminFeePaid} onChange={(e) => setAdminFeePaid(e.target.checked)} className="rounded" />

@@ -9,6 +9,14 @@ interface Props {
 }
 
 export const ProfessionalSelectionStep: React.FC<Props> = React.memo(({ professionals, selectedProfessional, selectProfessional }) => {
+  if (professionals.length === 0) {
+    return (
+      <div role="status" className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+        Nenhum profissional está disponível para agendamento no momento.
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
       {professionals.map(professional => {

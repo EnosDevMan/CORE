@@ -10,15 +10,25 @@ interface Props {
 }
 
 export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, selectedServices, toggleService }) => {
+  if (services.length === 0) {
+    return (
+      <div role="status" className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+        Nenhum serviço está disponível para agendamento no momento.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
       {services.map(service => {
         const isSelected = selectedServices.some(s => s.id === service.id);
         return (
-          <div
+          <button
+            type="button"
             key={service.id}
             onClick={() => toggleService(service)}
-            className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+            aria-pressed={isSelected}
+            className={`w-full p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between ${
               isSelected
                 ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
                 : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'
@@ -42,7 +52,7 @@ export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, sel
                 {isSelected && <Check size={14} className="text-white" />}
               </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

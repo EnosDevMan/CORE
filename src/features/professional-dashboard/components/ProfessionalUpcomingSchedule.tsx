@@ -1,13 +1,13 @@
 import React from 'react';
 import { Booking, BookingStatus } from '../../../types';
-import { CheckCircle, X } from 'lucide-react';
+import { BookingStatusActions } from '../../../components/BookingStatusActions';
 
 interface ProfessionalUpcomingScheduleProps {
   futureBookings: Booking[];
   getServiceName: (id: string) => string;
   getFormattedDate: (dateStr: string) => string;
   getStatusBadgeColor: (status: BookingStatus) => string;
-  handleStatusChange?: (id: string, status: BookingStatus) => void; // Nova prop
+  handleStatusChange?: (id: string, status: BookingStatus) => void | Promise<void>;
 }
 
 export const ProfessionalUpcomingSchedule: React.FC<ProfessionalUpcomingScheduleProps> = ({
@@ -39,26 +39,12 @@ export const ProfessionalUpcomingSchedule: React.FC<ProfessionalUpcomingSchedule
                   {booking.status}
                 </span>
 
-                {/* Botão de Confirmação de Pagamento */}
-                {handleStatusChange && booking.status === 'Aguardando pagamento' && (
-                  <button
-                    onClick={() => handleStatusChange(booking.id, 'Confirmado')}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-1 px-2 rounded flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
-                    title="Confirmar o pagamento desta reserva"
-                  >
-                    <CheckCircle size={11} /> Confirmar
-                  </button>
-                )}
-
-                {/* Botão de Cancelamento */}
-                {handleStatusChange && booking.status === 'Aguardando pagamento' && (
-                  <button
-                    onClick={() => handleStatusChange(booking.id, 'Cancelado')}
-                    className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs py-1 px-2 rounded flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
-                    title="Cancelar esta reserva"
-                  >
-                    <X size={11} />
-                  </button>
+                {handleStatusChange && (
+                  <BookingStatusActions
+                    booking={booking}
+                    handleStatusChange={handleStatusChange}
+                    context="upcoming"
+                  />
                 )}
               </div>
             </div>

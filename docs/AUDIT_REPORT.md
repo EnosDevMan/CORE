@@ -1,36 +1,104 @@
-# Auditoria de prontidão — atualizada em 2026-08-23
+# Auditoria de prontidão para produção
 
-## Parecer de produção
+Atualização: 24 de agosto de 2026.
 
-O código passa pelos gates automatizados locais, mas a promoção ainda é
-**condicional**. Permanecem pendências arquiteturais P0/P1 descritas abaixo e
-validações que só podem ocorrer no Supabase/Vercel de destino. O procedimento e
-os critérios bloqueantes estão em `docs/DEPLOYMENT.md`; `npm run verify` agora é
-o gate reproduzível usado também pela CI.
+## Parecer executivo
 
-## Escopo
+O fluxo principal do CORE está implementado, recebeu defesa em profundidade no
+frontend e no PostgreSQL e passou pelo pipeline completo no commit candidato.
+Como o projeto ainda não foi instalado no Supabase nem na Vercel, nenhuma
+análise séria pode declarar a operação real como 100% pronta neste momento.
 
-Inspeção de frontend, stores, data service, autenticação, schema, migrations,
-RLS, agenda, responsividade, acessibilidade, configuração e testes.
+Há duas métricas diferentes:
 
-## Achados
+| Métrica | Situação deste checkpoint | Para chegar a 100% |
+|---|---:|---|
+| Implementação verificável no repositório | 100% | Manter os checks obrigatórios verdes em toda alteração |
+| Prontidão real de lançamento | 80% | Staging/produção, testes no navegador e domínio reais, operação, jurídico e monitoramento |
 
-| Prioridade | Categoria | Problema e localização | Impacto/risco | Solução |
-|---|---|---|---|---|
-| P0 em andamento | ARCHITECTURE / HARDCODE | O runtime, onboarding e cadastro administrativo já são universais; agenda, roles e partes da UI ainda usam conceitos `Barber`/`barbershop` como compatibilidade. A marca real e os textos de barbearia foram removidos dos estados globais de loading/erro e dos fluxos públicos compartilhados. | Os fluxos legados restantes ainda limitam a troca completa de nicho. | Migrar agenda, booking e roles incrementalmente para `Professional`, mantendo testes a cada fluxo. |
-| P0 resolvido | DATABASE | `bookings.service_id` guardava CSV sem FK. `booking_services` agora normaliza serviços e snapshots; o CSV permanece temporariamente para compatibilidade. | A ponte ainda deve ser removida após migrar RPCs/UI. | Trocar leituras e remover CSV em uma migration futura. |
-| P0 resolvido | DATABASE / SECURITY | Conflitos dependiam de cálculos sobre `date`/`time` e duração atual do serviço. | Corridas e mudanças de duração produziam interpretação ambígua. | Intervalos/duração são snapshots e uma exclusion constraint é a barreira definitiva. |
-| P1 | ARCHITECTURE | `dataService.loadAllData` carrega várias coleções globais e até todos os bookings permitidos. | Inicialização cresce com a base e aumenta exposição/custo. | Repositórios por feature e queries paginadas por tela/data. |
-| P1 | AUTHORIZATION | Roles legadas são `admin/barber/customer`, divergindo de owner/manager/receptionist/professional. | Permissões futuras ficam rígidas. | Migração de roles e matriz de capabilities antes de ampliar equipe. |
-| P1 | HARDCODE / THEME | `index.css` e diversos componentes codificam navy/copper/slate. | Tema não é realmente configurável. | Tokens semânticos, adaptador legado e migração gradual dos componentes. |
-| P1 resolvido | ONBOARDING | O schema legado criava configuração de barbearia automaticamente e não possuía estado universal. | Banco novo não guiava configuração segura. | `business_profile.onboarding_completed`, bootstrap exclusivo do owner e wizard atômico/idempotente foram implementados. |
-| P2 | PERFORMANCE | A landing e dashboards foram separados, mas o loader ainda cria waterfall auth→dados. | Primeiro conteúdo público espera sessão. | Carregar dados públicos em paralelo e privados sob demanda. |
-| P2 | ACCESSIBILITY / MOBILE | Há focus/reduced-motion globais, porém componentes extensos precisam auditoria individual de labels, dialogs e touch targets. | Barreiras para teclado/leitor de tela e telas de 360px. | Testes de interação e checklist por componente durante migração. |
-| P2 | TECH_DEBT | `src/types.ts` concentra domínios e comentários de compatibilidade. | Agentes alteram limites errados com facilidade. | Tipos por feature, mantendo barrel temporário. |
-| P3 | DUPLICATION | Dashboards e formulários repetem shells/estados visuais. | Inconsistência e manutenção duplicada. | Extrair primitives somente ao migrar usos reais. |
+A primeira nota mede somente aquilo que código e CI conseguem provar. A segunda
+inclui dependências que ainda não existem e não podem ser simuladas como
+concluídas. Os 20 pontos restantes estão distribuídos entre ambientes e domínio
+reais (6), smoke/E2E com Auth e Storage (5), backup/observabilidade/rollback (4),
+jurídico e retenção (3) e proteção contra abuso/notificações (2). A nota deve ser
+recalculada após cada evidência do checklist de deploy.
 
-## Pontos positivos preservados
+## Evidência automatizada do checkpoint
 
-TypeScript estrito, lazy loading das telas, RLS habilitado, RPCs de agenda,
-paginação explícita, camada única de Supabase, reduced motion, proteção contra
-zoom iOS e testes do agendamento já existem e devem ser evoluídos, não descartados.
+- GitHub Actions `Quality` #15: instalação limpa com `npm ci` e `npm run verify`
+  concluídos sem vulnerabilidades conhecidas nas dependências de produção;
+- lint e TypeScript sem erros;
+- 24 arquivos de teste e 124 testes aprovados;
+- build de produção e orçamento de bundle aprovados;
+- job `database` aprovado em PostgreSQL 17, aplicando o schema consolidado e os
+  testes SQL de roles, sobreposição e segurança de reservas.
+
+## Escopo revisado
+
+- React, TypeScript, Zustand, Vite, rotas internas e estados de carregamento;
+- autenticação, recuperação de senha, cadastro, onboarding e autorização por role;
+- agenda pública, agenda administrativa, reagendamento, cancelamento e status;
+- disponibilidade, fusos horários, horários semanais, pausas e bloqueios;
+- Supabase/PostgreSQL, RLS, grants, RPCs, triggers, constraints e Storage;
+- formulários, limites, erros, acessibilidade, concorrência e responsividade;
+- relatórios, histórico, fotos, dados mortos, documentação, CI e artefatos de deploy.
+
+## Problemas críticos corrigidos no repositório
+
+| Área | Correção aplicada |
+|---|---|
+| Instalação nova | Shell inicial funciona antes de existir `business_profile`; onboarding e reivindicação do primeiro proprietário são atômicos e protegidos por código de uso único. |
+| Sessão | Dados privados são removidos na troca de sessão; falha ao restaurar perfil não é mais confundida com visitante anônimo. |
+| Autorização | Projeções públicas não expõem vínculo Auth dos profissionais; managers/receptionists permanecem negados até terem policies próprias; alterações sem linha afetada agora falham. |
+| Agenda concorrente | Criação e reagendamento passam por RPC, advisory lock, snapshots e exclusion constraint; duas requisições não podem ocupar o mesmo intervalo. |
+| Regras do servidor | Preço, duração, telefone, serviços ativos, janela, antecedência, grade, expediente, pausas, bloqueios e profissional ativo são revalidados no banco. |
+| Histórico | Valor, duração e intervalo são snapshots imutáveis; alterar ou desativar catálogo não reescreve agendamentos antigos. |
+| Status | Fluxo operacional é `aguardando → confirmado → em atendimento → concluído`; profissional não pode pular etapas, registrar ausência antecipada ou adulterar cliente, serviço, preço, notas e horário diretamente. |
+| Cliente | Cliente não pode editar observações, desfazer presença, cancelar finalizados ou reagendar sem revalidar conflito/prazo. |
+| Pagamento | Taxa zero confirma automaticamente; taxa positiva exige PIX; valor e regra de cancelamento aparecem antes da reserva. |
+| Configuração | Horários semanais, taxa, PIX, janela, intervalo, antecedência e cancelamento têm validação no navegador e no banco. |
+| Profissionais/serviços | Exclusão destrutiva virou desativação, preservando histórico e FKs. Vínculos conta/agenda são sincronizados na mesma transação. |
+| Storage | MIME e tamanho são limitados no bucket; uploads usam nomes únicos; falhas compensam rascunhos; remoção respeita identidade e ordem segura banco→arquivo. |
+| Galeria | Reordenação é atômica; falha de banco não deixa foto pública quebrada. |
+| Privacidade | Versão do aceite foi centralizada; texto e comportamento do WhatsApp/taxa foram alinhados. |
+| UX/acessibilidade | Dialogs têm foco, Escape, retorno de foco, labels e bloqueio durante gravações; submissões duplicadas críticas foram impedidas e os termos abrem sem perder a reserva em preenchimento. |
+| Código morto | Fluxo promocional e operações CRUD obsoletas foram removidos. O grafo estático só deixa fora do entrypoint helpers exclusivos dos testes. |
+| Qualidade | CI executa lint, tipos, testes, build, orçamento de bundle, auditoria de dependências de produção, inspeção de secrets/headers e testes SQL em PostgreSQL 17. |
+
+## Pendências que ainda bloqueiam a nota de produção
+
+| Prioridade | Pendência | Evidência de conclusão |
+|---|---|---|
+| Bloqueador | Não existe ambiente Supabase/Vercel de staging ou produção. | Schema aplicado em Supabase vazio, Vercel ligada ao commit aprovado e variáveis separadas por ambiente. |
+| Bloqueador | A política é um texto técnico e ainda precisa de decisão de retenção e revisão jurídica/LGPD. | Texto aprovado, contato real e prazos de retenção documentados antes de abrir cadastro. |
+| Bloqueador | Não houve smoke test no domínio e navegador reais. | Matriz anônimo/customer/professional/owner em mobile e desktop, incluindo Auth redirect, Storage e recuperação de senha. |
+| Alta | Não há provedor automático de WhatsApp/e-mail/SMS. O produto oferece link manual confiável. | Integrar provedor aprovado ou declarar formalmente que comunicação é manual. |
+| Alta | Rate limit por telefone reduz abuso, mas não substitui proteção distribuída contra bots. | CAPTCHA/Turnstile, WAF/rate limit de borda ou decisão de risco registrada após teste. |
+| Alta | Backup, restauração, alertas, logs e responsável por incidentes ainda não foram configurados. | Restauração ensaiada, alertas ativos, runbook e rollback com responsáveis. |
+| Média | Não há suíte E2E de navegador versionada. | Playwright/Cypress para os fluxos críticos ou evidência manual reproduzível em staging. |
+
+## Dívida técnica não bloqueante para o primeiro lançamento
+
+- `loadAllData` ainda pagina todas as reservas permitidas na inicialização; mover
+  consultas para cada tela antes de volume elevado.
+- `service_id` CSV continua como ponte; `booking_services` já preserva snapshots,
+  mas o detalhamento financeiro por serviço ainda divide combos igualmente.
+- nomes físicos `barbers`/`barber_id` permanecem somente na fronteira SQL/Storage.
+- manager e receptionist existem no enum, mas ficam intencionalmente sem acesso
+  até uma matriz de permissões ser desenhada e testada.
+- o sistema universal ainda possui textos visuais específicos de salão/barbearia;
+  isso não impede uma barbearia, mas limita outros nichos.
+
+## Critério objetivo de 100%
+
+1. Manter CI verde no SHA exato que será implantado — atendido neste checkpoint.
+2. Supabase novo criado e `supabase/schema.sql` aplicado uma única vez.
+3. Staging Vercel ligada ao Supabase de staging, sem usar dados de produção.
+4. Owner preparado, e-mail confirmado e onboarding completo.
+5. Smoke tests de cadastro, login, reset, reserva, colisão, PIX, status,
+   reagendamento, cancelamento, bloqueio e upload em mobile/desktop.
+6. Headers e CSP conferidos na resposta HTTP do domínio final.
+7. Backup restaurado em teste; monitoramento, alerta e rollback ensaiados.
+8. Termos, retenção, contato e operação de notificações aprovados.
+9. Proteção anti-bot decidida com base em teste de abuso.
+10. Checklist e evidências anexados ao release; só então a prontidão real é 100%.

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/hooks/useAuth';
 import { supabaseAuthProvider } from '../auth/services/supabaseAuthProvider';
 import { getErrorMessage } from '../utils/errors';
 import { validateEmail, validatePhoneBR } from '../utils/validation';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ const inputClass =
   'w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow';
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenPrivacy }) => {
-  const { login, register, loading, error: authError } = useAuth();
+  const { login, register, loading, error: authError, clearError } = useAuth();
 
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
@@ -30,18 +31,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = previous; document.removeEventListener('keydown', onKey); };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const resetFields = () => {
+  const resetFields = React.useCallback(() => {
     setName('');
     setEmail('');
     setPhone('');
@@ -51,17 +41,28 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
     setPendingConfirmation(false);
     setPrivacyConsent(false);
     setSendingReset(false);
-  };
+    clearError();
+  }, [clearError]);
+
+  const handleClose = React.useCallback(() => {
+    resetFields();
+    setMode('login');
+    onClose();
+  }, [onClose, resetFields]);
+
+  const modalRef = useModalAccessibility<HTMLDivElement>(isOpen, handleClose);
+
+  if (!isOpen) return null;
 
   const switchMode = (next: Mode) => {
     resetFields();
     setMode(next);
   };
 
-  const handleClose = () => {
+  const handleOpenPrivacy = () => {
     resetFields();
     setMode('login');
-    onClose();
+    onOpenPrivacy();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,7 +76,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
       }
       setSendingReset(true);
       try {
-        const result = await supabaseAuthProvider.sendPasswordResetEmail(email);
+        const result = await supabaseAuthProvider.sendPasswordResetEmail(email.trim());
         if (!result.success) {
           setLocalError(result.error || 'Não foi possível enviar o e-mail de recuperação.');
           return;
@@ -98,33 +99,35 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
         setLocalError('Informe sua senha.');
         return;
       }
-      const ok = await login({ email, password });
+      const ok = await login({ email: email.trim(), password });
       if (ok) handleClose();
       return;
     }
 
     // mode === 'register'
-    if (!name || !phone) {
-      setLocalError('Por favor, preencha nome e telefone.');
+    const normalizedName = name.trim();
+    const normalizedPhone = phone.trim();
+    if (normalizedName.length < 2 || normalizedName.length > 100) {
+      setLocalError('O nome deve ter entre 2 e 100 caracteres.');
       return;
     }
     if (!validateEmail(email)) {
       setLocalError('Informe um e-mail válido.');
       return;
     }
-    if (!validatePhoneBR(phone)) {
+    if (!validatePhoneBR(normalizedPhone)) {
       setLocalError('Informe um telefone válido, com DDD (ex: 11 91234-5678).');
       return;
     }
-    if (password.length < 6) {
-      setLocalError('A senha precisa ter pelo menos 6 caracteres.');
+    if (password.length < 6 || password.length > 128) {
+      setLocalError('A senha precisa ter entre 6 e 128 caracteres.');
       return;
     }
     if (!privacyConsent) {
       setLocalError('É necessário concordar com a Política de Privacidade para criar uma conta.');
       return;
     }
-    const result = await register({ name, email, phone, password });
+    const result = await register({ name: normalizedName, email: email.trim(), phone: normalizedPhone, password });
     if (result === 'authenticated') {
       handleClose();
       return;
@@ -135,7 +138,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
   const displayError = localError || authError;
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+    <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-250 border border-slate-100 flex flex-col max-h-[92vh]">
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
           <h2 id="auth-dialog-title" className="text-xl font-black text-slate-900 tracking-tight">
@@ -214,6 +217,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                     id="name"
                     type="text"
                     autoComplete="name"
+                    minLength={2}
+                    maxLength={100}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     className={inputClass}
@@ -230,6 +235,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                   type="email"
                   inputMode="email"
                   autoComplete="email"
+                  maxLength={320}
+                  data-modal-initial-focus
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className={inputClass}
@@ -246,6 +253,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
+                    maxLength={32}
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     className={inputClass}
@@ -278,6 +286,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                     className={inputClass}
                     placeholder="••••••••"
                     minLength={6}
+                    maxLength={mode === 'register' ? 128 : undefined}
                     required
                   />
                 </div>
@@ -295,7 +304,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                     Li e concordo com a{' '}
                     <button
                       type="button"
-                      onClick={onOpenPrivacy}
+                      onClick={handleOpenPrivacy}
                       className="text-indigo-600 hover:text-indigo-500 font-semibold underline underline-offset-2"
                     >
                       Política de Privacidade
@@ -306,7 +315,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
               )}
 
               {displayError && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+                <div role="alert" className="flex items-start gap-2 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
                   <span>{displayError}</span>
                 </div>

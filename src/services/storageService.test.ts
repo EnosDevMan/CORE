@@ -4,7 +4,7 @@ import { getPublicStoragePath } from './storagePath';
 describe('getPublicStoragePath', () => {
   it('extrai e decodifica o caminho de uma URL pública do bucket', () => {
     expect(getPublicStoragePath(
-      'https://project.supabase.co/storage/v1/object/public/gallery/cortes/foto%201.webp',
+      'https://project.supabase.co/storage/v1/object/public/gallery/cortes/foto%201.webp?v=123',
       'gallery',
     )).toBe('cortes/foto 1.webp');
   });

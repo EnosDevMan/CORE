@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, User } from 'lucide-react';
+import { Plus, Edit2, PowerOff, User } from 'lucide-react';
 import type { Professional } from '../../professionals/types';
 import { useProfessionalAdmin } from '../../professionals/hooks/useProfessionalAdmin';
 import { AdminProfessionalForm } from './professionals/AdminProfessionalForm';
@@ -16,7 +16,7 @@ export const AdminProfessionalsTab: React.FC<AdminProfessionalsTabProps> = ({
   setSuccessMessage,
   setErrorMessage,
 }) => {
-  const { professionals, users, deleteProfessional } = useProfessionalAdmin();
+  const { professionals, users, deactivateProfessional } = useProfessionalAdmin();
   const niche = useNiche();
 
   const [editingProfessional, setEditingProfessional] = useState<Professional | null>(null);
@@ -32,13 +32,13 @@ export const AdminProfessionalsTab: React.FC<AdminProfessionalsTabProps> = ({
     setShowProfessionalForm(true);
   };
 
-  const handleDeleteProfessional = async (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o(a) profissional ${name}?`)) {
+  const handleDeactivateProfessional = async (id: string, name: string) => {
+    if (window.confirm(`Desativar ${name}? O histórico será preservado e o profissional deixará de aparecer para novos agendamentos.`)) {
       try {
-        await deleteProfessional(id);
-        setSuccessMessage('Profissional removido com sucesso!');
+        await deactivateProfessional(id);
+        setSuccessMessage('Profissional desativado com sucesso!');
       } catch (err) {
-        setErrorMessage(getErrorMessage(err, 'Erro ao remover profissional.'));
+        setErrorMessage(getErrorMessage(err, 'Erro ao desativar profissional.'));
       }
     }
   };
@@ -141,12 +141,12 @@ export const AdminProfessionalsTab: React.FC<AdminProfessionalsTabProps> = ({
                   >
                     <Edit2 size={14} /> Editar
                   </button>
-                  <button
-                    onClick={() => handleDeleteProfessional(professional.id, professional.name)}
+                  {professional.active !== false && <button
+                    onClick={() => handleDeactivateProfessional(professional.id, professional.name)}
                     className="flex-1 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Trash2 size={14} /> Excluir
-                  </button>
+                    <PowerOff size={14} /> Desativar
+                  </button>}
                 </div>
               </div>
             );

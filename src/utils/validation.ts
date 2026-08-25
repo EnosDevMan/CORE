@@ -3,6 +3,22 @@ export const validateEmail = (email: string): boolean => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 };
 
+/** Accepts an empty value or an absolute HTTP(S) URL without credentials. */
+export const validateOptionalHttpUrl = (raw: string): boolean => {
+  const value = raw.trim();
+  if (!value) return true;
+
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'https:' || url.protocol === 'http:')
+      && !url.username
+      && !url.password
+      && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Formatação canônica de moeda (BRL). Usa Intl.NumberFormat para separador
  * de milhar correto (ex: "R$ 1.234,50") — a versão anterior
@@ -43,8 +59,12 @@ export const parseBRNumber = (raw: string): number => {
  * valida a quantidade de dígitos antes do envio do formulário.
  */
 export const validatePhoneBR = (phone: string): boolean => {
-  const digits = (phone || '').replace(/\D/g, '');
-  const local = digits.startsWith('55') && digits.length > 11 ? digits.slice(2) : digits;
+  const value = (phone || '').trim();
+  if (!value || !/^\+?[\d\s().-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, '');
+  const local = digits.startsWith('55') && (digits.length === 12 || digits.length === 13)
+    ? digits.slice(2)
+    : digits;
   return local.length === 10 || local.length === 11;
 };
 

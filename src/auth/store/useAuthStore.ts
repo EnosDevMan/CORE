@@ -10,6 +10,8 @@ interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  /** Erro exclusivo da restauração inicial; nunca é usado para falhas comuns de login/cadastro. */
+  initializationError: string | null;
   /**
    * true quando o usuário chegou no app através do link de "recuperar
    * senha" por e-mail (evento `PASSWORD_RECOVERY` do Supabase). Enquanto
@@ -21,6 +23,7 @@ interface AuthState {
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (payload: RegisterPayload) => Promise<'authenticated' | 'confirmation' | false>;
   logout: () => Promise<void>;
+  clearError: () => void;
   completePasswordRecovery: () => void;
 }
 
@@ -28,13 +31,19 @@ async function loadCurrentUser(): Promise<AuthUser | null> {
   const { data } = await supabase.auth.getSession();
   if (!data.session) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('id, email, name, role, phone, avatar, profile_id')
     .eq('id', data.session.user.id)
-    .single();
+    .maybeSingle();
 
-  if (!profile) return null;
+  if (error) throw new Error(error.message);
+  if (!profile) {
+    // Evita uma sessão Auth ativa que a UI trataria como visitante. Esse
+    // estado impede o agendamento anônimo, pois auth.uid() continua definido.
+    await supabase.auth.signOut({ scope: 'local' });
+    return null;
+  }
 
   return {
     id: profile.id,
@@ -52,6 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   loading: true,
   error: null,
+  initializationError: null,
   passwordRecoveryMode: false,
 
   /**
@@ -69,12 +79,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       loadCurrentUser()
         .then(user => {
           if (active && version === requestVersion) {
-            set({ currentUser: user, isAuthenticated: !!user, loading: false, error: null });
+            set({
+              currentUser: user,
+              isAuthenticated: !!user,
+              loading: false,
+              error: null,
+              initializationError: null,
+            });
           }
         })
-        .catch(() => {
+        .catch((cause) => {
           if (active && version === requestVersion) {
-            set({ currentUser: null, isAuthenticated: false, loading: false });
+            set({
+              currentUser: null,
+              isAuthenticated: false,
+              loading: false,
+              error: null,
+              initializationError: getErrorMessage(cause, 'Não foi possível restaurar sua sessão.'),
+            });
           }
         });
     };
@@ -87,7 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // usuário chega pelo link de e-mail de recuperação de senha.
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        if (active) set({ passwordRecoveryMode: true, loading: false });
+        if (active) set({ passwordRecoveryMode: true, loading: false, initializationError: null });
         return;
       }
       refreshUser();
@@ -101,7 +123,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (credentials) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, initializationError: null });
     try {
       const result = await supabaseAuthProvider.login(credentials);
       if (!result.success || !result.data) {
@@ -117,7 +139,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (payload) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, initializationError: null });
     try {
       const result = await supabaseAuthProvider.register(payload);
       if (!result.success) {
@@ -147,9 +169,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     } finally {
       // A sessão visual nunca deve permanecer ativa quando o usuário pediu
       // para sair, mesmo se a revogação remota falhar por falta de rede.
-      set({ currentUser: null, isAuthenticated: false, loading: false, error: null });
+      set({
+        currentUser: null,
+        isAuthenticated: false,
+        loading: false,
+        error: null,
+        initializationError: null,
+      });
     }
   },
 
+  clearError: () => set({ error: null }),
   completePasswordRecovery: () => set({ passwordRecoveryMode: false }),
 }));

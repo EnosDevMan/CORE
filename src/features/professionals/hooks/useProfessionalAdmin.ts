@@ -11,13 +11,13 @@ export function useProfessionalAdmin() {
   const users = useDataStore(state => state.users);
   const addProfessional = useDataStore(state => state.addProfessional);
   const updateProfessional = useDataStore(state => state.updateProfessional);
-  const deleteProfessional = useDataStore(state => state.deleteProfessional);
+  const deactivateProfessional = useDataStore(state => state.deactivateProfessional);
 
   return {
     professionals,
     users,
     addProfessional,
     updateProfessional,
-    deleteProfessional,
+    deactivateProfessional,
   };
 }

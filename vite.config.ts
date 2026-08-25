@@ -14,6 +14,12 @@ export default defineConfig(() => {
       setupFiles: "./src/setupTests.ts",
     },
     plugins: [react(), tailwindcss()],
+    // Mantém avisos de licença em artefatos `.LEGAL.txt` separados. Eles
+    // continuam no deploy, mas não são baixados/executados como JavaScript em
+    // cada visita e não incham artificialmente o orçamento dos chunks.
+    esbuild: {
+      legalComments: 'external' as const,
+    },
     resolve: {
       alias: {
         '@': projectRoot,
