@@ -52,7 +52,9 @@ set local search_path = public, pg_temp;
 -- ============================================================================
 -- 1. EXTENSIONS
 -- ============================================================================
+create schema if not exists extensions;
 create extension if not exists "pgcrypto";
+create extension if not exists btree_gist with schema extensions;
 
 
 -- ============================================================================
@@ -2070,7 +2072,7 @@ for each row execute function public.sync_booking_settings_from_config();
 -- P0: snapshot appointment duration and enforce non-overlap in PostgreSQL.
 -- The legacy date/time/service_id columns remain during the compatibility
 -- window, but are no longer the database's source of truth for conflicts.
-create extension if not exists btree_gist;
+-- btree_gist is installed in the dedicated extensions schema above.
 
 alter table public.bookings
   add column starts_at timestamptz,
