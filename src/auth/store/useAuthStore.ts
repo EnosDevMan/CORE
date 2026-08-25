@@ -4,20 +4,11 @@ import { supabaseAuthProvider } from '../services/supabaseAuthProvider';
 import { AuthUser, LoginCredentials, RegisterPayload } from '../types';
 import { getErrorMessage } from '../../utils/errors';
 import { parseUserRole } from '../authorization';
-
-const PASSWORD_RECOVERY_PARAM = 'password-recovery';
-
-function hasPasswordRecoveryMarker(): boolean {
-  return new URLSearchParams(window.location.search).get(PASSWORD_RECOVERY_PARAM) === '1';
-}
-
-function clearPasswordRecoveryMarker(): void {
-  const url = new URL(window.location.href);
-  if (!url.searchParams.has(PASSWORD_RECOVERY_PARAM)) return;
-
-  url.searchParams.delete(PASSWORD_RECOVERY_PARAM);
-  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-}
+import {
+  clearCapturedPasswordRecoveryIntent,
+  clearPasswordRecoveryMarker,
+  isCapturedPasswordRecoverySession,
+} from '../passwordRecoveryIntent';
 
 interface AuthState {
   currentUser: AuthUser | null;
@@ -27,10 +18,9 @@ interface AuthState {
   /** Erro exclusivo da restauração inicial; nunca é usado para falhas comuns de login/cadastro. */
   initializationError: string | null;
   /**
-   * true quando o usuário chegou no app através do link de "recuperar
-   * senha" por e-mail. O evento `PASSWORD_RECOVERY` é a fonte principal;
-   * um marcador explícito na URL serve de fallback caso o SDK processe o
-   * link antes de o listener da aplicação ser registrado.
+   * true somente quando o Supabase emite `PASSWORD_RECOVERY` ou quando a
+   * sessão restaurada coincide exatamente com os tokens de recovery
+   * capturados antes da inicialização do cliente.
    */
   passwordRecoveryMode: boolean;
   initialize: () => () => void;
@@ -41,9 +31,20 @@ interface AuthState {
   completePasswordRecovery: () => void;
 }
 
-async function loadCurrentUser(): Promise<AuthUser | null> {
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) return null;
+interface LoadedAuthState {
+  user: AuthUser | null;
+  recoverySession: boolean;
+}
+
+async function loadCurrentUser(): Promise<LoadedAuthState> {
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new Error(sessionError.message);
+  if (!data.session) return { user: null, recoverySession: false };
+
+  const recoverySession = isCapturedPasswordRecoverySession(
+    data.session.access_token,
+    data.session.refresh_token,
+  );
 
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -56,17 +57,20 @@ async function loadCurrentUser(): Promise<AuthUser | null> {
     // Evita uma sessão Auth ativa que a UI trataria como visitante. Esse
     // estado impede o agendamento anônimo, pois auth.uid() continua definido.
     await supabase.auth.signOut({ scope: 'local' });
-    return null;
+    return { user: null, recoverySession: false };
   }
 
   return {
-    id: profile.id,
-    email: profile.email,
-    name: profile.name,
-    role: parseUserRole(profile.role),
-    phone: profile.phone ?? undefined,
-    avatar: profile.avatar ?? undefined,
-    profileId: profile.profile_id ?? undefined,
+    user: {
+      id: profile.id,
+      email: profile.email,
+      name: profile.name,
+      role: parseUserRole(profile.role),
+      phone: profile.phone ?? undefined,
+      avatar: profile.avatar ?? undefined,
+      profileId: profile.profile_id ?? undefined,
+    },
+    recoverySession,
   };
 }
 
@@ -79,32 +83,32 @@ export const useAuthStore = create<AuthState>((set) => ({
   passwordRecoveryMode: false,
 
   /**
-   * Carrega a sessão atual (se houver) e passa a escutar mudanças de sessão
-   * (login/logout/expiração de token em outra aba, refresh automático, e
-   * o clique no link de recuperação de senha). Chamar uma vez na raiz do
-   * app; retorna a função de cleanup.
+   * Carrega a sessão atual e escuta mudanças do Supabase. Nenhuma chamada
+   * assíncrona ao cliente é iniciada dentro do callback de
+   * `onAuthStateChange`: versões do supabase-js podem bloquear o cliente
+   * quando outra operação Auth é iniciada antes de o callback retornar.
    */
   initialize: () => {
     let active = true;
     let requestVersion = 0;
-    const recoveryMarkerPresent = hasPasswordRecoveryMarker();
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     const refreshUser = () => {
       const version = ++requestVersion;
       loadCurrentUser()
-        .then(user => {
+        .then(({ user, recoverySession }) => {
           if (active && version === requestVersion) {
-            set({
+            set(state => ({
               currentUser: user,
               isAuthenticated: !!user,
-              // O marcador só ativa o fallback se uma sessão válida tiver
-              // sido restaurada. Assim, acrescentar ?password-recovery=1
-              // manualmente não cria uma falsa tela funcional de troca.
-              passwordRecoveryMode: recoveryMarkerPresent && !!user,
+              // Uma vez autenticado como recovery, permaneça nessa tela até
+              // conclusão explícita ou SIGNED_OUT. Eventos como USER_UPDATED
+              // não devem derrubar a tela no meio da troca de senha.
+              passwordRecoveryMode: state.passwordRecoveryMode || recoverySession,
               loading: false,
               error: null,
               initializationError: null,
-            });
+            }));
           }
         })
         .catch((cause) => {
@@ -112,7 +116,6 @@ export const useAuthStore = create<AuthState>((set) => ({
             set({
               currentUser: null,
               isAuthenticated: false,
-              passwordRecoveryMode: false,
               loading: false,
               error: null,
               initializationError: getErrorMessage(cause, 'Não foi possível restaurar sua sessão.'),
@@ -121,23 +124,50 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
     };
 
+    const scheduleRefreshUser = () => {
+      if (refreshTimer !== null) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        if (active) refreshUser();
+      }, 0);
+    };
+
     refreshUser();
 
-    // Usamos o listener nativo do Supabase (em vez de
-    // `supabaseAuthProvider.onSessionChange`) porque precisamos do tipo do
-    // evento — especificamente `PASSWORD_RECOVERY`, disparado quando o
-    // usuário chega pelo link de e-mail de recuperação de senha.
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        if (active) set({ passwordRecoveryMode: true, loading: false, initializationError: null });
+      if (event === 'SIGNED_OUT') {
+        requestVersion++;
+        if (refreshTimer !== null) {
+          clearTimeout(refreshTimer);
+          refreshTimer = null;
+        }
+        clearCapturedPasswordRecoveryIntent();
+        if (active) {
+          set({
+            currentUser: null,
+            isAuthenticated: false,
+            loading: false,
+            error: null,
+            initializationError: null,
+            passwordRecoveryMode: false,
+          });
+        }
         return;
       }
-      refreshUser();
+
+      if (event === 'PASSWORD_RECOVERY') {
+        if (active) set({ passwordRecoveryMode: true, loading: false, initializationError: null });
+      }
+
+      // Deferir é intencional: o callback precisa retornar antes de qualquer
+      // nova chamada ao Supabase Auth/Data API.
+      scheduleRefreshUser();
     });
 
     return () => {
       active = false;
       requestVersion++;
+      if (refreshTimer !== null) clearTimeout(refreshTimer);
       subscription.subscription.unsubscribe();
     };
   },
@@ -166,9 +196,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ loading: false, error: result.error || 'Falha ao criar conta.' });
         return false;
       }
-      // Se a confirmação de e-mail estiver ativa no projeto Supabase, o
-      // cadastro não gera sessão imediata — só marcamos como autenticado se
-      // existir uma sessão de verdade.
+      // Se a confirmação de e-mail estiver ativa, o cadastro não gera sessão
+      // imediata. O provider também evita consultar profiles antes da sessão.
       const session = await supabaseAuthProvider.getSession();
       set({
         currentUser: session ? result.data ?? null : null,
@@ -187,6 +216,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await supabaseAuthProvider.logout();
     } finally {
+      clearCapturedPasswordRecoveryIntent();
+      clearPasswordRecoveryMarker();
       set({
         currentUser: null,
         isAuthenticated: false,
@@ -200,6 +231,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => set({ error: null }),
   completePasswordRecovery: () => {
+    clearCapturedPasswordRecoveryIntent();
     clearPasswordRecoveryMarker();
     set({ passwordRecoveryMode: false });
   },
