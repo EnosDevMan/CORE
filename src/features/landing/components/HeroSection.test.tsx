@@ -39,7 +39,7 @@ describe('HeroSection', () => {
     expect(screen.getByText(/cuidados para suas unhas/i)).toBeInTheDocument();
     expect(screen.queryByText(/cabelo e barba/i)).not.toBeInTheDocument();
     expect(container.querySelector('section')).toHaveAttribute('data-hero-variant', 'showcase');
-    expect(container.querySelector('section')).toHaveClass('core-public-secondary');
+    expect(container.querySelector('section')).toHaveClass('core-hero');
   });
 
   it('keeps owner-configured hero copy above niche defaults', () => {
