@@ -10,7 +10,7 @@ import { DEFAULT_BUSINESS_TIMEZONE } from '../../utils/validation';
  * wizard. The shell still needs a valid context so the login/registration UI
  * can render and the owner can reach that wizard.
  */
-export const BOOTSTRAP_BUSINESS_PROFILE: BusinessProfile = {
+const BOOTSTRAP_BUSINESS_PROFILE: BusinessProfile = {
   name: 'CORE',
   timezone: DEFAULT_BUSINESS_TIMEZONE,
   currency: 'BRL',

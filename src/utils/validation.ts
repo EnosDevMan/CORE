@@ -60,7 +60,7 @@ export const parseBRNumber = (raw: string): number => {
  */
 export const validatePhoneBR = (phone: string): boolean => {
   const value = (phone || '').trim();
-  if (!value || !/^\+?[\d\s().\-]+$/.test(value)) return false;
+  if (!value || !/^\+?[\d\s().-]+$/.test(value)) return false;
   const digits = value.replace(/\D/g, '');
   const local = digits.startsWith('55') && (digits.length === 12 || digits.length === 13)
     ? digits.slice(2)
