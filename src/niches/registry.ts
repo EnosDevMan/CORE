@@ -48,7 +48,7 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   beauty_salon: {
     id: 'beauty_salon', name: 'Salão de Beleza', professionalLabel: 'Profissionais', customerLabel: 'Clientes',
     recommendedCapabilities: shared,
-    recommendedThemeIds: ['rose_elegance', 'champagne_blush', 'sage_luxe', 'lavender_studio', 'minimal_light'],
+    recommendedThemeIds: ['rose_elegance', 'champagne_blush', 'lavender_studio', 'minimal_light', 'graphite_modern'],
     defaultLayoutId: 'beauty_editorial',
     dashboard: { todayLabel: 'Atendimentos de hoje', scheduleLabel: 'Agenda do salão' },
     landing: {
@@ -64,7 +64,7 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   nail_studio: {
     id: 'nail_studio', name: 'Nail Studio', professionalLabel: 'Especialistas', customerLabel: 'Clientes',
     recommendedCapabilities: [...shared, 'loyalty'],
-    recommendedThemeIds: ['lavender_studio', 'blush_glass', 'cocoa_nude', 'rose_elegance', 'minimal_light'],
+    recommendedThemeIds: ['lavender_studio', 'blush_glass', 'rose_elegance', 'minimal_light', 'graphite_modern'],
     defaultLayoutId: 'nail_showcase',
     dashboard: { todayLabel: 'Atendimentos de hoje', scheduleLabel: 'Agenda do studio' },
     landing: {
