@@ -34,6 +34,15 @@ values
     'Felino'
   );
 
+insert into public.services(id, name, duration, price, category)
+values (
+  '10000000-0000-4000-8000-000000000007',
+  'Serviço Pet',
+  60,
+  50,
+  'Pet'
+);
+
 insert into public.bookings(
   id, customer_id, customer_name, customer_phone, barber_id, service_id,
   date, time, status, value, starts_at, ends_at, duration_minutes
