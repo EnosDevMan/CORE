@@ -1,0 +1,22 @@
+name: Temporary unused-code audit
+
+on:
+  push:
+    branches:
+      - feat/professional-appearance-system-20260825
+
+permissions:
+  contents: read
+
+jobs:
+  unused-code:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript unused code audit
+        run: npx --no-install tsc --noEmit --noUnusedLocals --noUnusedParameters
