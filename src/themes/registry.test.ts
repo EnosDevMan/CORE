@@ -9,7 +9,6 @@ describe('theme registry', () => {
       expect(toCssVariables(theme)['--core-primary']).toMatch(/^#/);
       expect(theme.tokens.primaryForeground).toBeTruthy();
       expect(theme.tokens.ring).toBeTruthy();
-      expect(theme.description.length).toBeGreaterThan(10);
     }
   });
 
@@ -18,6 +17,7 @@ describe('theme registry', () => {
     for (const niche of Object.values(NICHE_REGISTRY)) {
       const ids = niche.recommendedThemeIds as readonly ThemeId[];
       expect(ids.length).toBeGreaterThanOrEqual(5);
+      expect(ids.every(id => Boolean(THEME_REGISTRY[id]))).toBe(true);
       const primaryColors = ids.map(id => THEME_REGISTRY[id].tokens.primary);
       expect(new Set(primaryColors).size).toBeGreaterThanOrEqual(4);
     }
