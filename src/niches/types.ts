@@ -21,4 +21,13 @@ export interface NichePreset<Id extends RuntimeNicheId = NicheId> {
     todayLabel: string;
     scheduleLabel: string;
   };
+  /** Default public-site copy. Owner-configured text always takes precedence. */
+  landing: {
+    eyebrow: string;
+    heroTitle: string;
+    heroDescription: string;
+    servicesTitle: string;
+    professionalsTitle: string;
+    galleryTitle: string;
+  };
 }
