@@ -48,6 +48,7 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
 
 export function getNichePreset(id: NicheId): NichePreset<NicheId>;
 export function getNichePreset(id: 'core_bootstrap'): NichePreset<'core_bootstrap'>;
+export function getNichePreset(id: RuntimeNicheId): NichePreset<RuntimeNicheId>;
 export function getNichePreset(id: RuntimeNicheId): NichePreset<RuntimeNicheId> {
   return id === 'core_bootstrap' ? CORE_BOOTSTRAP_NICHE : NICHE_REGISTRY[id];
 }
