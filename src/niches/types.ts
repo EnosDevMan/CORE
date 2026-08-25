@@ -9,8 +9,8 @@ export type NicheId = 'barbershop' | 'beauty_salon' | 'nail_studio' | 'pet_shop'
  */
 export type RuntimeNicheId = NicheId | 'core_bootstrap';
 
-export interface NichePreset {
-  id: RuntimeNicheId;
+export interface NichePreset<Id extends RuntimeNicheId = NicheId> {
+  id: Id;
   name: string;
   professionalLabel: string;
   customerLabel: string;
