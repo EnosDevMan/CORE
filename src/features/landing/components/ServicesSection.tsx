@@ -22,9 +22,9 @@ export const ServicesSection: React.FC<Props> = ({ categories, activeServices, o
   const move = (direction: number) => rail.current?.scrollBy({ left: direction * rail.current.clientWidth * .85, behavior: 'smooth' });
   return <section id="services-section" className="core-public-page px-4 py-14 sm:py-16 lg:py-20" data-section-style={style}>
     <div className="mx-auto max-w-6xl">
-      <div className={`flex gap-4 ${style === 'editorial' ? 'items-center justify-center text-center' : 'items-end justify-between'}`}>
+      <div className={`flex gap-4 ${style === 'editorial' ? 'flex-col items-center justify-center text-center lg:flex-row lg:justify-between' : 'items-end justify-between'}`}>
         <div><p className="core-public-primary-text text-xs font-bold uppercase tracking-[.16em]">Serviços</p><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{niche.landing.servicesTitle}</h2></div>
-        <div className={`hidden gap-2 lg:flex ${style === 'editorial' ? 'absolute right-4' : ''}`}>
+        <div className="hidden gap-2 lg:flex">
           <button aria-label="Serviços anteriores" onClick={() => move(-1)} className="core-public-border core-public-ring grid size-11 place-items-center border hover:opacity-75"><ArrowLeft size={19}/></button>
           <button aria-label="Próximos serviços" onClick={() => move(1)} className="core-public-border core-public-ring grid size-11 place-items-center border hover:opacity-75"><ArrowRight size={19}/></button>
         </div>
