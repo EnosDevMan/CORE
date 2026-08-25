@@ -51,7 +51,7 @@ deploy.
 | Privacidade | Versão do aceite foi centralizada; texto e comportamento do WhatsApp/taxa foram alinhados. |
 | UX/acessibilidade | Dialogs têm foco, Escape, retorno de foco, labels e bloqueio durante gravações; submissões duplicadas críticas foram impedidas e os termos abrem sem perder a reserva em preenchimento. |
 | Código morto | Fluxo promocional e operações CRUD obsoletas foram removidos. O grafo estático só deixa fora do entrypoint helpers exclusivos dos testes. |
-| Qualidade | CI executa lint, tipos, testes, build, orçamento de bundle, inspeção de secrets/headers e testes SQL em PostgreSQL 17. |
+| Qualidade | CI executa lint, tipos, testes, build, orçamento de bundle, auditoria de dependências de produção, inspeção de secrets/headers e testes SQL em PostgreSQL 17. |
 
 ## Pendências que ainda bloqueiam a nota de produção
 

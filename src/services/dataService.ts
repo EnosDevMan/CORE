@@ -349,7 +349,7 @@ export const dataService = {
    */
   async createProfessional(professional: Omit<Professional, 'id'> & { id?: string }): Promise<Professional> {
     const professionalId = professional.id ?? crypto.randomUUID();
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('barbers')
       .insert({
         id: professionalId,
@@ -365,7 +365,7 @@ export const dataService = {
       .select('id')
       .single();
     throwIfError(error);
-    return { ...professional, id: data.id };
+    return { ...professional, id: professionalId };
   },
 
   async saveProfessional(professional: Professional): Promise<void> {
