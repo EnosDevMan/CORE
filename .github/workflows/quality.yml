@@ -1,14 +1,24 @@
 name: Quality
+
 on:
   pull_request:
   push:
     branches: [main, work]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -17,6 +27,7 @@ jobs:
 
   database:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17
@@ -38,7 +49,7 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: core_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate consolidated schema and authorization boundaries
         run: >-
           psql --set ON_ERROR_STOP=1
@@ -48,3 +59,4 @@ jobs:
           --file supabase/tests/authorization_roles.sql
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql
+          --file supabase/tests/pet_notes_authorization.sql
