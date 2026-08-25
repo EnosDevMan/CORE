@@ -1619,8 +1619,8 @@ alter table gallery_photos enable row level security;
 -- (a alteração indevida de `role`/`profile_id` pelo próprio dono da linha é
 -- bloqueada pelo trigger `profiles_prevent_privilege_escalation`, não por
 -- esta policy — ver seção FUNCTIONS/TRIGGERS.)
-create policy "profiles_select_own_or_admin" on profiles for select
-  using (auth.uid() = id or auth_role() = 'owner');
+create policy profiles_select_own_or_admin on public.profiles for select
+using (((select auth.uid()) = id) or ((select public.auth_role()) = 'owner'));
 create policy "profiles_insert_admin" on profiles for insert
   with check (auth_role() = 'owner');
 create policy "profiles_update_own_or_admin" on profiles for update
@@ -1639,27 +1639,39 @@ create policy "config_update_admin" on barbershop_config for update
 -- que pode atualizar seu nome/foto/especialidade/descrição — ver policy
 -- abaixo e a trigger protect_barber_updates, que bloqueia campos sensíveis).
 create policy "barbers_select_public" on barbers for select using (true);
-create policy "barbers_write_admin" on barbers for all
-  using (auth_role() = 'owner') with check (auth_role() = 'owner');
-create policy "barbers_update_own" on barbers for update
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+create policy barbers_insert_admin on public.barbers for insert
+with check ((select public.auth_role()) = 'owner');
+create policy barbers_delete_admin on public.barbers for delete
+using ((select public.auth_role()) = 'owner');
+create policy barbers_update_own on public.barbers for update
+using ((select public.auth_role()) = 'owner' or user_id = (select auth.uid()))
+with check ((select public.auth_role()) = 'owner' or user_id = (select auth.uid()));
 
 -- services: leitura pública, escrita só admin.
 create policy "services_select_public" on services for select using (true);
-create policy "services_write_admin" on services for all
-  using (auth_role() = 'owner') with check (auth_role() = 'owner');
+create policy services_insert_admin on public.services for insert
+with check ((select public.auth_role()) = 'owner');
+create policy services_update_admin on public.services for update
+using ((select public.auth_role()) = 'owner') with check ((select public.auth_role()) = 'owner');
+create policy services_delete_admin on public.services for delete
+using ((select public.auth_role()) = 'owner');
 
 -- bookings: cliente vê/cancela os seus; barbeiro vê e gerencia os da
 -- própria agenda; admin vê/edita/exclui tudo. (a restrição de QUAIS campos
 -- um cliente pode alterar no próprio agendamento é feita pelo trigger
 -- `bookings_protect_updates`, não por esta policy.)
-create policy "bookings_select_own_barber_or_admin" on bookings for select
-  using (
-    auth.uid() = customer_id
-    or auth_role() = 'owner'
-    or (auth_role() = 'professional' and barber_id = (select profile_id from profiles where id = auth.uid()))
-  );
+create policy bookings_select_own_barber_or_admin on public.bookings for select
+using (
+  ((select auth.uid()) = customer_id)
+  or ((select public.auth_role()) = 'owner')
+  or (
+    (select public.auth_role()) = 'professional'
+    and barber_id = (
+      select profiles.profile_id from public.profiles
+      where profiles.id = (select auth.uid())
+    )
+  )
+);
 create policy "bookings_insert_admin_only" on bookings for insert
   with check (auth_role() = 'owner');
 create policy "bookings_update_own_barber_or_admin" on bookings for update
@@ -1690,15 +1702,34 @@ create policy "blocks_select_staff" on schedule_blocks for select to authenticat
       )
     )
   );
-create policy "blocks_write_admin_or_own_barber" on schedule_blocks for all
-  to authenticated
-  using (auth_role() = 'owner' or barber_id = (select profile_id::text from profiles where id = auth.uid()))
-  with check (auth_role() = 'owner' or barber_id = (select profile_id::text from profiles where id = auth.uid()));
+create policy blocks_insert_admin_or_own_barber on public.schedule_blocks for insert to authenticated
+with check (
+  (select public.auth_role()) = 'owner'
+  or barber_id = (select profiles.profile_id::text from public.profiles where profiles.id = (select auth.uid()))
+);
+create policy blocks_update_admin_or_own_barber on public.schedule_blocks for update to authenticated
+using (
+  (select public.auth_role()) = 'owner'
+  or barber_id = (select profiles.profile_id::text from public.profiles where profiles.id = (select auth.uid()))
+)
+with check (
+  (select public.auth_role()) = 'owner'
+  or barber_id = (select profiles.profile_id::text from public.profiles where profiles.id = (select auth.uid()))
+);
+create policy blocks_delete_admin_or_own_barber on public.schedule_blocks for delete to authenticated
+using (
+  (select public.auth_role()) = 'owner'
+  or barber_id = (select profiles.profile_id::text from public.profiles where profiles.id = (select auth.uid()))
+);
 
 -- gallery_photos: leitura pública (aparece na home), escrita só admin.
 create policy "gallery_photos_select_public" on gallery_photos for select using (true);
-create policy "gallery_photos_write_admin" on gallery_photos for all
-  using (auth_role() = 'owner') with check (auth_role() = 'owner');
+create policy gallery_photos_insert_admin on public.gallery_photos for insert
+with check ((select public.auth_role()) = 'owner');
+create policy gallery_photos_update_admin on public.gallery_photos for update
+using ((select public.auth_role()) = 'owner') with check ((select public.auth_role()) = 'owner');
+create policy gallery_photos_delete_admin on public.gallery_photos for delete
+using ((select public.auth_role()) = 'owner');
 
 
 -- ============================================================================
@@ -1915,14 +1946,26 @@ end;
 $$;
 
 create policy business_profile_public_read on public.business_profile for select using (true);
-create policy business_profile_admin_write on public.business_profile for all
-  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy business_profile_admin_insert on public.business_profile for insert
+with check ((select public.auth_role()) = 'owner');
+create policy business_profile_admin_update on public.business_profile for update
+using ((select public.auth_role()) = 'owner') with check ((select public.auth_role()) = 'owner');
+create policy business_profile_admin_delete on public.business_profile for delete
+using ((select public.auth_role()) = 'owner');
 create policy feature_settings_public_read on public.feature_settings for select using (true);
-create policy feature_settings_admin_write on public.feature_settings for all
-  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy feature_settings_admin_insert on public.feature_settings for insert
+with check ((select public.auth_role()) = 'owner');
+create policy feature_settings_admin_update on public.feature_settings for update
+using ((select public.auth_role()) = 'owner') with check ((select public.auth_role()) = 'owner');
+create policy feature_settings_admin_delete on public.feature_settings for delete
+using ((select public.auth_role()) = 'owner');
 create policy booking_settings_public_read on public.booking_settings for select using (true);
-create policy booking_settings_admin_write on public.booking_settings for all
-  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy booking_settings_admin_insert on public.booking_settings for insert
+with check ((select public.auth_role()) = 'owner');
+create policy booking_settings_admin_update on public.booking_settings for update
+using ((select public.auth_role()) = 'owner') with check ((select public.auth_role()) = 'owner');
+create policy booking_settings_admin_delete on public.booking_settings for delete
+using ((select public.auth_role()) = 'owner');
 
 create trigger business_profile_validate
   before insert or update on public.business_profile
@@ -2056,8 +2099,12 @@ create policy booking_services_select_with_booking on public.booking_services
 for select using (
   exists (select 1 from public.bookings b where b.id = booking_id)
 );
-create policy booking_services_admin_write on public.booking_services
-for all using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy booking_services_admin_insert on public.booking_services for insert
+with check ((select public.auth_role()) = 'owner');
+create policy booking_services_admin_update on public.booking_services for update
+using ((select public.auth_role()) = 'owner') with check ((select public.auth_role()) = 'owner');
+create policy booking_services_admin_delete on public.booking_services for delete
+using ((select public.auth_role()) = 'owner');
 
 create or replace function public.snapshot_booking_interval()
 returns trigger
@@ -2467,6 +2514,7 @@ create table public.booking_pets (
 
 create index pets_owner_active_idx on public.pets(owner_id, active);
 create index pet_notes_pet_created_idx on public.pet_notes(pet_id, created_at desc);
+create index pet_notes_author_id_idx on public.pet_notes(author_id);
 create index booking_pets_pet_idx on public.booking_pets(pet_id);
 
 alter table public.pets enable row level security;
@@ -2478,38 +2526,46 @@ create trigger pets_touch_updated_at
   for each row execute procedure public.touch_updated_at();
 
 create policy pets_owner_or_admin_read on public.pets for select
-using (owner_id = auth.uid() or public.auth_role() = 'owner');
+using (owner_id = (select auth.uid()) or (select public.auth_role()) = 'owner');
 create policy pets_owner_or_admin_insert on public.pets for insert
 with check (
   public.capability_enabled('pets')
-  and (owner_id = auth.uid() or public.auth_role() = 'owner')
+  and (owner_id = (select auth.uid()) or (select public.auth_role()) = 'owner')
 );
 create policy pets_owner_or_admin_update on public.pets for update
-using (owner_id = auth.uid() or public.auth_role() = 'owner')
+using (owner_id = (select auth.uid()) or (select public.auth_role()) = 'owner')
 with check (
   public.capability_enabled('pets')
-  and (owner_id = auth.uid() or public.auth_role() = 'owner')
+  and (owner_id = (select auth.uid()) or (select public.auth_role()) = 'owner')
 );
 create policy pets_admin_delete on public.pets for delete
 using (public.auth_role() = 'owner');
 
 create policy pet_notes_related_read on public.pet_notes for select
 using (
-  public.auth_role() = 'owner'
-  or exists (select 1 from public.pets p where p.id = pet_id and p.owner_id = auth.uid())
+  (select public.auth_role()) = 'owner'
   or exists (
-    select 1 from public.booking_pets bp
-    join public.bookings b on b.id = bp.booking_id
-    where bp.pet_id = pet_id
-      and public.auth_role() = 'professional'
-      and b.barber_id = (select profile_id from public.profiles where id = auth.uid())
+    select 1 from public.pets p
+    where p.id = pet_notes.pet_id and p.owner_id = (select auth.uid())
+  )
+  or (
+    (select public.auth_role()) = 'professional'
+    and exists (
+      select 1 from public.booking_pets bp
+      join public.bookings b on b.id = bp.booking_id
+      where bp.pet_id = pet_notes.pet_id
+        and b.barber_id = (
+          select profiles.profile_id from public.profiles
+          where profiles.id = (select auth.uid())
+        )
+    )
   )
 );
 create policy pet_notes_staff_write on public.pet_notes for insert
 with check (
   public.capability_enabled('pets')
-  and author_id = auth.uid()
-  and public.auth_role() in ('owner', 'professional')
+  and author_id = (select auth.uid())
+  and (select public.auth_role()) in ('owner', 'professional')
 );
 create policy pet_notes_admin_change on public.pet_notes for update
 using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
@@ -2518,9 +2574,13 @@ using (public.auth_role() = 'owner');
 
 create policy booking_pets_related_read on public.booking_pets for select
 using (exists (select 1 from public.bookings b where b.id = booking_id));
-create policy booking_pets_admin_write on public.booking_pets for all
-using (public.auth_role() = 'owner')
-with check (public.auth_role() = 'owner' and public.capability_enabled('pets'));
+create policy booking_pets_admin_insert on public.booking_pets for insert
+with check ((select public.auth_role()) = 'owner' and public.capability_enabled('pets'));
+create policy booking_pets_admin_update on public.booking_pets for update
+using ((select public.auth_role()) = 'owner')
+with check ((select public.auth_role()) = 'owner' and public.capability_enabled('pets'));
+create policy booking_pets_admin_delete on public.booking_pets for delete
+using ((select public.auth_role()) = 'owner');
 
 grant select, insert, update, delete on public.pets to authenticated;
 grant select, insert, update, delete on public.pet_notes to authenticated;
