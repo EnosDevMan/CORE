@@ -15,6 +15,7 @@ const CORE_BOOTSTRAP_NICHE: NichePreset<'core_bootstrap'> = {
   customerLabel: 'Clientes',
   recommendedCapabilities: [],
   recommendedThemeIds: ['minimal_light'],
+  defaultLayoutId: 'barber_bold',
   dashboard: { todayLabel: 'Atendimentos de hoje', scheduleLabel: 'Agenda de hoje' },
   serviceSuggestions: [],
   landing: {
@@ -30,7 +31,9 @@ const CORE_BOOTSTRAP_NICHE: NichePreset<'core_bootstrap'> = {
 export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   barbershop: {
     id: 'barbershop', name: 'Barbearia', professionalLabel: 'Barbeiros', customerLabel: 'Clientes',
-    recommendedCapabilities: [...shared, 'loyalty'], recommendedThemeIds: ['minimal_light', 'premium_dark'],
+    recommendedCapabilities: [...shared, 'loyalty'],
+    recommendedThemeIds: ['premium_dark', 'heritage_copper', 'urban_steel', 'minimal_light', 'graphite_modern'],
+    defaultLayoutId: 'barber_bold',
     dashboard: { todayLabel: 'Clientes atendidos hoje', scheduleLabel: 'Agendamentos de hoje' },
     landing: {
       eyebrow: 'Agendamento online',
@@ -44,7 +47,9 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   },
   beauty_salon: {
     id: 'beauty_salon', name: 'Salão de Beleza', professionalLabel: 'Profissionais', customerLabel: 'Clientes',
-    recommendedCapabilities: shared, recommendedThemeIds: ['minimal_light', 'rose_elegance'],
+    recommendedCapabilities: shared,
+    recommendedThemeIds: ['rose_elegance', 'champagne_blush', 'lavender_studio', 'minimal_light', 'graphite_modern'],
+    defaultLayoutId: 'beauty_editorial',
     dashboard: { todayLabel: 'Atendimentos de hoje', scheduleLabel: 'Agenda do salão' },
     landing: {
       eyebrow: 'Beleza com hora marcada',
@@ -58,7 +63,9 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   },
   nail_studio: {
     id: 'nail_studio', name: 'Nail Studio', professionalLabel: 'Especialistas', customerLabel: 'Clientes',
-    recommendedCapabilities: [...shared, 'loyalty'], recommendedThemeIds: ['minimal_light', 'lavender_studio'],
+    recommendedCapabilities: [...shared, 'loyalty'],
+    recommendedThemeIds: ['lavender_studio', 'blush_glass', 'rose_elegance', 'minimal_light', 'graphite_modern'],
+    defaultLayoutId: 'nail_showcase',
     dashboard: { todayLabel: 'Atendimentos de hoje', scheduleLabel: 'Agenda do studio' },
     landing: {
       eyebrow: 'Unhas com hora marcada',
@@ -72,7 +79,9 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   },
   pet_shop: {
     id: 'pet_shop', name: 'Pet Shop', professionalLabel: 'Equipe', customerLabel: 'Tutores',
-    recommendedCapabilities: [...shared, 'pets'], recommendedThemeIds: ['minimal_light', 'forest_clean'],
+    recommendedCapabilities: [...shared, 'pets'],
+    recommendedThemeIds: ['forest_clean', 'ocean_playful', 'sunshine_pet', 'minimal_light', 'graphite_modern'],
+    defaultLayoutId: 'pet_friendly',
     dashboard: { todayLabel: 'Pets atendidos hoje', scheduleLabel: 'Pets agendados hoje' },
     landing: {
       eyebrow: 'Cuidado pet com hora marcada',

@@ -1,6 +1,9 @@
-import type { NicheId } from '../niches/types';
+export type ThemeId =
+  | 'minimal_light' | 'graphite_modern'
+  | 'premium_dark' | 'heritage_copper' | 'urban_steel'
+  | 'rose_elegance' | 'champagne_blush' | 'lavender_studio' | 'blush_glass'
+  | 'forest_clean' | 'ocean_playful' | 'sunshine_pet';
 
-export type ThemeId = 'minimal_light' | 'premium_dark' | 'rose_elegance' | 'lavender_studio' | 'forest_clean';
 export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeTokens {
@@ -12,6 +15,8 @@ export interface ThemeTokens {
 }
 
 export interface ThemePreset {
-  id: ThemeId; name: string; category: 'universal' | 'niche'; mode: ThemeMode;
-  recommendedNiches: readonly NicheId[]; tokens: ThemeTokens;
+  id: ThemeId;
+  name: string;
+  mode: ThemeMode;
+  tokens: ThemeTokens;
 }

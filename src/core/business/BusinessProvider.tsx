@@ -9,13 +9,17 @@ interface BusinessProviderProps {
   profile: BusinessProfile;
   capabilities?: readonly Capability[];
   configured?: boolean;
+  refreshRuntime?: () => Promise<void>;
   children: ReactNode;
 }
+
+const noopRefresh = async () => undefined;
 
 export function BusinessProvider({
   profile,
   capabilities,
   configured = true,
+  refreshRuntime = noopRefresh,
   children,
 }: BusinessProviderProps) {
   const niche = getNichePreset(profile.nicheId);
@@ -28,8 +32,9 @@ export function BusinessProvider({
       configured,
       capabilities: enabled,
       hasCapability: capability => enabled.has(capability),
+      refreshRuntime,
     };
-  }, [capabilities, configured, niche.recommendedCapabilities, profile]);
+  }, [capabilities, configured, niche.recommendedCapabilities, profile, refreshRuntime]);
 
   useEffect(
     () => applyBusinessMetadata(document, window.location, profile, theme.tokens.background),

@@ -1,4 +1,8 @@
 import { supabase } from '../../lib/supabaseClient';
+import { NICHE_REGISTRY } from '../../niches/registry';
+import type { NicheId } from '../../niches/types';
+import { THEME_REGISTRY } from '../../themes/registry';
+import type { ThemeId } from '../../themes/types';
 import type { BusinessProfile, Capability } from './types';
 import { mapBusinessProfile, mapCapabilities } from './runtimeMapper';
 
@@ -35,5 +39,21 @@ export const businessService = {
       });
     }
     return inFlightRuntimeRequest;
+  },
+
+  async updateTheme(themeId: ThemeId, nicheId: BusinessProfile['nicheId']): Promise<void> {
+    if (!THEME_REGISTRY[themeId]) throw new Error('Tema visual desconhecido.');
+    if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
+
+    const niche = NICHE_REGISTRY[nicheId as NicheId];
+    if (!niche.recommendedThemeIds.includes(themeId)) {
+      throw new Error('Este tema não está disponível para o nicho configurado.');
+    }
+
+    const { error } = await supabase
+      .from('business_profile')
+      .update({ theme_id: themeId, updated_at: new Date().toISOString() })
+      .eq('id', true);
+    if (error) throw new Error(error.message);
   },
 };

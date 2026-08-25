@@ -3,7 +3,7 @@ import type { NichePreset, RuntimeNicheId } from '../../niches/types';
 
 export type AdminTab =
   | 'overview' | 'new-booking' | 'agenda' | 'clients' | 'reports'
-  | 'services' | 'professionals' | 'pets' | 'gallery' | 'accounts' | 'settings';
+  | 'services' | 'professionals' | 'pets' | 'gallery' | 'accounts' | 'appearance' | 'settings';
 
 export type AdminNavGroup = 'Operação' | 'Gestão' | 'Cadastros' | 'Sistema';
 
@@ -30,6 +30,7 @@ export function getAdminNavigation(
     { id: 'pets', label: 'Pets', description: 'Animais, tutores e restrições', group: 'Cadastros', capability: 'pets' },
     { id: 'gallery', label: 'Galeria', description: 'Imagens exibidas no site', group: 'Cadastros' },
     { id: 'accounts', label: 'Contas e acessos', description: 'Papéis, acesso profissional e exclusão segura', group: 'Sistema' },
+    { id: 'appearance', label: 'Aparência do site', description: 'Tema, identidade visual e layout do seu nicho', group: 'Sistema' },
     { id: 'settings', label: 'Configurações', description: 'Dados e preferências do negócio', group: 'Sistema' },
   ];
 

@@ -34,4 +34,6 @@ export interface BusinessContextValue {
   configured: boolean;
   capabilities: ReadonlySet<Capability>;
   hasCapability: (capability: Capability) => boolean;
+  /** Reloads the persisted business runtime after an owner-level configuration change. */
+  refreshRuntime: () => Promise<void>;
 }

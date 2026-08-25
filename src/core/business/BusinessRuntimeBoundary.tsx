@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { BusinessProvider } from './BusinessProvider';
 import { businessService, type BusinessRuntime } from './businessService';
@@ -23,6 +23,18 @@ export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
   const [runtime, setRuntime] = useState<BusinessRuntime | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
+  const refreshRuntime = useCallback(async () => {
+    try {
+      const result = await businessService.getRuntime();
+      setRuntime(result);
+      setError(null);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Não foi possível carregar o perfil do negócio.';
+      setError(message);
+      throw cause;
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     businessService.getRuntime()
@@ -37,14 +49,14 @@ export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
   if (runtime === undefined) return <LoadingScreen />;
   if (runtime === null) {
     return (
-      <BusinessProvider profile={BOOTSTRAP_BUSINESS_PROFILE} capabilities={[]} configured={false}>
+      <BusinessProvider profile={BOOTSTRAP_BUSINESS_PROFILE} capabilities={[]} configured={false} refreshRuntime={refreshRuntime}>
         {children}
       </BusinessProvider>
     );
   }
 
   return (
-    <BusinessProvider profile={runtime.profile} capabilities={runtime.capabilities} configured>
+    <BusinessProvider profile={runtime.profile} capabilities={runtime.capabilities} configured refreshRuntime={refreshRuntime}>
       {children}
     </BusinessProvider>
   );

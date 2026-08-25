@@ -1,4 +1,5 @@
 import type { Capability } from '../core/business/types';
+import type { PublicLayoutId } from '../layouts/types';
 
 export type NicheId = 'barbershop' | 'beauty_salon' | 'nail_studio' | 'pet_shop';
 
@@ -17,6 +18,7 @@ export interface NichePreset<Id extends RuntimeNicheId = NicheId> {
   recommendedCapabilities: readonly Capability[];
   serviceSuggestions: readonly { name: string; duration: number; category: string }[];
   recommendedThemeIds: readonly string[];
+  defaultLayoutId: PublicLayoutId;
   dashboard: {
     todayLabel: string;
     scheduleLabel: string;

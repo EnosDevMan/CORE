@@ -12,7 +12,7 @@ export const useAdminDashboard = () => {
   const { config, currentUser, professionals, services, updateBookingStatus } = useApp();
   const niche = useNiche();
   const { hasCapability } = useBusiness();
-  
+
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -48,12 +48,11 @@ export const useAdminDashboard = () => {
   };
 
   const getProfessionalName = (id: string) => getSharedProfessionalName(professionals, id);
-
   const getServiceName = (id: string) => getSharedServiceName(services, id);
 
   const icons = { overview: LayoutDashboard, 'new-booking': CalendarPlus, agenda: CalendarDays,
     clients: Users, reports: BarChart3, services: Scissors, professionals: Users,
-    pets: PawPrint, gallery: Camera, accounts: ShieldCheck, settings: Settings } as const;
+    pets: PawPrint, gallery: Camera, accounts: ShieldCheck, appearance: Settings, settings: Settings } as const;
   const navItems = getAdminNavigation(niche, hasCapability)
     .map(item => ({ ...item, icon: icons[item.id] }));
 
@@ -77,7 +76,7 @@ export const useAdminDashboard = () => {
     getProfessionalName,
     getServiceName,
     formatBRL,
-    navItems
-    , niche
+    navItems,
+    niche,
   };
 };
