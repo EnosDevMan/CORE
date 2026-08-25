@@ -8,7 +8,7 @@ const shared = ['online_booking', 'customers', 'professionals', 'services'] as c
  * configured. Because it is not exported through `NICHE_REGISTRY`, it never
  * appears as an onboarding option and can never be persisted to Supabase.
  */
-const CORE_BOOTSTRAP_NICHE: NichePreset = {
+const CORE_BOOTSTRAP_NICHE: NichePreset<'core_bootstrap'> = {
   id: 'core_bootstrap',
   name: 'CORE',
   professionalLabel: 'Profissionais',
@@ -19,7 +19,7 @@ const CORE_BOOTSTRAP_NICHE: NichePreset = {
   serviceSuggestions: [],
 };
 
-export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset>> = {
+export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset<NicheId>>> = {
   barbershop: {
     id: 'barbershop', name: 'Barbearia', professionalLabel: 'Barbeiros', customerLabel: 'Clientes',
     recommendedCapabilities: [...shared, 'loyalty'], recommendedThemeIds: ['minimal_light', 'premium_dark'],
@@ -46,6 +46,8 @@ export const NICHE_REGISTRY: Readonly<Record<NicheId, NichePreset>> = {
   },
 };
 
-export function getNichePreset(id: RuntimeNicheId): NichePreset {
+export function getNichePreset(id: NicheId): NichePreset<NicheId>;
+export function getNichePreset(id: 'core_bootstrap'): NichePreset<'core_bootstrap'>;
+export function getNichePreset(id: RuntimeNicheId): NichePreset<RuntimeNicheId> {
   return id === 'core_bootstrap' ? CORE_BOOTSTRAP_NICHE : NICHE_REGISTRY[id];
 }
