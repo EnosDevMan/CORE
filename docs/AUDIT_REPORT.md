@@ -32,9 +32,10 @@ do checklist de deploy.
   financeira histórica;
 - build de produção aprovado; maior chunk 213,3 kB, JavaScript total 703,8 kB
   e CSS total 69,8 kB, todos dentro do orçamento versionado;
-- job `database` aplica PostgreSQL 17 **sem defaults legados** e executa testes
-  SQL de grants, roles, sobreposição e segurança de reservas. O resultado
-  definitivo será registrado pela CI no SHA publicado do candidato.
+- a execução do candidato no GitHub Actions confirmou instalação limpa com
+  Node.js 22, auditoria das dependências de produção e todos os checks acima;
+- o job `database` aprovou o PostgreSQL 17 **sem defaults legados**, incluindo
+  testes SQL de grants, roles, sobreposição e segurança de reservas.
 
 ## Escopo revisado
 
