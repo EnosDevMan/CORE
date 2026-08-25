@@ -33,43 +33,32 @@ interface DataState {
   setLoadError: (message: string) => void;
 
   // Professionals
-  addProfessional: (professional: Omit<Professional, 'id'>) => Promise<Professional>;
+  addProfessional: (professional: Omit<Professional, 'id'> & { id?: string }) => Promise<Professional>;
   updateProfessional: (professional: Professional) => Promise<void>;
-  deleteProfessional: (id: string) => Promise<void>;
-  hardDeleteProfessional: (id: string) => Promise<void>;
-  /** Sincroniza o vínculo entre conta autenticada e perfil profissional. */
-  linkProfessionalUser: (userId: string, professionalId: string | null) => Promise<void>;
+  deactivateProfessional: (id: string) => Promise<void>;
 
   // Services
   addService: (service: Omit<Service, 'id'>) => Promise<void>;
   updateService: (service: Service) => Promise<void>;
-  deleteService: (id: string) => Promise<void>;
+  deactivateService: (id: string) => Promise<void>;
 
   // Bookings
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>;
+  addAdministrativeBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>;
   updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
   rescheduleBooking: (id: string, date: string, time: string) => Promise<void>;
   confirmBookingAttendance: (id: string) => Promise<void>;
-  deleteBooking: (id: string) => Promise<void>;
 
   // Schedule Blocks
   addScheduleBlock: (block: Omit<ScheduleBlock, 'id'>) => Promise<void>;
-  updateScheduleBlock: (block: ScheduleBlock) => Promise<void>;
   deleteScheduleBlock: (id: string) => Promise<void>;
 
   // Gallery Photos
   addGalleryPhoto: (photo: Omit<GalleryPhoto, 'id' | 'createdAt'>) => Promise<void>;
-  updateGalleryPhoto: (photo: GalleryPhoto) => Promise<void>;
+  updateGalleryPhoto: (id: string, caption: string) => Promise<void>;
+  reorderGalleryPhotos: (photos: GalleryPhoto[]) => Promise<void>;
   deleteGalleryPhoto: (id: string) => Promise<void>;
 
-  // Users
-  /**
-   * Garante que existe um registro correspondente para o usuário
-   * autenticado, criando-o se ainda não existir.
-   */
-  upsertUser: (user: User) => Promise<void>;
-  updateUser: (user: User) => Promise<void>;
-  deleteUser: (id: string) => Promise<void>;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -83,17 +72,17 @@ export const useDataStore = create<DataState>((set, get) => ({
   loadError: null,
 
   setInitialData: (data) => set({ ...data, loading: false, loadError: null }),
-  beginLoad: () => set({ bookings: [], users: [], loading: true, loadError: null }),
+  beginLoad: () => set({ bookings: [], users: [], scheduleBlocks: [], loading: true, loadError: null }),
   setLoadError: (message) => set({ loading: false, loadError: message }),
 
   addProfessional: async (professional) => {
     const newProfessional = await dataService.createProfessional(professional);
-    set(state => ({ professionals: [...state.professionals, newProfessional] }));
-    if (newProfessional.userId) {
-      // Vincula o usuário escolhido de volta a este profissional (ver
-      // linkProfessionalUser abaixo para o porquê disso ser necessário).
-      await get().linkProfessionalUser(newProfessional.userId, newProfessional.id);
-    }
+    set(state => ({
+      professionals: [...state.professionals, newProfessional],
+      users: state.users.map(user => newProfessional.userId === user.id
+        ? { ...user, profileId: newProfessional.id }
+        : user),
+    }));
     return newProfessional;
   },
   updateProfessional: async (professional) => {
@@ -103,46 +92,26 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       await dataService.saveProfessional(professional);
       if (oldProfessional?.userId !== professional.userId) {
-        if (oldProfessional?.userId) {
-          // Desvincula o usuário anterior (ele não é mais este profissional).
-          await get().linkProfessionalUser(oldProfessional.userId, null);
-        }
-        if (professional.userId) {
-          await get().linkProfessionalUser(professional.userId, professional.id);
-        }
+        // O trigger `barbers_sync_user_link` altera os dois lados do vínculo
+        // dentro da mesma transação do UPDATE. Aqui só espelhamos o resultado
+        // já confirmado pelo banco no estado local.
+        set(state => ({
+          users: state.users.map(user => {
+            if (user.id === oldProfessional?.userId) return { ...user, profileId: undefined };
+            if (user.id === professional.userId) return { ...user, profileId: professional.id };
+            return user;
+          }),
+        }));
       }
     } catch (err) {
       set({ professionals: previous });
       throw err;
     }
   },
-  /**
-   * Mantém o identificador do perfil autenticado sincronizado com o vínculo
-   * do profissional persistido pela camada de dados.
-   *
-   * O formulário administrativo precisa atualizar os dois lados do vínculo ao
-   * associar um profissional a uma conta. `useProfessionalDashboard` decide
-   * "qual agenda é a
-   * minha" lendo `currentUser.profileId` (= `profiles.profile_id`) — que
-   * precisa estar sincronizado. Sem isso, todo profissional vinculado cai no
-   * modo de simulação (seleção manual), nunca no modo automático.
-   */
-  linkProfessionalUser: async (userId, professionalId) => {
-    const previous = get().users;
-    set(state => ({
-      users: state.users.map(u => (u.id === userId ? { ...u, profileId: professionalId ?? undefined } : u)),
-    }));
-    try {
-      await dataService.setUserProfileId(userId, professionalId);
-    } catch (err) {
-      set({ users: previous });
-      throw err;
-    }
-  },
-  deleteProfessional: async (id) => {
+  deactivateProfessional: async (id) => {
     const previous = get().professionals;
     const professional = previous.find(b => b.id === id);
-    if (!professional) return;
+    if (!professional || professional.active === false) return;
     set(state => ({ professionals: state.professionals.map(b => (b.id === id ? { ...b, active: false } : b)) }));
     try {
       await dataService.saveProfessional({ ...professional, active: false });
@@ -151,17 +120,6 @@ export const useDataStore = create<DataState>((set, get) => ({
       throw err;
     }
   },
-  hardDeleteProfessional: async (id) => {
-    const previous = get().professionals;
-    set(state => ({ professionals: state.professionals.filter(b => b.id !== id) }));
-    try {
-      await dataService.deleteProfessional(id);
-    } catch (err) {
-      set({ professionals: previous });
-      throw err;
-    }
-  },
-
   addService: async (service) => {
     const newService = await dataService.createService(service);
     set(state => ({ services: [...state.services, newService] }));
@@ -176,11 +134,13 @@ export const useDataStore = create<DataState>((set, get) => ({
       throw err;
     }
   },
-  deleteService: async (id) => {
+  deactivateService: async (id) => {
     const previous = get().services;
-    set(state => ({ services: state.services.filter(s => s.id !== id) }));
+    const service = previous.find(item => item.id === id);
+    if (!service || service.active === false) return;
+    set(state => ({ services: state.services.map(item => (item.id === id ? { ...item, active: false } : item)) }));
     try {
-      await dataService.deleteService(id);
+      await dataService.saveService({ ...service, active: false });
     } catch (err) {
       set({ services: previous });
       throw err;
@@ -196,15 +156,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     // otimista sem revalidação no servidor. Como o resultado só é aplicado
     // ao estado local depois de confirmado pelo banco, não há necessidade
     // de rollback aqui.
-    const services = get().services;
-    const duration = bookingData.serviceId
-      .split(',')
-      .reduce((sum, subId) => {
-        const s = services.find(x => x.id === subId.trim());
-        return sum + (s ? s.duration : 30);
-      }, 0);
-
-    const newBooking = await dataService.createBooking(bookingData, duration);
+    const newBooking = await dataService.createBooking(bookingData);
+    set(state => ({ bookings: [...state.bookings, newBooking] }));
+    return newBooking;
+  },
+  addAdministrativeBooking: async (bookingData) => {
+    const newBooking = await dataService.createAdministrativeBooking(bookingData);
     set(state => ({ bookings: [...state.bookings, newBooking] }));
     return newBooking;
   },
@@ -255,30 +212,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       throw err;
     }
   },
-  deleteBooking: async (id) => {
-    const previous = get().bookings;
-    set(state => ({ bookings: state.bookings.filter(b => b.id !== id) }));
-    try {
-      await dataService.deleteBooking(id);
-    } catch (err) {
-      set({ bookings: previous });
-      throw err;
-    }
-  },
-
   addScheduleBlock: async (blockData) => {
     const newBlock = await dataService.createScheduleBlock(blockData);
     set(state => ({ scheduleBlocks: [...state.scheduleBlocks, newBlock] }));
-  },
-  updateScheduleBlock: async (block) => {
-    const previous = get().scheduleBlocks;
-    set(state => ({ scheduleBlocks: state.scheduleBlocks.map(b => (b.id === block.id ? block : b)) }));
-    try {
-      await dataService.saveScheduleBlock(block);
-    } catch (err) {
-      set({ scheduleBlocks: previous });
-      throw err;
-    }
   },
   deleteScheduleBlock: async (id) => {
     const previous = get().scheduleBlocks;
@@ -295,11 +231,24 @@ export const useDataStore = create<DataState>((set, get) => ({
     const newPhoto = await dataService.createGalleryPhoto(photo);
     set(state => ({ galleryPhotos: [...state.galleryPhotos, newPhoto] }));
   },
-  updateGalleryPhoto: async (photo) => {
+  updateGalleryPhoto: async (id, caption) => {
     const previous = get().galleryPhotos;
-    set(state => ({ galleryPhotos: state.galleryPhotos.map(p => (p.id === photo.id ? photo : p)) }));
+    set(state => ({ galleryPhotos: state.galleryPhotos.map(photo => (
+      photo.id === id ? { ...photo, caption } : photo
+    )) }));
     try {
-      await dataService.saveGalleryPhoto(photo);
+      await dataService.saveGalleryCaption(id, caption);
+    } catch (err) {
+      set({ galleryPhotos: previous });
+      throw err;
+    }
+  },
+  reorderGalleryPhotos: async (photos) => {
+    const previous = get().galleryPhotos;
+    const reordered = photos.map((photo, index) => ({ ...photo, order: index }));
+    set({ galleryPhotos: reordered });
+    try {
+      await dataService.reorderGalleryPhotos(reordered.map(photo => photo.id));
     } catch (err) {
       set({ galleryPhotos: previous });
       throw err;
@@ -316,37 +265,4 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  upsertUser: async (user) => {
-    const previous = get().users;
-    const exists = previous.some(u => u.id === user.id);
-    set(state => ({
-      users: exists ? state.users.map(u => (u.id === user.id ? user : u)) : [...state.users, user],
-    }));
-    try {
-      await dataService.saveUser(user);
-    } catch (err) {
-      set({ users: previous });
-      throw err;
-    }
-  },
-  updateUser: async (user) => {
-    const previous = get().users;
-    set(state => ({ users: state.users.map(u => (u.id === user.id ? user : u)) }));
-    try {
-      await dataService.saveUser(user);
-    } catch (err) {
-      set({ users: previous });
-      throw err;
-    }
-  },
-  deleteUser: async (id) => {
-    const previous = get().users;
-    set(state => ({ users: state.users.filter(u => u.id !== id) }));
-    try {
-      await dataService.deleteUser(id);
-    } catch (err) {
-      set({ users: previous });
-      throw err;
-    }
-  }
 }));

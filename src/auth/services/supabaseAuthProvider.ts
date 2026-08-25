@@ -8,12 +8,13 @@ import {
   RegisterPayload,
 } from '../types';
 import { parseUserRole } from '../authorization';
+import { PRIVACY_POLICY_VERSION } from '../../legal';
 
 /**
  * Implementação de IAuthProvider usando Supabase Auth + tabela `profiles`.
  *
  * `profiles` é criada automaticamente (trigger `handle_new_user`, ver
- * `supabase/migrations/0001_initial_schema.sql`) quando um usuário se
+ * `supabase/schema.sql`) quando um usuário se
  * cadastra — sempre com role 'customer'. Promoção para owner/professional é
  * feita manualmente pelo painel administrativo ou direto no banco.
  */
@@ -48,12 +49,15 @@ function toAuthSession(session: NonNullable<Awaited<ReturnType<typeof supabase.a
 
 export const supabaseAuthProvider: IAuthProvider = {
   async login({ email, password }: LoginCredentials): Promise<AuthResult> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error || !data.user) {
       return { success: false, error: error?.message || 'Não foi possível entrar. Verifique seus dados.' };
     }
     const profile = await fetchProfile(data.user.id);
     if (!profile) {
+      // Não mantenha uma sessão autenticada "invisível" quando o perfil da
+      // aplicação não existe ou não pôde ser carregado.
+      await supabase.auth.signOut();
       return { success: false, error: 'Login realizado, mas o perfil do usuário não foi encontrado.' };
     }
     return { success: true, data: profile };
@@ -61,10 +65,10 @@ export const supabaseAuthProvider: IAuthProvider = {
 
   async register({ name, email, phone, password }: RegisterPayload): Promise<AuthResult> {
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
-        data: { name, phone, privacy_policy_version: '2026-08-23' },
+        data: { name: name.trim(), phone: phone.trim(), privacy_policy_version: PRIVACY_POLICY_VERSION },
         // Sem isto, o link de confirmação por e-mail usa o "Site URL"
         // configurado no painel do Supabase (Authentication > URL
         // Configuration) — que por padrão, num projeto novo, aponta para
@@ -103,7 +107,7 @@ export const supabaseAuthProvider: IAuthProvider = {
   async sendPasswordResetEmail(email: string): Promise<AuthResult<void>> {
     // Mesmo raciocínio do emailRedirectTo em `register` acima: evita
     // depender só do "Site URL" do painel do Supabase.
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: window.location.origin,
     });
     if (error) return { success: false, error: error.message };

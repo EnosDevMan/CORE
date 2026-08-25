@@ -62,7 +62,7 @@ create type user_role as enum ('owner', 'manager', 'receptionist', 'professional
 
 create type booking_status as enum (
   'Aguardando pagamento', 'Confirmado', 'Em atendimento',
-  'Concluído', 'Cancelado', 'Não compareceu', 'Reagendado'
+  'Concluído', 'Cancelado', 'Não compareceu'
 );
 
 create type block_type as enum ('block', 'offday', 'vacation', 'special');
@@ -76,23 +76,32 @@ create type block_type as enum ('block', 'offday', 'vacation', 'special');
 --     via trigger `handle_new_user` (ver seção FUNCTIONS/TRIGGERS).
 --   * "single-tenant": existe apenas 1 barbearia por projeto Supabase, por
 --     isso `barbershop_config` tem sempre uma única linha (id fixo `true`).
---   * `profiles.profile_id` (aponta para barbers.id quando role='professional') é
---     uma referência lógica, não uma foreign key de verdade — mantido
---     assim de propósito, igual ao schema original.
+--   * `profiles.profile_id` aponta para `barbers.id` quando
+--     role='professional'; trigger, FK e índices únicos mantêm as duas pontas
+--     do vínculo consistentes.
 
 -- ----------------------------------------------------------------------------
 -- profiles (espelha src/types.ts -> User)
 -- ----------------------------------------------------------------------------
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  name text not null,
+  email text not null check (char_length(email) between 3 and 320),
+  name text not null check (char_length(btrim(name)) between 2 and 100),
   role user_role not null default 'customer',
-  phone text,
-  avatar text,
+  phone text check (
+    phone is null or (
+      char_length(phone) <= 32
+      and phone ~ '^\+?[0-9().[:space:]-]+$'
+      and (
+        regexp_replace(phone, '[^0-9]', '', 'g') ~ '^[0-9]{10,11}$'
+        or regexp_replace(phone, '[^0-9]', '', 'g') ~ '^55[0-9]{10,11}$'
+      )
+    )
+  ),
+  avatar text check (avatar is null or char_length(avatar) <= 2048),
   profile_id uuid, -- aponta para barbers.id quando role = 'professional'
   privacy_accepted_at timestamptz,
-  privacy_policy_version text,
+  privacy_policy_version text check (privacy_policy_version is null or char_length(privacy_policy_version) <= 64),
   created_at timestamptz not null default now()
 );
 
@@ -101,21 +110,37 @@ create table profiles (
 -- ----------------------------------------------------------------------------
 create table barbershop_config (
   id boolean primary key default true constraint single_row check (id),
-  name text not null default 'Barbearia',
-  logo text not null default '',
-  address text not null default '',
-  phone text not null default '',
+  name text not null default 'Barbearia' check (char_length(btrim(name)) between 2 and 100),
+  logo text not null default '' check (char_length(logo) <= 2048),
+  address text not null default '' check (char_length(address) <= 500),
+  phone text not null default '' check (
+    char_length(phone) <= 32
+    and (
+      btrim(phone) = ''
+      or (
+        phone ~ '^\+?[0-9().[:space:]-]+$'
+        and (
+          regexp_replace(phone, '[^0-9]', '', 'g') ~ '^[0-9]{10,11}$'
+          or regexp_replace(phone, '[^0-9]', '', 'g') ~ '^55[0-9]{10,11}$'
+        )
+      )
+    )
+  ),
   working_hours jsonb not null default '{"open":"09:00","close":"19:00","daysOpen":[1,2,3,4,5,6]}',
-  social_links jsonb not null default '{}',
-  booking_fee numeric(10,2) not null default 0,
-  tolerance_minutes int not null default 15,
-  interval_minutes int not null default 30,
+  social_links jsonb not null default '{}' check (jsonb_typeof(social_links) = 'object'),
+  booking_fee numeric(10,2) not null default 0 check (booking_fee >= 0),
+  interval_minutes int not null default 30 check (interval_minutes between 5 and 480),
   booking_window_days int not null default 3 check (booking_window_days between 1 and 365),
-  pix_key text,
-  hero_title text,
-  hero_subtitle text,
-  hero_description text,
-  about_text text,
+  minimum_notice_minutes int not null default 30 check (minimum_notice_minutes between 0 and 525600),
+  cancellation_notice_minutes int not null default 0 check (cancellation_notice_minutes between 0 and 525600),
+  pix_key text check (pix_key is null or char_length(pix_key) <= 320),
+  hero_title text check (hero_title is null or char_length(hero_title) <= 160),
+  hero_subtitle text check (hero_subtitle is null or char_length(hero_subtitle) <= 240),
+  hero_description text check (hero_description is null or char_length(hero_description) <= 1000),
+  about_text text check (about_text is null or char_length(about_text) <= 2000),
+  constraint booking_fee_requires_pix check (
+    booking_fee = 0 or nullif(btrim(pix_key), '') is not null
+  ),
   updated_at timestamptz not null default now()
 );
 insert into barbershop_config (id) values (true);
@@ -125,12 +150,12 @@ insert into barbershop_config (id) values (true);
 -- ----------------------------------------------------------------------------
 create table barbers (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
-  avatar text not null default '',
-  specialty text not null default '',
+  name text not null check (char_length(btrim(name)) between 2 and 100),
+  avatar text not null default '' check (char_length(avatar) <= 2048),
+  specialty text not null default '' check (char_length(specialty) <= 120),
   active boolean not null default true,
   working_hours jsonb,
-  description text,
+  description text check (description is null or char_length(description) <= 1000),
   "order" int not null default 0,
   user_id uuid references profiles(id) on delete set null,
   created_at timestamptz not null default now()
@@ -141,11 +166,11 @@ create table barbers (
 -- ----------------------------------------------------------------------------
 create table services (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
-  duration int not null,
-  price numeric(10,2) not null,
-  description text not null default '',
-  category text not null default '',
+  name text not null check (char_length(btrim(name)) between 2 and 100),
+  duration int not null check (duration between 5 and 480),
+  price numeric(10,2) not null check (price >= 0),
+  description text not null default '' check (char_length(description) <= 1000),
+  category text not null default '' check (char_length(category) <= 100),
   active boolean not null default true,
   "order" int not null default 0,
   display_order int not null default 0,
@@ -194,8 +219,8 @@ create table schedule_blocks (
 -- ----------------------------------------------------------------------------
 create table gallery_photos (
   id uuid primary key default gen_random_uuid(),
-  image_url text not null,
-  caption text,
+  image_url text not null check (char_length(btrim(image_url)) between 1 and 2048),
+  caption text check (caption is null or char_length(caption) <= 500),
   "order" int not null default 0,
   display_order int not null default 0,
   created_at timestamptz not null default now()
@@ -208,8 +233,13 @@ create table gallery_photos (
 create index bookings_barber_date_idx on bookings (barber_id, date);
 create index bookings_customer_idx on bookings (customer_id);
 create index bookings_date_id_idx on bookings (date desc, id);
-create index barbers_user_id_idx on barbers (user_id);
+create unique index barbers_user_id_idx on barbers (user_id) where user_id is not null;
 create index gallery_photos_display_order_idx on gallery_photos (display_order, created_at, id);
+create unique index profiles_one_user_per_professional_idx on profiles (profile_id) where profile_id is not null;
+
+alter table profiles
+  add constraint profiles_profile_id_fkey
+  foreign key (profile_id) references barbers(id) on delete set null;
 
 
 -- ============================================================================
@@ -249,19 +279,257 @@ create function handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (
-    id, email, name, role, privacy_accepted_at, privacy_policy_version
+    id, email, name, role, phone, privacy_accepted_at, privacy_policy_version
   )
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data->>'name', new.email),
+    left(coalesce(nullif(btrim(new.raw_user_meta_data->>'name'), ''), new.email), 100),
     'customer',
+    left(nullif(btrim(new.raw_user_meta_data->>'phone'), ''), 32),
     case when nullif(new.raw_user_meta_data->>'privacy_policy_version', '') is not null then now() end,
     left(nullif(new.raw_user_meta_data->>'privacy_policy_version', ''), 64)
   );
   return new;
 end;
 $$ language plpgsql security definer set search_path = public, pg_temp;
+
+-- Validate the JSON schedule at the database boundary. Availability code
+-- casts these values to time/boolean, so one malformed owner update could
+-- otherwise break every public booking request until manually repaired.
+create function working_hours_are_valid(p_hours jsonb)
+returns boolean
+language plpgsql
+immutable
+set search_path = public, pg_temp
+as $$
+declare
+  v_open text;
+  v_close text;
+  v_break_start text;
+  v_break_end text;
+  v_key text;
+  v_day jsonb;
+  v_day_open text;
+  v_day_close text;
+  v_day_break_start text;
+  v_day_break_end text;
+begin
+  if p_hours is null or jsonb_typeof(p_hours) <> 'object' then
+    return false;
+  end if;
+
+  v_open := p_hours->>'open';
+  v_close := p_hours->>'close';
+  v_break_start := p_hours->>'breakStart';
+  v_break_end := p_hours->>'breakEnd';
+
+  if v_open is null or v_close is null
+     or v_open !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+     or v_close !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+     or v_open::time >= v_close::time
+     or jsonb_typeof(p_hours->'daysOpen') <> 'array' then
+    return false;
+  end if;
+
+  if exists (
+    select 1 from jsonb_array_elements_text(p_hours->'daysOpen') day(value)
+    where value !~ '^[0-6]$'
+  ) or (
+    select count(distinct value) from jsonb_array_elements_text(p_hours->'daysOpen') day(value)
+  ) <> jsonb_array_length(p_hours->'daysOpen') then
+    return false;
+  end if;
+
+  if (v_break_start is null) <> (v_break_end is null)
+     or (v_break_start is not null and (
+       v_break_start !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+       or v_break_end !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+       or v_break_start::time < v_open::time
+       or v_break_start::time >= v_break_end::time
+       or v_break_end::time > v_close::time
+     )) then
+    return false;
+  end if;
+
+  if p_hours ? 'weeklySchedule' then
+    if jsonb_typeof(p_hours->'weeklySchedule') <> 'object' then
+      return false;
+    end if;
+
+    for v_key, v_day in select key, value from jsonb_each(p_hours->'weeklySchedule') loop
+      if v_key !~ '^[0-6]$' or jsonb_typeof(v_day) <> 'object' then
+        return false;
+      end if;
+      if v_day ? 'closed' and jsonb_typeof(v_day->'closed') <> 'boolean' then
+        return false;
+      end if;
+
+      v_day_open := coalesce(nullif(v_day->>'open', ''), v_open);
+      v_day_close := coalesce(nullif(v_day->>'close', ''), v_close);
+      v_day_break_start := case when v_day ? 'breakStart' then v_day->>'breakStart' else v_break_start end;
+      v_day_break_end := case when v_day ? 'breakEnd' then v_day->>'breakEnd' else v_break_end end;
+
+      if v_day_open !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+         or v_day_close !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+         or v_day_open::time >= v_day_close::time
+         or (v_day_break_start is null) <> (v_day_break_end is null)
+         or (v_day_break_start is not null and (
+           v_day_break_start !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+           or v_day_break_end !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+           or v_day_break_start::time < v_day_open::time
+           or v_day_break_start::time >= v_day_break_end::time
+           or v_day_break_end::time > v_day_close::time
+         )) then
+        return false;
+      end if;
+    end loop;
+  end if;
+
+  return true;
+exception when others then
+  return false;
+end;
+$$;
+
+create function validate_working_hours_payload()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.working_hours is not null and not working_hours_are_valid(new.working_hours) then
+    raise exception using errcode = '23514', message = 'Horário de funcionamento inválido.';
+  end if;
+  return new;
+end;
+$$;
+
+-- Links da configuração são exibidos como href na página pública. Valide no
+-- banco também, pois um proprietário pode contornar o formulário e chamar a
+-- API REST diretamente.
+create function validate_social_links_payload()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  v_key text;
+  v_json_value jsonb;
+  v_link text;
+begin
+  if jsonb_typeof(new.social_links) <> 'object' then
+    raise exception using errcode = '23514', message = 'Links sociais devem ser um objeto.';
+  end if;
+
+  for v_key, v_json_value in select key, value from jsonb_each(new.social_links) loop
+    if jsonb_typeof(v_json_value) <> 'string' then
+      raise exception using errcode = '23514', message = 'Links sociais devem ser textos.';
+    end if;
+
+    v_link := btrim(v_json_value #>> '{}');
+    if char_length(v_link) > 2048 then
+      raise exception using errcode = '23514', message = 'Link social excede 2048 caracteres.';
+    end if;
+
+    if v_key in ('instagram', 'facebook')
+       and v_link <> ''
+       and v_link !~* '^https?://[^[:space:]/@]+([/:?#][^[:space:]]*)?$' then
+      raise exception using errcode = '23514', message = 'Link social deve usar uma URL HTTP(S) absoluta e sem credenciais.';
+    end if;
+  end loop;
+
+  return new;
+end;
+$$;
+
+-- Reject malformed blocks even when a privileged client bypasses the UI.
+-- Invalid ranges previously saved successfully and could silently close the
+-- wrong dates or make the availability functions fail while casting JSON.
+create function validate_schedule_block()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_barber_id uuid;
+  v_open text;
+  v_close text;
+  v_break_start text;
+  v_break_end text;
+begin
+  new.reason := nullif(btrim(new.reason), '');
+  if new.reason is null or char_length(new.reason) > 200 then
+    raise exception using errcode = '23514', message = 'Informe um motivo de até 200 caracteres.';
+  end if;
+
+  if new.barber_id <> 'all' then
+    begin
+      v_barber_id := new.barber_id::uuid;
+    exception when invalid_text_representation then
+      raise exception using errcode = '23514', message = 'Profissional do bloqueio inválido.';
+    end;
+    if not exists (select 1 from barbers where id = v_barber_id) then
+      raise exception using errcode = '23514', message = 'Profissional do bloqueio não encontrado.';
+    end if;
+  end if;
+
+  if new.type = 'block' then
+    if new.date is null or new.start_time is null or new.end_time is null
+       or new.start_time >= new.end_time or new.start_date is not null
+       or new.end_date is not null or new.special_hours is not null then
+      raise exception using errcode = '23514', message = 'Bloqueio por horário inválido.';
+    end if;
+  elsif new.type in ('vacation', 'offday') then
+    if new.start_time is not null or new.end_time is not null or new.special_hours is not null
+       or not (
+         (new.date is not null and new.start_date is null and new.end_date is null)
+         or (new.date is null and new.start_date is not null and new.end_date is not null and new.start_date <= new.end_date)
+       ) then
+      raise exception using errcode = '23514', message = 'Período de ausência inválido.';
+    end if;
+  elsif new.type = 'special' and new.special_hours is null then
+    if new.start_time is not null or new.end_time is not null
+       or not (
+         (new.date is not null and new.start_date is null and new.end_date is null)
+         or (new.date is null and new.start_date is not null and new.end_date is not null and new.start_date <= new.end_date)
+       ) then
+      raise exception using errcode = '23514', message = 'Período especial inválido.';
+    end if;
+  elsif new.type = 'special' then
+    if new.date is null or new.start_date is not null or new.end_date is not null
+       or new.start_time is not null or new.end_time is not null
+       or jsonb_typeof(new.special_hours) <> 'object' then
+      raise exception using errcode = '23514', message = 'Horário especial inválido.';
+    end if;
+
+    v_open := new.special_hours->>'open';
+    v_close := new.special_hours->>'close';
+    v_break_start := new.special_hours->>'breakStart';
+    v_break_end := new.special_hours->>'breakEnd';
+    if v_open is null or v_close is null
+       or v_open !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+       or v_close !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+       or v_open::time >= v_close::time then
+      raise exception using errcode = '23514', message = 'Abertura e fechamento especiais são inválidos.';
+    end if;
+
+    if (v_break_start is null) <> (v_break_end is null)
+       or (v_break_start is not null and (
+         v_break_start !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+         or v_break_end !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+         or v_break_start::time < v_open::time
+         or v_break_start::time >= v_break_end::time
+         or v_break_end::time > v_close::time
+       )) then
+      raise exception using errcode = '23514', message = 'Pausa do horário especial inválida.';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
 
 -- Impede que um usuário não-admin altere seu próprio `role` ou
 -- `profile_id` através de um UPDATE em `profiles` (ex: chamando a REST API
@@ -272,6 +540,13 @@ $$ language plpgsql security definer set search_path = public, pg_temp;
 create function prevent_profile_privilege_escalation()
 returns trigger as $$
 begin
+  if new.email is distinct from old.email
+     and new.email is distinct from (
+       select users.email from auth.users users where users.id = new.id
+     ) then
+    raise exception 'O e-mail do perfil só pode ser alterado pelo fluxo de autenticação.';
+  end if;
+
   if auth_role() <> 'owner' then
     if new.role <> old.role then
       raise exception 'Apenas administradores podem alterar o papel (role) de um usuário.';
@@ -292,8 +567,9 @@ $$ language plpgsql security definer set search_path = public, pg_temp;
 -- cancelar (status -> 'Cancelado'), confirmar presença, ou reagendar (e
 -- reagendar só é permitido quando a chamada vem de dentro de
 -- `reschedule_booking`, sinalizado pela GUC local `app.reschedule_in_progress`
--- — nunca via UPDATE direto sem revalidação de conflito). Admin e o
--- barbeiro dono da agenda continuam podendo alterar qualquer campo.
+-- — nunca via UPDATE direto sem revalidação de conflito). O proprietário
+-- mantém a administração completa; o profissional dono da agenda segue a
+-- máquina de estados e não pode adulterar identidade, preço ou serviço.
 create function protect_booking_updates()
 returns trigger as $$
 declare
@@ -317,6 +593,47 @@ begin
   if v_actor_role = 'professional' then
     select profile_id into v_actor_profile_id from profiles where id = auth.uid();
     if v_actor_profile_id is not null and old.barber_id = v_actor_profile_id then
+      v_via_reschedule_rpc := coalesce(current_setting('app.reschedule_in_progress', true), '') = 'true';
+
+      if new.customer_id is distinct from old.customer_id
+         or new.customer_name is distinct from old.customer_name
+         or new.customer_phone is distinct from old.customer_phone
+         or new.barber_id is distinct from old.barber_id
+         or new.service_id is distinct from old.service_id
+         or new.value is distinct from old.value
+         or new.customer_confirmed is distinct from old.customer_confirmed
+         or new.notes is distinct from old.notes then
+        raise exception 'Profissionais só podem atualizar o andamento e a confirmação de pagamento do agendamento.';
+      end if;
+
+      if not v_via_reschedule_rpc and (
+        new.date is distinct from old.date or new.time is distinct from old.time
+      ) then
+        raise exception 'Para reagendar, utilize a função de reagendamento validada pelo servidor.';
+      end if;
+
+      if old.status in ('Concluído', 'Cancelado', 'Não compareceu') and (
+        new.status is distinct from old.status
+        or new.fee_paid is distinct from old.fee_paid
+      ) then
+        raise exception 'Um agendamento finalizado não pode ser alterado pelo profissional.';
+      end if;
+
+      if new.fee_paid is distinct from old.fee_paid and not (
+        old.fee_paid = false and new.fee_paid = true
+        and old.status = 'Aguardando pagamento' and new.status = 'Confirmado'
+      ) then
+        raise exception 'A confirmação de pagamento só pode acompanhar a confirmação da reserva.';
+      end if;
+
+      if new.status is distinct from old.status and not (
+        (old.status = 'Aguardando pagamento' and new.status in ('Confirmado', 'Cancelado', 'Não compareceu'))
+        or (old.status = 'Confirmado' and new.status in ('Em atendimento', 'Cancelado', 'Não compareceu'))
+        or (old.status = 'Em atendimento' and new.status in ('Concluído', 'Cancelado', 'Não compareceu'))
+      ) then
+        raise exception 'Transição de status inválida para o profissional.';
+      end if;
+
       return new;
     end if;
   end if;
@@ -331,6 +648,7 @@ begin
       or new.customer_id is distinct from old.customer_id
       or new.customer_name <> old.customer_name
       or new.customer_phone <> old.customer_phone
+      or new.notes is distinct from old.notes
     then
       raise exception 'Alteração não permitida: clientes só podem cancelar, confirmar presença ou reagendar o próprio agendamento.';
     end if;
@@ -343,13 +661,30 @@ begin
       raise exception 'Cliente só pode alterar o status do próprio agendamento para "Cancelado".';
     end if;
 
+    if new.status is distinct from old.status
+       and new.customer_confirmed is distinct from old.customer_confirmed then
+      raise exception 'Cancelamento e confirmação de presença devem ser operações separadas.';
+    end if;
+
+    if new.customer_confirmed is distinct from old.customer_confirmed and not (
+      old.customer_confirmed = false
+      and new.customer_confirmed = true
+      and old.status in ('Aguardando pagamento', 'Confirmado')
+      and old.starts_at > now()
+    ) then
+      raise exception 'A presença só pode ser confirmada uma vez, antes de um agendamento ativo.';
+    end if;
+
     if new.status = 'Cancelado' and old.status <> 'Cancelado'
-       and exists (
-         select 1 from public.booking_settings settings
-         where settings.id = true
-           and settings.cancellation_notice_minutes > 0
-           and old.starts_at < now() + make_interval(mins => settings.cancellation_notice_minutes)
-       ) then
+       and old.status in ('Concluído', 'Não compareceu') then
+      raise exception 'Um agendamento finalizado não pode ser cancelado.';
+    end if;
+
+    if new.status = 'Cancelado' and old.status <> 'Cancelado'
+       and old.starts_at <= now() + make_interval(mins => coalesce((
+         select settings.cancellation_notice_minutes
+         from public.booking_settings settings where settings.id = true
+       ), 0)) then
       raise exception 'O prazo mínimo para cancelamento deste agendamento já foi ultrapassado.';
     end if;
 
@@ -360,8 +695,68 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public, pg_temp;
 
+-- Um não comparecimento só existe depois que o horário reservado começou.
+-- A regra vale inclusive para o proprietário, pois é uma invariável temporal
+-- do agendamento e não apenas uma restrição de autorização da interface.
+create function prevent_premature_booking_no_show()
+returns trigger as $$
+begin
+  if new.status = 'Não compareceu'
+     and new.status is distinct from old.status
+     and old.starts_at > now() then
+    raise exception 'Não é possível registrar ausência antes do início do horário reservado.';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
 -- Defesa em profundidade para qualquer gravação de reserva: normaliza os
 -- dados, aplica os limites antiabuso, recalcula o preço e valida a agenda.
+create function public.resolve_working_hours_for_date(
+  p_hours jsonb,
+  p_date date,
+  p_special_hours jsonb default null
+)
+returns jsonb
+language plpgsql
+immutable
+set search_path = public, pg_temp
+as $$
+declare
+  v_weekday integer;
+  v_daily jsonb;
+  v_open_on_day boolean;
+begin
+  if p_hours is null or p_date is null then
+    return null;
+  end if;
+
+  if p_special_hours is not null then
+    return p_special_hours;
+  end if;
+
+  v_weekday := extract(dow from p_date)::integer;
+  v_daily := p_hours->'weeklySchedule'->(v_weekday::text);
+  select exists (
+    select 1
+    from jsonb_array_elements_text(coalesce(p_hours->'daysOpen', '[]'::jsonb)) day_value
+    where day_value::integer = v_weekday
+  ) into v_open_on_day;
+
+  if v_daily is not null then
+    if coalesce((v_daily->>'closed')::boolean, not v_open_on_day) then
+      return null;
+    end if;
+    return p_hours || v_daily;
+  end if;
+
+  if not v_open_on_day then
+    return null;
+  end if;
+  return p_hours;
+end;
+$$;
+
 create function validate_booking_business_rules()
 returns trigger
 language plpgsql
@@ -376,18 +771,24 @@ declare
   v_duration int;
   v_price numeric(10,2);
   v_booking_window_days int;
-  v_hours jsonb;
-  v_special_hours jsonb;
+  v_shop_hours jsonb;
+  v_professional_hours jsonb;
+  v_shop_special_hours jsonb;
+  v_professional_special_hours jsonb;
   v_barber_active boolean;
   v_start_mins int;
   v_end_mins int;
   v_open_mins int;
   v_close_mins int;
+  v_shop_open_mins int;
+  v_shop_close_mins int;
+  v_professional_open_mins int;
+  v_professional_close_mins int;
+  v_interval_minutes int;
   v_timezone text;
   v_today date;
   v_now_mins int;
   v_minimum_notice_minutes int;
-  v_weekday int;
   v_pending_count int;
   v_recent_count int;
 begin
@@ -427,7 +828,8 @@ begin
   v_digits := regexp_replace(new.customer_phone, '\D', '', 'g');
   v_local_digits := case when char_length(v_digits) in (12, 13) and left(v_digits, 2) = '55'
                          then substr(v_digits, 3) else v_digits end;
-  if char_length(v_local_digits) not in (10, 11) then
+  if new.customer_phone !~ '^\+?[0-9().[:space:]-]+$'
+     or char_length(v_local_digits) not in (10, 11) then
     raise exception 'Telefone inválido. Informe DDD e número.';
   end if;
 
@@ -487,8 +889,10 @@ begin
     new.value := v_price;
   end if;
 
-  select b.active, coalesce(b.working_hours, c.working_hours), c.booking_window_days
-    into v_barber_active, v_hours, v_booking_window_days
+  select b.active, c.working_hours, coalesce(b.working_hours, c.working_hours),
+         c.booking_window_days, c.interval_minutes
+    into v_barber_active, v_shop_hours, v_professional_hours,
+         v_booking_window_days, v_interval_minutes
   from barbers b cross join barbershop_config c
   where b.id = new.barber_id and c.id = true;
 
@@ -508,56 +912,63 @@ begin
     v_start_mins := extract(hour from new.time) * 60 + extract(minute from new.time);
   end if;
 
-  select sb.special_hours into v_special_hours
+  select sb.special_hours into v_shop_special_hours
   from schedule_blocks sb
   where sb.type = 'special' and sb.special_hours is not null
     and sb.date = new.date
-    and (sb.barber_id = 'all' or sb.barber_id = new.barber_id::text)
-  order by case when sb.barber_id = new.barber_id::text then 0 else 1 end
+    and sb.barber_id = 'all'
   limit 1;
 
-  if v_special_hours is not null then
-    v_hours := v_special_hours;
-  else
-    v_weekday := extract(dow from new.date);
+  select sb.special_hours into v_professional_special_hours
+  from schedule_blocks sb
+  where sb.type = 'special' and sb.special_hours is not null
+    and sb.date = new.date
+    and sb.barber_id = new.barber_id::text
+  limit 1;
 
-    -- weeklySchedule usa as chaves JSON "0" a "6". Configurações
-    -- anteriores possuem apenas daysOpen/open/close, por isso mantemos o
-    -- fallback legado. Quando existe uma entrada diária, ela define tanto o
-    -- estado aberto/fechado quanto os horários daquele dia.
-    if v_hours->'weeklySchedule'->(v_weekday::text) is not null then
-      if coalesce(
-        (v_hours->'weeklySchedule'->(v_weekday::text)->>'closed')::boolean,
-        not exists (
-          select 1 from jsonb_array_elements_text(coalesce(v_hours->'daysOpen', '[]'::jsonb)) d
-          where d::int = v_weekday
-        )
-      ) then
-        raise exception 'O profissional não trabalha nesta data.';
-      end if;
-      v_hours := v_hours || (v_hours->'weeklySchedule'->(v_weekday::text));
-    elsif not exists (
-      select 1 from jsonb_array_elements_text(coalesce(v_hours->'daysOpen', '[]'::jsonb)) d
-      where d::int = v_weekday
-    ) then
-      raise exception 'O profissional não trabalha nesta data.';
-    end if;
+  v_shop_hours := public.resolve_working_hours_for_date(
+    v_shop_hours, new.date, v_shop_special_hours
+  );
+  v_professional_hours := public.resolve_working_hours_for_date(
+    v_professional_hours, new.date, v_professional_special_hours
+  );
+
+  if v_shop_hours is null or v_professional_hours is null then
+    raise exception 'O profissional não trabalha nesta data.';
   end if;
 
-  v_open_mins := split_part(v_hours->>'open', ':', 1)::int * 60
-                 + split_part(v_hours->>'open', ':', 2)::int;
-  v_close_mins := split_part(v_hours->>'close', ':', 1)::int * 60
-                  + split_part(v_hours->>'close', ':', 2)::int;
+  v_shop_open_mins := split_part(v_shop_hours->>'open', ':', 1)::int * 60
+                      + split_part(v_shop_hours->>'open', ':', 2)::int;
+  v_shop_close_mins := split_part(v_shop_hours->>'close', ':', 1)::int * 60
+                       + split_part(v_shop_hours->>'close', ':', 2)::int;
+  v_professional_open_mins := split_part(v_professional_hours->>'open', ':', 1)::int * 60
+                              + split_part(v_professional_hours->>'open', ':', 2)::int;
+  v_professional_close_mins := split_part(v_professional_hours->>'close', ':', 1)::int * 60
+                               + split_part(v_professional_hours->>'close', ':', 2)::int;
+  v_open_mins := greatest(v_shop_open_mins, v_professional_open_mins);
+  v_close_mins := least(v_shop_close_mins, v_professional_close_mins);
   v_end_mins := v_start_mins + v_duration;
   if v_start_mins < v_open_mins or v_end_mins > v_close_mins then
     raise exception 'Horário fora do expediente do profissional.';
   end if;
 
-  if v_hours->>'breakStart' is not null and v_hours->>'breakEnd' is not null
-     and (split_part(v_hours->>'breakStart', ':', 1)::int * 60
-          + split_part(v_hours->>'breakStart', ':', 2)::int) < v_end_mins
-     and (split_part(v_hours->>'breakEnd', ':', 1)::int * 60
-          + split_part(v_hours->>'breakEnd', ':', 2)::int) > v_start_mins then
+  if mod(v_start_mins - v_open_mins, v_interval_minutes) <> 0 then
+    raise exception 'Horário fora da grade de agendamento configurada.';
+  end if;
+
+  if (
+    v_shop_hours->>'breakStart' is not null and v_shop_hours->>'breakEnd' is not null
+    and (split_part(v_shop_hours->>'breakStart', ':', 1)::int * 60
+         + split_part(v_shop_hours->>'breakStart', ':', 2)::int) < v_end_mins
+    and (split_part(v_shop_hours->>'breakEnd', ':', 1)::int * 60
+         + split_part(v_shop_hours->>'breakEnd', ':', 2)::int) > v_start_mins
+  ) or (
+    v_professional_hours->>'breakStart' is not null and v_professional_hours->>'breakEnd' is not null
+    and (split_part(v_professional_hours->>'breakStart', ':', 1)::int * 60
+         + split_part(v_professional_hours->>'breakStart', ':', 2)::int) < v_end_mins
+    and (split_part(v_professional_hours->>'breakEnd', ':', 1)::int * 60
+         + split_part(v_professional_hours->>'breakEnd', ':', 2)::int) > v_start_mins
+  ) then
     raise exception 'Horário coincide com o intervalo do profissional.';
   end if;
 
@@ -655,6 +1066,100 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public, pg_temp;
 
+-- `barbers.user_id` is the canonical administrative link. Keep the mirrored
+-- `profiles.profile_id` value synchronized in the same transaction so a
+-- partial network failure can never leave the professional dashboard linked
+-- on only one side.
+create function sync_barber_user_link()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if tg_op = 'UPDATE' and new.user_id is not distinct from old.user_id then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' and old.user_id is not null then
+    update profiles set profile_id = null
+    where id = old.user_id and profile_id = old.id;
+  end if;
+
+  if new.user_id is not null then
+    if not exists (
+      select 1 from profiles
+      where id = new.user_id and role = 'professional'
+    ) then
+      raise exception using errcode = '23514', message = 'A conta vinculada precisa ter o papel de profissional.';
+    end if;
+
+    update profiles set profile_id = new.id where id = new.user_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- Reject direct profile edits that would disagree with the canonical
+-- barbers.user_id link or attach a non-professional account to an agenda.
+create function validate_profile_professional_link()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.profile_id is null then
+    if exists (select 1 from barbers where user_id = new.id) then
+      raise exception using errcode = '23514', message = 'Desvincule a conta pelo cadastro do profissional.';
+    end if;
+  elsif new.role <> 'professional'
+     or not exists (
+       select 1 from barbers
+       where id = new.profile_id and user_id = new.id
+     ) then
+    raise exception using errcode = '23514', message = 'Vínculo entre conta e profissional inconsistente.';
+  end if;
+
+  return new;
+end;
+$$;
+
+-- Reordering is one all-or-nothing operation. Sending one UPDATE per photo
+-- allowed partial order changes whenever a request failed midway.
+create function reorder_gallery_photos(p_photo_ids uuid[])
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_total integer;
+begin
+  if auth.uid() is null or auth_role() is distinct from 'owner' then
+    raise exception using errcode = '42501', message = 'Somente o proprietário pode reordenar a galeria.';
+  end if;
+
+  select count(*) into v_total from gallery_photos;
+  if p_photo_ids is null
+     or cardinality(p_photo_ids) <> v_total
+     or cardinality(p_photo_ids) <> (select count(distinct id) from unnest(p_photo_ids) item(id))
+     or exists (
+       select 1 from unnest(p_photo_ids) item(id)
+       where not exists (select 1 from gallery_photos photo where photo.id = item.id)
+     ) then
+    raise exception using errcode = '22023', message = 'A lista de fotos não corresponde à galeria atual.';
+  end if;
+
+  update gallery_photos photo
+  set display_order = (ordered.position - 1)::int,
+      "order" = (ordered.position - 1)::int
+  from unnest(p_photo_ids) with ordinality ordered(id, position)
+  where photo.id = ordered.id;
+end;
+$$;
+
 -- Cria um agendamento de forma atômica: trava (advisory lock) a combinação
 -- barbeiro+data para serializar tentativas concorrentes, revalida
 -- conflitos de horário e de bloqueio de agenda no servidor (nunca confiar
@@ -693,39 +1198,15 @@ set search_path = public, pg_temp
 as $$
 declare
   v_duration int;
-  v_tolerance_minutes int;
   v_booking_fee numeric;
   v_initial_status booking_status;
   v_start_mins int;
   v_end_mins int;
   v_conflict_count int;
-  v_pending_count int;
-  v_recent_count int;
   v_new_booking bookings;
 begin
   if auth_role() is distinct from 'owner' and auth.uid() is not null and p_customer_id is distinct from auth.uid() then
     raise exception 'Não é possível criar um agendamento em nome de outro usuário.';
-  end if;
-
-  if auth_role() is distinct from 'owner' then
-    select count(*) into v_pending_count
-    from bookings
-    where regexp_replace(customer_phone, '\D', '', 'g') = regexp_replace(p_customer_phone, '\D', '', 'g')
-      and status = 'Aguardando pagamento'
-      and date >= current_date;
-
-    if v_pending_count >= 3 then
-      raise exception 'Você já tem % agendamento(s) aguardando pagamento. Finalize o pagamento ou cancele um deles antes de criar um novo.', v_pending_count;
-    end if;
-
-    select count(*) into v_recent_count
-    from bookings
-    where regexp_replace(customer_phone, '\D', '', 'g') = regexp_replace(p_customer_phone, '\D', '', 'g')
-      and created_at >= now() - interval '24 hours';
-
-    if v_recent_count >= 5 then
-      raise exception 'Limite de agendamentos criados nas últimas 24 horas atingido. Tente novamente mais tarde ou entre em contato com a barbearia.';
-    end if;
   end if;
 
   -- Serializa chamadas concorrentes para o mesmo barbeiro+data.
@@ -739,12 +1220,12 @@ begin
     raise exception 'Serviço inválido.';
   end if;
 
-  select tolerance_minutes, booking_fee into v_tolerance_minutes, v_booking_fee
+  select booking_fee into v_booking_fee
   from barbershop_config where id = true;
 
   -- Sem taxa de reserva configurada (R$0 ou nula), não há pagamento a
   -- aguardar — o agendamento nasce direto como 'Confirmado'. Antes desta
-  -- correção, TODO agendamento novo começava em 'Aguardando pagamento'
+  -- correção, cada agendamento novo começava em 'Aguardando pagamento'
   -- incondicionalmente, mesmo com a taxa zerada, e ficava preso lá para
   -- sempre (não há PIX nenhum a confirmar).
   v_initial_status := case when coalesce(v_booking_fee, 0) <= 0 then 'Confirmado' else 'Aguardando pagamento' end;
@@ -812,6 +1293,53 @@ begin
 end;
 $$;
 
+-- Administrative walk-ins need the same atomic conflict validation as the
+-- public flow, but their chosen operational status and payment flag must be
+-- committed in the same transaction. Keeping this in a separate RPC prevents
+-- anonymous callers from supplying privileged fields to create_booking.
+create function create_admin_booking(
+  p_customer_id uuid,
+  p_customer_name text,
+  p_customer_phone text,
+  p_barber_id uuid,
+  p_service_id text,
+  p_date date,
+  p_time time,
+  p_notes text,
+  p_status booking_status,
+  p_fee_paid boolean
+) returns bookings
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_booking bookings;
+begin
+  if auth.uid() is null or auth_role() is distinct from 'owner' then
+    raise exception using errcode = '42501', message = 'Somente o proprietário pode criar agendamentos administrativos.';
+  end if;
+
+  if p_status is null or p_status not in ('Confirmado', 'Concluído') then
+    raise exception using errcode = '22023', message = 'Status administrativo inválido.';
+  end if;
+
+  select * into v_booking
+  from create_booking(
+    p_customer_id, p_customer_name, p_customer_phone, p_barber_id,
+    p_service_id, p_date, p_time, p_notes, 0
+  );
+
+  update bookings
+  set status = p_status,
+      fee_paid = coalesce(p_fee_paid, false)
+  where id = v_booking.id
+  returning * into v_booking;
+
+  return v_booking;
+end;
+$$;
+
 -- Reagenda um agendamento existente com a mesma trava/revalidação de
 -- conflito do `create_booking` (elimina a condição de corrida do
 -- reagendamento direto, que era um UPDATE sem nenhuma revalidação
@@ -849,8 +1377,8 @@ begin
     raise exception 'Você não tem permissão para reagendar este agendamento.';
   end if;
 
-  if v_booking.status = 'Cancelado' then
-    raise exception 'Não é possível reagendar um agendamento cancelado.';
+  if v_booking.status in ('Concluído', 'Cancelado', 'Não compareceu') then
+    raise exception 'Não é possível reagendar um agendamento finalizado.';
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(v_booking.barber_id::text || p_new_date::text, 0));
@@ -918,6 +1446,18 @@ begin
 end;
 $$;
 
+-- Keep audit timestamps reliable even when rows are updated outside the UI.
+create function public.touch_updated_at()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, pg_temp
+as $$
+begin
+  new.updated_at := clock_timestamp();
+  return new;
+end;
+$$;
+
 
 -- ============================================================================
 -- 6. TRIGGERS
@@ -934,6 +1474,30 @@ create trigger profiles_prevent_privilege_escalation
   before update on profiles
   for each row execute procedure prevent_profile_privilege_escalation();
 
+create trigger profiles_validate_professional_link
+  before insert or update of profile_id, role on profiles
+  for each row execute procedure validate_profile_professional_link();
+
+create trigger schedule_blocks_validate
+  before insert or update on schedule_blocks
+  for each row execute procedure validate_schedule_block();
+
+create trigger config_validate_working_hours
+  before insert or update of working_hours on barbershop_config
+  for each row execute procedure validate_working_hours_payload();
+
+create trigger config_validate_social_links
+  before insert or update of social_links on barbershop_config
+  for each row execute procedure validate_social_links_payload();
+
+create trigger config_touch_updated_at
+  before update on barbershop_config
+  for each row execute procedure public.touch_updated_at();
+
+create trigger barbers_validate_working_hours
+  before insert or update of working_hours on barbers
+  for each row execute procedure validate_working_hours_payload();
+
 create trigger bookings_enforce_customer_identity
   before insert on bookings
   for each row execute procedure enforce_booking_customer_identity();
@@ -941,6 +1505,10 @@ create trigger bookings_enforce_customer_identity
 create trigger bookings_protect_updates
   before update on bookings
   for each row execute procedure protect_booking_updates();
+
+create trigger bookings_prevent_premature_no_show
+  before update of status on bookings
+  for each row execute procedure prevent_premature_booking_no_show();
 
 create trigger bookings_prevent_schedule_conflicts
   before insert or update of barber_id, service_id, date, time
@@ -954,6 +1522,10 @@ create trigger bookings_validate_business_rules
 create trigger barbers_protect_updates
   before update on barbers
   for each row execute procedure protect_barber_updates();
+
+create trigger barbers_sync_user_link
+  after insert or update of user_id on barbers
+  for each row execute procedure sync_barber_user_link();
 
 
 -- ============================================================================
@@ -1019,6 +1591,16 @@ create policy "avatars_barber_update_own" on storage.objects for update
     bucket_id = 'avatars'
     and auth_role() = 'professional'
     and name like 'barbers/' || (select profile_id::text from profiles where id = auth.uid()) || '-%'
+  );
+
+create policy "avatars_barber_delete_own" on storage.objects for delete
+  using (
+    bucket_id = 'avatars'
+    and auth_role() = 'professional'
+    and (
+      name like 'barbers/' || (select profile_id::text from profiles where id = auth.uid()) || '-%'
+      or name like 'professionals/' || (select profile_id::text from profiles where id = auth.uid()) || '-%'
+    )
   );
 
 
@@ -1122,6 +1704,72 @@ create policy "gallery_photos_write_admin" on gallery_photos for all
 -- ============================================================================
 -- 9. GRANTS
 -- ============================================================================
+-- `barbers.user_id` is an internal Auth link, not public catalog data. Direct
+-- table reads are disabled for browser roles; safe projections below expose
+-- only the fields required by each role.
+revoke select on table public.barbers from anon, authenticated;
+grant select (id) on table public.barbers to authenticated;
+
+create function public.get_public_professionals()
+returns table (
+  id uuid,
+  name text,
+  avatar text,
+  specialty text,
+  active boolean,
+  working_hours jsonb,
+  description text,
+  "order" integer
+)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select professional.id, professional.name, professional.avatar,
+    professional.specialty, professional.active, professional.working_hours,
+    professional.description, professional."order"
+  from public.barbers professional
+  where professional.active = true
+  order by professional."order", professional.id;
+$$;
+
+create function public.get_admin_professionals()
+returns table (
+  id uuid,
+  name text,
+  avatar text,
+  specialty text,
+  active boolean,
+  working_hours jsonb,
+  description text,
+  "order" integer,
+  user_id uuid
+)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null or auth_role() is distinct from 'owner' then
+    raise exception using errcode = '42501', message = 'Somente o proprietário pode consultar vínculos de contas.';
+  end if;
+
+  return query
+  select professional.id, professional.name, professional.avatar,
+    professional.specialty, professional.active, professional.working_hours,
+    professional.description, professional."order", professional.user_id
+  from public.barbers professional
+  order by professional."order", professional.id;
+end;
+$$;
+
+revoke all on function public.get_public_professionals() from public;
+grant execute on function public.get_public_professionals() to anon, authenticated;
+revoke all on function public.get_admin_professionals() from public, anon;
+grant execute on function public.get_admin_professionals() to authenticated;
+
 -- Permite chamada tanto por usuários autenticados quanto anônimos
 -- (agendamento de convidado, sem conta).
 revoke all on function create_booking(uuid, text, text, uuid, text, date, time, text, numeric) from public;
@@ -1129,13 +1777,170 @@ grant execute on function create_booking(
   uuid, text, text, uuid, text, date, time, text, numeric
 ) to anon, authenticated;
 
+revoke all on function create_admin_booking(
+  uuid, text, text, uuid, text, date, time, text, booking_status, boolean
+) from public, anon;
+grant execute on function create_admin_booking(
+  uuid, text, text, uuid, text, date, time, text, booking_status, boolean
+) to authenticated;
+
+revoke all on function reorder_gallery_photos(uuid[]) from public, anon;
+grant execute on function reorder_gallery_photos(uuid[]) to authenticated;
+
 -- Reagendamento exige estar autenticado (cliente, barbeiro ou admin) —
 -- convidado não tem uma agenda própria para reagendar por conta própria.
 revoke all on function reschedule_booking(uuid, date, time) from public, anon;
 grant execute on function reschedule_booking(uuid, date, time) to authenticated;
 
--- Public booking flows need operational blocks, never staff-only reasons.
--- A dedicated projection lets the table itself remain inaccessible to guests.
+-- ============================================================================
+-- 10. UNIVERSAL CORE (consolidated final state)
+-- ============================================================================
+-- Migrations remain available only for existing installations. New projects
+-- execute this schema once and must not replay the migrations afterward.
+
+-- Universal, single-installation business configuration. This migration is
+-- additive so existing barbershop installations can migrate without downtime.
+create type public.business_niche as enum ('barbershop', 'beauty_salon', 'nail_studio', 'pet_shop');
+
+create table public.business_profile (
+  id boolean primary key default true constraint business_profile_singleton check (id),
+  business_name text not null check (char_length(btrim(business_name)) between 2 and 100),
+  description text check (description is null or char_length(description) <= 2000),
+  logo_url text check (logo_url is null or char_length(logo_url) <= 2048),
+  cover_url text check (cover_url is null or char_length(cover_url) <= 2048),
+  favicon_url text check (favicon_url is null or char_length(favicon_url) <= 2048),
+  phone text check (
+    phone is null or (
+      char_length(phone) <= 32
+      and phone ~ '^\+?[0-9().[:space:]-]+$'
+      and (
+        regexp_replace(phone, '[^0-9]', '', 'g') ~ '^[0-9]{10,11}$'
+        or regexp_replace(phone, '[^0-9]', '', 'g') ~ '^55[0-9]{10,11}$'
+      )
+    )
+  ),
+  whatsapp text check (
+    whatsapp is null or (
+      char_length(whatsapp) <= 32
+      and whatsapp ~ '^\+?[0-9().[:space:]-]+$'
+      and (
+        regexp_replace(whatsapp, '[^0-9]', '', 'g') ~ '^[0-9]{10,11}$'
+        or regexp_replace(whatsapp, '[^0-9]', '', 'g') ~ '^55[0-9]{10,11}$'
+      )
+    )
+  ),
+  email text check (email is null or char_length(email) <= 320),
+  instagram text check (instagram is null or char_length(instagram) <= 2048),
+  facebook text check (facebook is null or char_length(facebook) <= 2048),
+  website text check (website is null or char_length(website) <= 2048),
+  address jsonb not null default '{}'::jsonb check (
+    jsonb_typeof(address) = 'object'
+    and char_length(coalesce(address->>'formatted', '')) <= 500
+  ),
+  timezone text not null default 'America/Sao_Paulo' check (char_length(timezone) between 1 and 100),
+  currency char(3) not null default 'BRL',
+  locale text not null default 'pt-BR' check (char_length(locale) between 2 and 35),
+  niche_id public.business_niche not null,
+  theme_id text not null default 'minimal_light' check (theme_id in (
+    'minimal_light', 'premium_dark', 'rose_elegance',
+    'lavender_studio', 'forest_clean'
+  )),
+  onboarding_completed boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.feature_settings (
+  capability text primary key check (capability in (
+    'online_booking', 'customers', 'professionals', 'services', 'financial',
+    'reports', 'pets', 'inventory', 'whatsapp', 'ai', 'advanced_themes',
+    'custom_domain', 'loyalty'
+  )),
+  enabled boolean not null default false,
+  configuration jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+create table public.booking_settings (
+  id boolean primary key default true constraint booking_settings_singleton check (id),
+  interval_minutes integer not null default 30 check (interval_minutes between 5 and 480),
+  booking_window_days integer not null default 30 check (booking_window_days between 1 and 365),
+  minimum_notice_minutes integer not null default 30 check (minimum_notice_minutes between 0 and 525600),
+  cancellation_notice_minutes integer not null default 0 check (cancellation_notice_minutes between 0 and 525600),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.business_profile enable row level security;
+alter table public.feature_settings enable row level security;
+alter table public.booking_settings enable row level security;
+
+-- Values in this public runtime table must stay compatible with the frontend
+-- registries. Invalid timezones or URLs would otherwise break every page.
+create function public.validate_business_profile_payload()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_catalog, pg_temp
+as $$
+declare
+  v_link text;
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_timezone_names zone
+    where zone.name = new.timezone
+  ) then
+    raise exception using errcode = '23514', message = 'Fuso horário do negócio inválido.';
+  end if;
+
+  if new.email is not null
+     and new.email !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
+    raise exception using errcode = '23514', message = 'E-mail público do negócio inválido.';
+  end if;
+
+  foreach v_link in array array[
+    new.logo_url, new.cover_url, new.favicon_url,
+    new.instagram, new.facebook, new.website
+  ] loop
+    if v_link is not null
+       and btrim(v_link) <> ''
+       and btrim(v_link) !~* '^https?://[^[:space:]/@]+([/:?#][^[:space:]]*)?$' then
+      raise exception using errcode = '23514', message = 'URL pública do negócio inválida.';
+    end if;
+  end loop;
+
+  return new;
+end;
+$$;
+
+create policy business_profile_public_read on public.business_profile for select using (true);
+create policy business_profile_admin_write on public.business_profile for all
+  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy feature_settings_public_read on public.feature_settings for select using (true);
+create policy feature_settings_admin_write on public.feature_settings for all
+  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+create policy booking_settings_public_read on public.booking_settings for select using (true);
+create policy booking_settings_admin_write on public.booking_settings for all
+  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
+
+create trigger business_profile_validate
+  before insert or update on public.business_profile
+  for each row execute procedure public.validate_business_profile_payload();
+
+create trigger business_profile_touch_updated_at
+  before update on public.business_profile
+  for each row execute procedure public.touch_updated_at();
+
+create trigger feature_settings_touch_updated_at
+  before update on public.feature_settings
+  for each row execute procedure public.touch_updated_at();
+
+create trigger booking_settings_touch_updated_at
+  before update on public.booking_settings
+  for each row execute procedure public.touch_updated_at();
+
+-- Public booking flows need operational blocks, never staff-only reasons or
+-- expired history. This is defined after the universal settings tables so the
+-- public window follows the canonical timezone and booking horizon.
 create function public.get_public_schedule_blocks()
 returns table (
   id uuid,
@@ -1153,80 +1958,34 @@ stable
 security definer
 set search_path = public, pg_temp
 as $$
+  with limits as (
+    select
+      (now() at time zone coalesce(
+        (select profile.timezone from public.business_profile profile where profile.id = true),
+        'America/Sao_Paulo'
+      ))::date as first_date,
+      coalesce(
+        (select settings.booking_window_days from public.booking_settings settings where settings.id = true),
+        (select config.booking_window_days from public.barbershop_config config where config.id = true),
+        30
+      ) as window_days
+  )
   select
     blocks.id, blocks.barber_id, blocks.type, blocks.date,
     blocks.start_date, blocks.end_date, blocks.start_time,
     blocks.end_time, blocks.special_hours
-  from public.schedule_blocks blocks;
+  from public.schedule_blocks blocks
+  cross join limits
+  where blocks.date between limits.first_date and limits.first_date + (limits.window_days - 1)
+     or (
+       blocks.start_date is not null and blocks.end_date is not null
+       and blocks.start_date <= limits.first_date + (limits.window_days - 1)
+       and blocks.end_date >= limits.first_date
+     );
 $$;
 
 revoke all on function public.get_public_schedule_blocks() from public;
 grant execute on function public.get_public_schedule_blocks() to anon, authenticated;
-
-
--- ============================================================================
--- 10. UNIVERSAL CORE (consolidated final state)
--- ============================================================================
--- Migrations remain available only for existing installations. New projects
--- execute this schema once and must not replay the migrations afterward.
-
--- Universal, single-installation business configuration. This migration is
--- additive so existing barbershop installations can migrate without downtime.
-create type public.business_niche as enum ('barbershop', 'beauty_salon', 'nail_studio', 'pet_shop');
-
-create table public.business_profile (
-  id boolean primary key default true constraint business_profile_singleton check (id),
-  business_name text not null,
-  description text,
-  logo_url text,
-  cover_url text,
-  favicon_url text,
-  phone text,
-  whatsapp text,
-  email text,
-  instagram text,
-  facebook text,
-  website text,
-  address jsonb not null default '{}'::jsonb,
-  timezone text not null default 'America/Sao_Paulo',
-  currency char(3) not null default 'BRL',
-  locale text not null default 'pt-BR',
-  niche_id public.business_niche not null,
-  theme_id text not null default 'minimal_light',
-  onboarding_completed boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.feature_settings (
-  capability text primary key check (capability ~ '^[a-z][a-z0-9_]*$'),
-  enabled boolean not null default false,
-  configuration jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null default now()
-);
-
-create table public.booking_settings (
-  id boolean primary key default true constraint booking_settings_singleton check (id),
-  interval_minutes integer not null default 30 check (interval_minutes between 5 and 480),
-  booking_window_days integer not null default 30 check (booking_window_days between 1 and 365),
-  minimum_notice_minutes integer not null default 30 check (minimum_notice_minutes >= 0),
-  cancellation_notice_minutes integer not null default 0 check (cancellation_notice_minutes >= 0),
-  updated_at timestamptz not null default now()
-);
-
-alter table public.business_profile enable row level security;
-alter table public.feature_settings enable row level security;
-alter table public.booking_settings enable row level security;
-
-create policy business_profile_public_read on public.business_profile for select using (true);
-create policy business_profile_admin_write on public.business_profile for all
-  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
-create policy feature_settings_public_read on public.feature_settings for select using (true);
-create policy feature_settings_admin_write on public.feature_settings for all
-  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
-create policy booking_settings_public_read on public.booking_settings for select using (true);
-create policy booking_settings_admin_write on public.booking_settings for all
-  using (public.auth_role() = 'owner') with check (public.auth_role() = 'owner');
 
 comment on table public.business_profile is 'Singleton identity of this independent installation.';
 comment on table public.feature_settings is 'Central capability switches; billing is intentionally out of scope.';
@@ -1240,18 +1999,26 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  insert into public.booking_settings (id, interval_minutes, booking_window_days)
-  values (true, new.interval_minutes, new.booking_window_days)
+  insert into public.booking_settings (
+    id, interval_minutes, booking_window_days,
+    minimum_notice_minutes, cancellation_notice_minutes
+  ) values (
+    true, new.interval_minutes, new.booking_window_days,
+    new.minimum_notice_minutes, new.cancellation_notice_minutes
+  )
   on conflict (id) do update set
     interval_minutes = excluded.interval_minutes,
     booking_window_days = excluded.booking_window_days,
+    minimum_notice_minutes = excluded.minimum_notice_minutes,
+    cancellation_notice_minutes = excluded.cancellation_notice_minutes,
     updated_at = now();
   return new;
 end;
 $$;
 
 create trigger config_sync_booking_settings
-after update of interval_minutes, booking_window_days
+after update of interval_minutes, booking_window_days,
+  minimum_notice_minutes, cancellation_notice_minutes
 on public.barbershop_config
 for each row execute function public.sync_booking_settings_from_config();
 
@@ -1639,95 +2406,21 @@ begin
 end;
 $$;
 
-create or replace function public.complete_business_onboarding(
-  p_business_name text,
-  p_niche_id public.business_niche,
-  p_theme_id text,
-  p_phone text default null,
-  p_address text default null,
-  p_capabilities text[] default array[]::text[]
-) returns public.business_profile
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  v_profile public.business_profile;
-  v_capability text;
-begin
-  if public.auth_role() <> 'owner' then
-    raise exception using errcode = '42501', message = 'Somente o proprietário pode concluir a configuração inicial.';
-  end if;
-  if length(trim(p_business_name)) < 2 then
-    raise exception using errcode = '23514', message = 'Informe um nome de negócio válido.';
-  end if;
-  if p_theme_id !~ '^[a-z][a-z0-9_]*$' then
-    raise exception using errcode = '23514', message = 'Tema inválido.';
-  end if;
-  if exists (
-    select 1 from unnest(p_capabilities) capability
-    where capability !~ '^[a-z][a-z0-9_]*$'
-  ) then
-    raise exception using errcode = '23514', message = 'Capability inválida.';
-  end if;
-
-  insert into public.business_profile (
-    id, business_name, phone, address, niche_id, theme_id, onboarding_completed
-  ) values (
-    true, trim(p_business_name), nullif(trim(p_phone), ''),
-    case when nullif(trim(p_address), '') is null then '{}'::jsonb else jsonb_build_object('formatted', trim(p_address)) end,
-    p_niche_id, p_theme_id, true
-  )
-  on conflict (id) do update set
-    business_name = excluded.business_name,
-    phone = excluded.phone,
-    address = excluded.address,
-    niche_id = excluded.niche_id,
-    theme_id = excluded.theme_id,
-    onboarding_completed = true,
-    updated_at = now()
-  returning * into v_profile;
-
-  delete from public.feature_settings;
-  foreach v_capability in array p_capabilities loop
-    insert into public.feature_settings (capability, enabled)
-    values (v_capability, true)
-    on conflict (capability) do update set enabled = true, updated_at = now();
-  end loop;
-
-  -- Compatibility bridge while the old UI still reads barbershop_config.
-  update public.barbershop_config set
-    name = v_profile.business_name,
-    phone = coalesce(v_profile.phone, ''),
-    address = coalesce(v_profile.address->>'formatted', ''),
-    updated_at = now()
-  where id = true;
-
-  insert into public.booking_settings (id) values (true)
-  on conflict (id) do nothing;
-
-  return v_profile;
-end;
-$$;
-
 revoke all on function public.claim_first_owner(text) from public, anon;
 grant execute on function public.claim_first_owner(text) to authenticated;
 revoke all on function public.get_onboarding_state() from public, anon;
 grant execute on function public.get_onboarding_state() to authenticated;
-revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) from public, anon;
-grant execute on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) to authenticated;
 
 -- P1: generic professional boundary and optional Pet Shop entities.
 create or replace view public.professionals
 with (security_invoker = true)
 as
 select id, name, avatar, specialty, active, working_hours, description,
-       "order", user_id, created_at
+       "order", created_at
 from public.barbers;
 
 comment on view public.professionals is 'Generic API name over the legacy barbers table during its migration window.';
-grant select on public.professionals to anon, authenticated;
-grant insert, update, delete on public.professionals to authenticated;
+revoke all on public.professionals from anon, authenticated;
 
 create or replace function public.capability_enabled(p_capability text)
 returns boolean
@@ -1777,6 +2470,10 @@ create index booking_pets_pet_idx on public.booking_pets(pet_id);
 alter table public.pets enable row level security;
 alter table public.pet_notes enable row level security;
 alter table public.booking_pets enable row level security;
+
+create trigger pets_touch_updated_at
+  before update on public.pets
+  for each row execute procedure public.touch_updated_at();
 
 create policy pets_owner_or_admin_read on public.pets for select
 using (owner_id = auth.uid() or public.auth_role() = 'owner');
@@ -1830,9 +2527,6 @@ revoke all on function public.capability_enabled(text) from public, anon;
 grant execute on function public.capability_enabled(text) to authenticated;
 
 -- P1: complete onboarding with hours, starter services, team and booking rules.
-revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]) from public, anon, authenticated;
-drop function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[]);
-
 create function public.complete_business_onboarding(
   p_business_name text,
   p_niche_id public.business_niche,
@@ -1844,7 +2538,8 @@ create function public.complete_business_onboarding(
   p_services jsonb,
   p_professionals jsonb,
   p_interval_minutes integer,
-  p_booking_window_days integer
+  p_booking_window_days integer,
+  p_setup_code text default null
 ) returns public.business_profile
 language plpgsql
 security definer
@@ -1856,27 +2551,67 @@ declare
   v_service record;
   v_professional record;
 begin
-  if public.auth_role() <> 'owner' then
-    raise exception using errcode = '42501', message = 'Somente o proprietário pode concluir a configuração inicial.';
+  -- On a fresh installation, claim the first owner inside this transaction.
+  -- If any later validation/insert fails, PostgreSQL also rolls back code
+  -- consumption and owner promotion, so retrying cannot strand the wizard.
+  if public.auth_role() is distinct from 'owner' then
+    perform public.claim_first_owner(p_setup_code);
   end if;
-  if length(trim(p_business_name)) < 2 then
+  if p_business_name is null or length(trim(p_business_name)) not between 2 and 100 then
     raise exception using errcode = '23514', message = 'Informe um nome de negócio válido.';
   end if;
   if p_theme_id !~ '^[a-z][a-z0-9_]*$' then
     raise exception using errcode = '23514', message = 'Tema inválido.';
   end if;
-  if p_business_hours->>'open' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
-     or p_business_hours->>'close' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
-     or (p_business_hours->>'open')::time >= (p_business_hours->>'close')::time
-     or jsonb_typeof(p_business_hours->'daysOpen') <> 'array' then
+  if p_phone is not null and btrim(p_phone) <> '' and (
+       length(trim(p_phone)) > 32
+       or p_phone !~ '^\+?[0-9().[:space:]-]+$'
+       or (
+         regexp_replace(p_phone, '[^0-9]', '', 'g') !~ '^[0-9]{10,11}$'
+         and regexp_replace(p_phone, '[^0-9]', '', 'g') !~ '^55[0-9]{10,11}$'
+       )
+     ) then
+    raise exception using errcode = '23514', message = 'Informe um telefone brasileiro válido com DDD.';
+  end if;
+  if p_address is not null and length(trim(p_address)) > 500 then
+    raise exception using errcode = '23514', message = 'Endereço excede o limite de 500 caracteres.';
+  end if;
+  if not public.working_hours_are_valid(p_business_hours)
+     or jsonb_array_length(p_business_hours->'daysOpen') = 0 then
     raise exception using errcode = '23514', message = 'Horário de funcionamento inválido.';
   end if;
   if p_interval_minutes < 5 or p_interval_minutes > 480
      or p_booking_window_days < 1 or p_booking_window_days > 365 then
     raise exception using errcode = '23514', message = 'Configuração da agenda inválida.';
   end if;
-  if exists (select 1 from unnest(p_capabilities) item where item !~ '^[a-z][a-z0-9_]*$') then
+  if p_capabilities is null or cardinality(p_capabilities) > 50
+     or exists (
+       select 1 from unnest(p_capabilities) item
+       where item not in (
+         'online_booking', 'customers', 'professionals', 'services', 'financial',
+         'reports', 'pets', 'inventory', 'whatsapp', 'ai', 'advanced_themes',
+         'custom_domain', 'loyalty'
+       )
+     ) then
     raise exception using errcode = '23514', message = 'Capability inválida.';
+  end if;
+  if jsonb_typeof(p_services) <> 'array' or jsonb_array_length(p_services) > 100
+     or exists (
+       select 1 from jsonb_to_recordset(p_services) as item(name text, duration integer, price numeric, category text)
+       where item.name is null
+          or length(trim(item.name)) not between 2 and 100
+          or item.duration is null or item.duration not between 5 and 480
+          or item.price is null or item.price < 0 or item.price > 99999999.99
+          or length(coalesce(item.category, '')) > 100
+     ) then
+    raise exception using errcode = '23514', message = 'Lista de serviços iniciais inválida.';
+  end if;
+  if jsonb_typeof(p_professionals) <> 'array' or jsonb_array_length(p_professionals) > 100
+     or exists (
+       select 1 from jsonb_to_recordset(p_professionals) as item(name text)
+       where item.name is null or length(trim(item.name)) not between 2 and 100
+     ) then
+    raise exception using errcode = '23514', message = 'Lista de profissionais iniciais inválida.';
   end if;
 
   insert into public.business_profile (
@@ -1911,13 +2646,14 @@ begin
     booking_window_days = excluded.booking_window_days, updated_at = now();
 
   for v_service in select * from jsonb_to_recordset(p_services)
-    as item(name text, duration integer, category text)
+    as item(name text, duration integer, price numeric, category text)
   loop
     if length(trim(v_service.name)) between 2 and 100
        and v_service.duration between 5 and 480
+       and v_service.price between 0 and 99999999.99
        and not exists (select 1 from public.services s where lower(s.name) = lower(trim(v_service.name))) then
       insert into public.services(name, duration, price, description, category)
-      values (trim(v_service.name), v_service.duration, 0, '', coalesce(trim(v_service.category), ''));
+      values (trim(v_service.name), v_service.duration, v_service.price, '', coalesce(trim(v_service.category), ''));
     end if;
   end loop;
 
@@ -1934,8 +2670,8 @@ begin
 end;
 $$;
 
-revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer) from public, anon;
-grant execute on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer) to authenticated;
+revoke all on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer, text) from public, anon;
+grant execute on function public.complete_business_onboarding(text, public.business_niche, text, text, text, text[], jsonb, jsonb, jsonb, integer, integer, text) to authenticated;
 
 -- Delete an authentication account without exposing privileged API keys.
 -- Existing access tokens remain cryptographically valid until expiration, but
@@ -1973,14 +2709,24 @@ grant execute on function public.delete_user_account(uuid) to authenticated;
 -- Trigger-only helpers do not form part of the browser-accessible API.
 revoke all on function public.enforce_booking_customer_identity() from public, anon, authenticated;
 revoke all on function public.handle_new_user() from public, anon, authenticated;
+revoke all on function public.validate_schedule_block() from public, anon, authenticated;
+revoke all on function public.working_hours_are_valid(jsonb) from public, anon, authenticated;
+revoke all on function public.validate_working_hours_payload() from public, anon, authenticated;
+revoke all on function public.validate_social_links_payload() from public, anon, authenticated;
+revoke all on function public.sync_barber_user_link() from public, anon, authenticated;
+revoke all on function public.validate_profile_professional_link() from public, anon, authenticated;
 revoke all on function public.prevent_profile_privilege_escalation() from public, anon, authenticated;
 revoke all on function public.protect_booking_updates() from public, anon, authenticated;
+revoke all on function public.prevent_premature_booking_no_show() from public, anon, authenticated;
 revoke all on function public.validate_booking_business_rules() from public, anon, authenticated;
+revoke all on function public.resolve_working_hours_for_date(jsonb, date, jsonb) from public, anon, authenticated;
 revoke all on function public.prevent_booking_schedule_conflicts() from public, anon, authenticated;
 revoke all on function public.protect_barber_updates() from public, anon, authenticated;
 revoke all on function public.sync_profile_email() from public, anon, authenticated;
 revoke all on function public.sync_booking_settings_from_config() from public, anon, authenticated;
 revoke all on function public.snapshot_booking_interval() from public, anon, authenticated;
 revoke all on function public.sync_booking_service_items() from public, anon, authenticated;
+revoke all on function public.touch_updated_at() from public, anon, authenticated;
+revoke all on function public.validate_business_profile_payload() from public, anon, authenticated;
 
 commit;

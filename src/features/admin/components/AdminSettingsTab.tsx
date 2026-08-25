@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Save, ChevronDown } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
 import { getErrorMessage } from '../../../utils/errors';
-import { parseBRNumber } from '../../../utils/validation';
+import { parseBRNumber, validateOptionalHttpUrl, validatePhoneBR } from '../../../utils/validation';
 import { DailyWorkingHours } from '../../../types';
 import { resolveDailyHours } from '../../../utils/scheduling';
 import { ScheduleBlockForm } from './agenda/ScheduleBlockForm';
@@ -44,6 +44,9 @@ const FormSection: React.FC<{
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={`settings-section-${id}`}
         onClick={() => setExpandedSection(isExpanded ? null : id)}
         className="hidden md:block w-full text-left"
       >
@@ -54,6 +57,9 @@ const FormSection: React.FC<{
 
       <div className="md:hidden">
         <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-controls={`settings-section-${id}`}
           onClick={() => setExpandedSection(isExpanded ? null : id)}
           className="w-full text-left p-4 border-b border-slate-100 bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-between"
         >
@@ -65,7 +71,7 @@ const FormSection: React.FC<{
         </button>
       </div>
 
-      <div className={`overflow-hidden transition-all duration-300 md:block ${isExpanded ? 'max-h-none' : 'max-h-0 md:max-h-none'}`}>
+      <div id={`settings-section-${id}`} className={`overflow-hidden transition-all duration-300 md:block ${isExpanded ? 'max-h-none' : 'max-h-0 md:max-h-none'}`}>
         <div className="p-6 space-y-6">
           {children}
         </div>
@@ -85,9 +91,10 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
   );
   const [confFee, setConfFee] = useState(config.bookingFee.toString());
   const [confPixKey, setConfPixKey] = useState(config.pixKey || '');
-  const [confTolerance, setConfTolerance] = useState(config.toleranceMinutes.toString());
   const [confInterval, setConfInterval] = useState(config.intervalMinutes.toString());
   const [confBookingWindowDays, setConfBookingWindowDays] = useState(config.bookingWindowDays.toString());
+  const [confMinimumNotice, setConfMinimumNotice] = useState((config.minimumNoticeMinutes ?? 30).toString());
+  const [confCancellationNotice, setConfCancellationNotice] = useState((config.cancellationNoticeMinutes ?? 0).toString());
   const [confInsta, setConfInsta] = useState(config.socialLinks.instagram || '');
   const [confFb, setConfFb] = useState(config.socialLinks.facebook || '');
   const [confHeroTitle, setConfHeroTitle] = useState(config.heroTitle || '');
@@ -114,27 +121,59 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
   const handleSaveConfig = async () => {
     if (isSaving) return;
     const intervalMinutes = Number(confInterval);
-    const toleranceMinutes = Number(confTolerance);
     const bookingFee = parseBRNumber(confFee);
     const bookingWindowDays = Number(confBookingWindowDays);
+    const minimumNoticeMinutes = Number(confMinimumNotice);
+    const cancellationNoticeMinutes = Number(confCancellationNotice);
     if (!confName.trim() || !confAddress.trim() || !confPhone.trim()) {
       showFeedback('Preencha nome, endereço e telefone do estabelecimento.', true);
       return;
     }
-    if (!Number.isFinite(intervalMinutes) || intervalMinutes < 1) {
-      showFeedback('O intervalo dos horários deve ser de pelo menos 1 minuto.', true);
+    if (confName.trim().length < 2 || confName.trim().length > 100) {
+      showFeedback('O nome do estabelecimento deve ter entre 2 e 100 caracteres.', true);
+      return;
+    }
+    if (confAddress.trim().length > 500 || confPhone.trim().length > 32) {
+      showFeedback('Revise o endereço (até 500 caracteres) e o telefone (até 32).', true);
+      return;
+    }
+    if (!validatePhoneBR(confPhone)) {
+      showFeedback('Informe um telefone brasileiro válido com DDD.', true);
+      return;
+    }
+    if (confPixKey.trim().length > 320 || confHeroTitle.trim().length > 160
+      || confHeroSubtitle.trim().length > 240 || confHeroDescription.trim().length > 1000
+      || confAboutText.trim().length > 2000 || confInsta.trim().length > 2048
+      || confFb.trim().length > 2048) {
+      showFeedback('Um dos textos ultrapassa o limite permitido.', true);
+      return;
+    }
+    if (!validateOptionalHttpUrl(confInsta) || !validateOptionalHttpUrl(confFb)) {
+      showFeedback('Informe links completos e válidos para Instagram e Facebook, começando com http:// ou https://.', true);
+      return;
+    }
+    if (!Number.isInteger(intervalMinutes) || intervalMinutes < 5 || intervalMinutes > 480) {
+      showFeedback('O intervalo dos horários deve ser um número inteiro entre 5 e 480 minutos.', true);
       return;
     }
     if (!Number.isInteger(bookingWindowDays) || bookingWindowDays < 1 || bookingWindowDays > 365) {
       showFeedback('A janela de agendamento deve ser um número inteiro entre 1 e 365 dias.', true);
       return;
     }
-    if (!Number.isFinite(toleranceMinutes) || toleranceMinutes < 0) {
-      showFeedback('A tolerância deve ser um número maior ou igual a zero.', true);
+    if (!Number.isInteger(minimumNoticeMinutes) || minimumNoticeMinutes < 0 || minimumNoticeMinutes > 525600) {
+      showFeedback('A antecedência mínima deve ser um número inteiro entre 0 e 525.600 minutos.', true);
       return;
     }
-    if (!Number.isFinite(bookingFee) || bookingFee < 0) {
-      showFeedback('A taxa de reserva deve ser um valor válido maior ou igual a zero.', true);
+    if (!Number.isInteger(cancellationNoticeMinutes) || cancellationNoticeMinutes < 0 || cancellationNoticeMinutes > 525600) {
+      showFeedback('O prazo de cancelamento deve ser um número inteiro entre 0 e 525.600 minutos.', true);
+      return;
+    }
+    if (!Number.isFinite(bookingFee) || bookingFee < 0 || bookingFee > 99_999_999.99) {
+      showFeedback('A taxa de reserva deve ser um valor válido entre R$ 0,00 e R$ 99.999.999,99.', true);
+      return;
+    }
+    if (bookingFee > 0 && !confPixKey.trim()) {
+      showFeedback('Informe uma chave PIX para cobrar taxa de reserva.', true);
       return;
     }
     const invalidDay = WEEK_DAYS.find(day => {
@@ -163,19 +202,21 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
           weeklySchedule
         },
         bookingFee,
-        pixKey: confPixKey,
-        toleranceMinutes,
+        pixKey: confPixKey.trim(),
         intervalMinutes,
         bookingWindowDays,
+        minimumNoticeMinutes,
+        cancellationNoticeMinutes,
         socialLinks: {
-          instagram: confInsta,
-          facebook: confFb
+          ...config.socialLinks,
+          instagram: confInsta.trim(),
+          facebook: confFb.trim()
         },
-        heroTitle: confHeroTitle,
-        heroSubtitle: confHeroSubtitle,
-        heroDescription: confHeroDescription,
-        aboutText: confAboutText,
-        logo: 'scissors'
+        heroTitle: confHeroTitle.trim(),
+        heroSubtitle: confHeroSubtitle.trim(),
+        heroDescription: confHeroDescription.trim(),
+        aboutText: confAboutText.trim(),
+        logo: config.logo
       });
       showFeedback('Configurações salvas com sucesso!', false);
     } catch (err) {
@@ -197,6 +238,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
             <p className="text-sm text-slate-500 mt-1">Ajuste as preferências globais do sistema</p>
           </div>
           <button
+            type="button"
             onClick={handleSaveConfig}
             disabled={isSaving}
             className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-slate-900/10 w-full sm:w-auto"
@@ -216,6 +258,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Nome do Estabelecimento</label>
               <input 
                 type="text" 
+                aria-label="Nome do estabelecimento"
+                minLength={2}
+                maxLength={100}
                 value={confName} 
                 onChange={e => setConfName(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -226,6 +271,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Endereço Completo</label>
               <input 
                 type="text" 
+                aria-label="Endereço completo"
+                maxLength={500}
                 value={confAddress} 
                 onChange={e => setConfAddress(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -235,7 +282,9 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Telefone (WhatsApp)</label>
               <input 
-                type="text" 
+                type="tel"
+                aria-label="Telefone do estabelecimento"
+                maxLength={32}
                 value={confPhone} 
                 onChange={e => setConfPhone(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -269,21 +318,15 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Tolerância (min)</label>
-                <input 
-                  type="number" 
-                  value={confTolerance} 
-                  onChange={e => setConfTolerance(e.target.value)} 
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
-                />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Intervalo dos horários (min)</label>
                 <input 
                   type="number" 
-                  min="1"
+                  aria-label="Intervalo dos horários em minutos"
+                  min="5"
+                  max="480"
+                  step="5"
                   value={confInterval} 
                   onChange={e => setConfInterval(e.target.value)} 
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -293,6 +336,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Agenda aberta por (dias)</label>
                 <input
                   type="number"
+                  aria-label="Janela de agendamento em dias"
                   min="1"
                   max="365"
                   step="1"
@@ -301,6 +345,36 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm"
                 />
                 <p className="text-xs text-slate-500">Inclui o dia de hoje</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Antecedência mínima (min)</label>
+                <input
+                  type="number"
+                  aria-label="Antecedência mínima para agendar em minutos"
+                  min="0"
+                  max="525600"
+                  step="1"
+                  value={confMinimumNotice}
+                  onChange={event => setConfMinimumNotice(event.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm"
+                />
+                <p className="text-xs text-slate-500">Use 0 para permitir reservas até o horário de início</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Prazo para cancelar (min)</label>
+                <input
+                  type="number"
+                  aria-label="Antecedência mínima para cancelamento em minutos"
+                  min="0"
+                  max="525600"
+                  step="1"
+                  value={confCancellationNotice}
+                  onChange={event => setConfCancellationNotice(event.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm"
+                />
+                <p className="text-xs text-slate-500">Ex.: 120 corresponde a 2 horas</p>
               </div>
             </div>
           </div>
@@ -320,6 +394,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Taxa de Reserva (R$)</label>
               <input 
                 type="text" 
+                aria-label="Taxa de reserva"
+                maxLength={32}
                 inputMode="decimal" 
                 value={confFee} 
                 onChange={e => setConfFee(e.target.value)} 
@@ -332,6 +408,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Chave PIX Recebedora</label>
               <input 
                 type="text" 
+                aria-label="Chave PIX recebedora"
+                maxLength={320}
                 value={confPixKey} 
                 onChange={e => setConfPixKey(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -351,6 +429,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Título Principal</label>
               <input 
                 type="text" 
+                aria-label="Título principal"
+                maxLength={160}
                 value={confHeroTitle} 
                 onChange={e => setConfHeroTitle(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -361,6 +441,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Subtítulo</label>
               <input 
                 type="text" 
+                aria-label="Subtítulo"
+                maxLength={240}
                 value={confHeroSubtitle} 
                 onChange={e => setConfHeroSubtitle(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -370,6 +452,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Descrição Curta</label>
               <textarea 
+                aria-label="Descrição curta"
+                maxLength={1000}
                 value={confHeroDescription} 
                 onChange={e => setConfHeroDescription(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm min-h-[80px]" 
@@ -379,6 +463,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Texto &quot;Sobre Nós&quot;</label>
               <textarea 
+                aria-label="Texto sobre nós"
+                maxLength={2000}
                 value={confAboutText} 
                 onChange={e => setConfAboutText(e.target.value)} 
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm min-h-[100px]" 
@@ -390,6 +476,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Link Instagram</label>
                 <input 
                   type="url" 
+                  aria-label="Link do Instagram"
+                  maxLength={2048}
                   value={confInsta} 
                   onChange={e => setConfInsta(e.target.value)} 
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 
@@ -400,6 +488,8 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Link Facebook</label>
                 <input 
                   type="url" 
+                  aria-label="Link do Facebook"
+                  maxLength={2048}
                   value={confFb} 
                   onChange={e => setConfFb(e.target.value)} 
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 font-medium text-sm" 

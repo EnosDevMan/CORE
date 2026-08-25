@@ -79,7 +79,7 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
                 <div>
                   <p className="font-extrabold text-slate-900 text-sm mt-0.5">{getServiceName(booking.serviceId)}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {getServiceDuration(booking.serviceId)} min • {formatBRL(booking.value)}
+                    {booking.durationMinutes ?? getServiceDuration(booking.serviceId)} min • {formatBRL(booking.value)}
                   </p>
                 </div>
               </div>

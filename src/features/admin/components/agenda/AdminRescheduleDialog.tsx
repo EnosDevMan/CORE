@@ -5,6 +5,7 @@ import { useApp } from '../../../../store/useApp';
 import { getBusinessTodayStr } from '../../../../utils/validation';
 import { getErrorMessage } from '../../../../utils/errors';
 import { useBusiness } from '../../../../core/business/hooks';
+import { useModalAccessibility } from '../../../../hooks/useModalAccessibility';
 
 interface Props {
   booking: Booking;
@@ -18,8 +19,9 @@ export const AdminRescheduleDialog: React.FC<Props> = ({ booking, onClose, showF
   const [date, setDate] = useState(booking.date);
   const [time, setTime] = useState(booking.time);
   const [saving, setSaving] = useState(false);
+  const modalRef = useModalAccessibility<HTMLDivElement>(true, onClose);
   const slots = useMemo(() => getAvailabilitySlots(
-    booking.professionalId, booking.serviceId, date, true, booking.id
+    booking.professionalId, booking.serviceId, date, true, booking.id, [], booking.durationMinutes
   ), [booking, date, getAvailabilitySlots]);
   const service = services.find(item => item.id === booking.serviceId);
 
@@ -35,7 +37,7 @@ export const AdminRescheduleDialog: React.FC<Props> = ({ booking, onClose, showF
     } finally { setSaving(false); }
   };
 
-  return <div className="fixed inset-0 z-50 bg-slate-950/60 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="reschedule-title">
+  return <div ref={modalRef} tabIndex={-1} className="fixed inset-0 z-50 bg-slate-950/60 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="reschedule-title">
     <form onSubmit={submit} className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div><h2 id="reschedule-title" className="font-extrabold text-slate-900 flex items-center gap-2"><CalendarClock size={20} /> Reagendar {booking.customerName}</h2>
@@ -43,13 +45,13 @@ export const AdminRescheduleDialog: React.FC<Props> = ({ booking, onClose, showF
         <button type="button" onClick={onClose} aria-label="Fechar" className="p-2 rounded-lg hover:bg-slate-100"><X size={18} /></button>
       </div>
       <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Nova data</label>
-      <input type="date" min={getBusinessTodayStr(profile.timezone)} value={date} onChange={event => { setDate(event.target.value); setTime(''); }} className="w-full border border-slate-200 rounded-xl p-3 bg-white mb-4" required />
+      <input aria-label="Nova data" data-modal-initial-focus type="date" min={getBusinessTodayStr(profile.timezone)} value={date} onChange={event => { setDate(event.target.value); setTime(''); }} className="w-full border border-slate-200 rounded-xl p-3 bg-white mb-4" required />
       <p className="text-xs font-bold text-slate-600 uppercase mb-2">Novo horário</p>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-5">
         {slots.map(slot => <button key={slot.time} type="button" disabled={slot.status !== 'available'} onClick={() => setTime(slot.time)} className={`p-2 rounded-lg border text-xs font-bold ${time === slot.time ? 'bg-indigo-600 border-indigo-600 text-white' : slot.status === 'available' ? 'border-slate-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>{slot.time}</button>)}
       </div>
       {slots.length === 0 && <p className="text-sm text-slate-500 bg-slate-50 rounded-xl p-4 mb-5">Não há horários disponíveis nesta data.</p>}
-      <button disabled={!time || saving || (date === booking.date && time === booking.time)} className="w-full bg-indigo-600 disabled:opacity-50 text-white rounded-xl py-3 font-bold">{saving ? 'Reagendando...' : 'Confirmar reagendamento'}</button>
+      <button type="submit" disabled={!time || saving || (date === booking.date && time === booking.time)} className="w-full bg-indigo-600 disabled:opacity-50 text-white rounded-xl py-3 font-bold">{saving ? 'Reagendando...' : 'Confirmar reagendamento'}</button>
     </form>
   </div>;
 };

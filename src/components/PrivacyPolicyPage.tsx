@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useApp } from '../store/useApp';
+import { PRIVACY_POLICY_VERSION_LABEL } from '../legal';
 
 interface PrivacyPolicyPageProps {
   onBack: () => void;
@@ -39,7 +40,7 @@ export const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) 
         </div>
         <h1 className="text-2xl font-extrabold text-slate-900">Termos de Uso e Política de Privacidade</h1>
       </div>
-      <p className="text-sm text-slate-400 mb-8">Versão técnica: 2 de agosto de 2026. Revisão jurídica pendente.</p>
+      <p className="text-sm text-slate-400 mb-8">Versão técnica: {PRIVACY_POLICY_VERSION_LABEL}. Revisão jurídica pendente.</p>
 
       <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 leading-relaxed">
         <strong>Aviso:</strong> este texto é um ponto de partida gerado automaticamente,
@@ -61,7 +62,7 @@ export const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) 
 
         <section>
           <h2 className="text-base font-bold text-slate-900 mb-2">2. Termos de uso</h2>
-          <p>O agendamento está sujeito à disponibilidade confirmada pelo sistema. O cliente deve informar dados verdadeiros, comparecer no horário e observar a tolerância exibida. Taxas, cancelamentos e reagendamentos seguem as condições mostradas antes da confirmação. Ao concluir uma reserva, o sistema pode abrir o WhatsApp com uma mensagem pronta; o envio só acontece após a confirmação do próprio usuário.</p>
+          <p>O agendamento está sujeito à disponibilidade confirmada pelo sistema. O cliente deve informar dados verdadeiros, comparecer no horário e observar as regras de antecedência, cancelamento e reagendamento exibidas. Ao concluir uma reserva, o sistema oferece um link do WhatsApp com uma mensagem pronta; o envio só acontece após a ação do próprio usuário.</p>
         </section>
 
         <section>
@@ -69,7 +70,7 @@ export const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onBack }) 
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Ao criar uma conta:</strong> nome, e-mail e telefone.</li>
             <li><strong>Ao agendar um horário</strong> (com ou sem conta): nome, telefone, serviço escolhido, profissional, data/horário e eventuais observações que você escrever.</li>
-            <li><strong>Automaticamente:</strong> data de criação da conta/do agendamento, e o histórico de status do seu agendamento (aguardando pagamento, confirmado, concluído, cancelado).</li>
+            <li><strong>Automaticamente:</strong> data de criação da conta/do agendamento e o status operacional do agendamento (aguardando pagamento, confirmado, em atendimento, concluído, cancelado ou não comparecimento).</li>
           </ul>
           <p className="mt-2">Não coletamos dados de pagamento (a taxa de reserva é paga via PIX, diretamente para a chave PIX informada — não processamos nem armazenamos dados de cartão ou do seu aplicativo bancário).</p>
         </section>

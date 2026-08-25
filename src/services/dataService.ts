@@ -59,7 +59,7 @@ type BookingRow = {
   service_id: string;
   date: string;
   time: string;
-  status: 'Aguardando pagamento' | 'Confirmado' | 'Em atendimento' | 'Concluído' | 'Cancelado' | 'Não compareceu' | 'Reagendado';
+  status: 'Aguardando pagamento' | 'Confirmado' | 'Em atendimento' | 'Concluído' | 'Cancelado' | 'Não compareceu';
   notes?: string;
   fee_paid: boolean;
   customer_confirmed?: boolean;
@@ -101,9 +101,10 @@ type ConfigRow = {
   working_hours: WorkingHours;
   social_links?: BusinessConfig['socialLinks'];
   booking_fee: number | string;
-  tolerance_minutes: number;
   interval_minutes: number;
   booking_window_days: number;
+  minimum_notice_minutes: number;
+  cancellation_notice_minutes: number;
   pix_key?: string;
   hero_title?: string;
   hero_subtitle?: string;
@@ -226,11 +227,10 @@ function mapConfig(row: ConfigRow, bookingSettings?: BookingSettingsRow | null):
     workingHours: row.working_hours,
     socialLinks: row.social_links ?? {},
     bookingFee: Number(row.booking_fee),
-    toleranceMinutes: row.tolerance_minutes,
     intervalMinutes: bookingSettings?.interval_minutes ?? row.interval_minutes,
     bookingWindowDays: bookingSettings?.booking_window_days ?? row.booking_window_days ?? 3,
-    minimumNoticeMinutes: bookingSettings?.minimum_notice_minutes ?? 30,
-    cancellationNoticeMinutes: bookingSettings?.cancellation_notice_minutes ?? 0,
+    minimumNoticeMinutes: bookingSettings?.minimum_notice_minutes ?? row.minimum_notice_minutes ?? 30,
+    cancellationNoticeMinutes: bookingSettings?.cancellation_notice_minutes ?? row.cancellation_notice_minutes ?? 0,
     pixKey: row.pix_key ?? undefined,
     heroTitle: row.hero_title ?? undefined,
     heroSubtitle: row.hero_subtitle ?? undefined,
@@ -257,10 +257,13 @@ export const dataService = {
     galleryPhotos: GalleryPhoto[];
   }> {
     const canReadPrivateBlocks = isAdministratorRole(role) || isProfessionalRole(role);
+    const professionalsQuery = isAdministratorRole(role)
+      ? supabase.rpc('get_admin_professionals')
+      : supabase.rpc('get_public_professionals');
     const [configRes, settingsRes, professionalsRes, servicesRes, blocksRes, galleryRes] = await Promise.all([
       supabase.from('barbershop_config').select('*').eq('id', true).single(),
       supabase.from('booking_settings').select('interval_minutes, booking_window_days, minimum_notice_minutes, cancellation_notice_minutes').eq('id', true).maybeSingle(),
-      supabase.from('barbers').select('*').order('order', { ascending: true }),
+      professionalsQuery,
       supabase.from('services').select('*').order('order', { ascending: true }),
       canReadPrivateBlocks
         ? supabase.from('schedule_blocks').select('*')
@@ -299,7 +302,9 @@ export const dataService = {
 
     return {
       config: mapConfig(configRes.data, settingsRes.data as BookingSettingsRow | null),
-      professionals: (professionalsRes.data || []).map(mapProfessional),
+      professionals: ((professionalsRes.data || []) as ProfessionalRow[])
+        .map(mapProfessional)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
       services: (servicesRes.data || []).map(mapService),
       bookings: bookings.map(mapBooking),
       users: users.map(mapProfile),
@@ -322,9 +327,10 @@ export const dataService = {
         working_hours: updated.workingHours,
         social_links: updated.socialLinks,
         booking_fee: updated.bookingFee,
-        tolerance_minutes: updated.toleranceMinutes,
         interval_minutes: updated.intervalMinutes,
         booking_window_days: updated.bookingWindowDays,
+        minimum_notice_minutes: updated.minimumNoticeMinutes ?? 30,
+        cancellation_notice_minutes: updated.cancellationNoticeMinutes ?? 0,
         pix_key: updated.pixKey,
         hero_title: updated.heroTitle,
         hero_subtitle: updated.heroSubtitle,
@@ -332,17 +338,21 @@ export const dataService = {
         about_text: updated.aboutText,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', true);
+      .eq('id', true)
+      .select('id')
+      .single();
     throwIfError(error);
   },
 
   /**
    * Professional Operations
    */
-  async createProfessional(professional: Omit<Professional, 'id'>): Promise<Professional> {
+  async createProfessional(professional: Omit<Professional, 'id'> & { id?: string }): Promise<Professional> {
+    const professionalId = professional.id ?? crypto.randomUUID();
     const { data, error } = await supabase
       .from('barbers')
       .insert({
+        id: professionalId,
         name: professional.name,
         avatar: professional.avatar,
         specialty: professional.specialty,
@@ -352,10 +362,10 @@ export const dataService = {
         order: professional.order ?? 0,
         user_id: professional.userId,
       })
-      .select()
+      .select('id')
       .single();
     throwIfError(error);
-    return mapProfessional(data);
+    return { ...professional, id: data.id };
   },
 
   async saveProfessional(professional: Professional): Promise<void> {
@@ -375,12 +385,9 @@ export const dataService = {
         order: professional.order ?? 0,
         user_id: professional.userId,
       })
-      .eq('id', professional.id);
-    throwIfError(error);
-  },
-
-  async deleteProfessional(id: string): Promise<void> {
-    const { error } = await supabase.from('barbers').delete().eq('id', id);
+      .eq('id', professional.id)
+      .select('id')
+      .single();
     throwIfError(error);
   },
 
@@ -406,73 +413,20 @@ export const dataService = {
   },
 
   async saveService(service: Service): Promise<void> {
-    const { error } = await supabase.from('services').upsert({
-      id: service.id,
-      name: service.name,
-      duration: service.duration,
-      price: service.price,
-      description: service.description,
-      category: service.category,
-      active: service.active ?? true,
-      order: service.order ?? 0,
-    });
-    throwIfError(error);
-  },
-
-  async deleteService(id: string): Promise<void> {
-    const { error } = await supabase.from('services').delete().eq('id', id);
-    throwIfError(error);
-  },
-
-  /**
-   * User (profile) Operations
-   *
-   * Contas de usuário em si são criadas via Supabase Auth (cadastro), não
-   * por aqui — `profiles` já é populada automaticamente nesse momento
-   * (trigger `handle_new_user`). Estas funções só atualizam/removem
-   * perfis já existentes (por exemplo, promover para uma role operacional e
-   * vincular a um profissional). Os nomes físicos legados ficam restritos às
-   * queries desta camada até a migration definitiva.
-   */
-  async saveUser(user: User): Promise<void> {
     const { error } = await supabase
-      .from('profiles')
+      .from('services')
       .update({
-        name: user.name,
-        role: user.role,
-        phone: user.phone,
-        avatar: user.avatar,
-        profile_id: user.profileId,
+        name: service.name,
+        duration: service.duration,
+        price: service.price,
+        description: service.description,
+        category: service.category,
+        active: service.active ?? true,
+        order: service.order ?? 0,
       })
-      .eq('id', user.id);
-    throwIfError(error);
-  },
-
-  /**
-   * Mantém o vínculo bidirecional entre a conta e o registro profissional.
-   * `profiles.profile_id` é o identificador neutro consumido pela aplicação;
-   * `barbers.user_id` permanece apenas como detalhe físico legado. Passe
-   * `professionalId: null` para desvincular.
-   */
-  async setUserProfileId(userId: string, professionalId: string | null): Promise<void> {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ profile_id: professionalId })
-      .eq('id', userId);
-    throwIfError(error);
-  },
-
-  async getUser(id: string): Promise<User | null> {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-    throwIfError(error);
-    if (!data) return null;
-    return mapProfile(data);
-  },
-
-  async deleteUser(id: string): Promise<void> {
-    // A RPC valida o proprietário no banco, encerra sessões e remove a conta
-    // de autenticação sem enviar qualquer chave administrativa ao navegador.
-    const { error } = await supabase.rpc('delete_user_account', { p_user_id: id });
+      .eq('id', service.id)
+      .select('id')
+      .single();
     throwIfError(error);
   },
 
@@ -495,7 +449,7 @@ export const dataService = {
     });
   },
 
-  async createBooking(booking: Omit<Booking, 'id' | 'createdAt'>, _duration: number): Promise<Booking> {
+  async createBooking(booking: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking> {
     const { data, error } = await supabase.rpc('create_booking', {
       p_customer_id: booking.customerId === 'guest' ? null : booking.customerId,
       p_customer_name: booking.customerName,
@@ -506,6 +460,23 @@ export const dataService = {
       p_time: booking.time,
       p_notes: booking.notes ?? null,
       p_value: booking.value,
+    });
+    throwIfError(error);
+    return mapBooking(data);
+  },
+
+  async createAdministrativeBooking(booking: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking> {
+    const { data, error } = await supabase.rpc('create_admin_booking', {
+      p_customer_id: booking.customerId === 'guest' ? null : booking.customerId,
+      p_customer_name: booking.customerName,
+      p_customer_phone: booking.customerPhone,
+      p_barber_id: booking.professionalId,
+      p_service_id: booking.serviceId,
+      p_date: booking.date,
+      p_time: booking.time,
+      p_notes: booking.notes ?? null,
+      p_status: booking.status,
+      p_fee_paid: booking.feePaid,
     });
     throwIfError(error);
     return mapBooking(data);
@@ -544,12 +515,9 @@ export const dataService = {
         customer_confirmed: booking.customerConfirmed,
         value: booking.value,
       })
-      .eq('id', booking.id);
-    throwIfError(error);
-  },
-
-  async deleteBooking(id: string): Promise<void> {
-    const { error } = await supabase.from('bookings').delete().eq('id', id);
+      .eq('id', booking.id)
+      .select('id')
+      .single();
     throwIfError(error);
   },
 
@@ -576,24 +544,13 @@ export const dataService = {
     return mapScheduleBlock(data);
   },
 
-  async saveScheduleBlock(block: ScheduleBlock): Promise<void> {
-    const { error } = await supabase.from('schedule_blocks').upsert({
-      id: block.id,
-      barber_id: block.professionalId,
-      type: block.type,
-      date: block.date,
-      start_date: block.startDate,
-      end_date: block.endDate,
-      start_time: block.startTime,
-      end_time: block.endTime,
-      reason: block.reason,
-      special_hours: block.specialHours,
-    });
-    throwIfError(error);
-  },
-
   async deleteScheduleBlock(id: string): Promise<void> {
-    const { error } = await supabase.from('schedule_blocks').delete().eq('id', id);
+    const { error } = await supabase
+      .from('schedule_blocks')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .single();
     throwIfError(error);
   },
 
@@ -614,18 +571,28 @@ export const dataService = {
     return mapGalleryPhoto(data);
   },
 
-  async saveGalleryPhoto(photo: GalleryPhoto): Promise<void> {
-    const { error } = await supabase.from('gallery_photos').upsert({
-      id: photo.id,
-      image_url: photo.imageUrl,
-      caption: photo.caption,
-      display_order: photo.order ?? 0,
-    });
+  async saveGalleryCaption(id: string, caption: string): Promise<void> {
+    const { error } = await supabase
+      .from('gallery_photos')
+      .update({ caption })
+      .eq('id', id)
+      .select('id')
+      .single();
+    throwIfError(error);
+  },
+
+  async reorderGalleryPhotos(photoIds: string[]): Promise<void> {
+    const { error } = await supabase.rpc('reorder_gallery_photos', { p_photo_ids: photoIds });
     throwIfError(error);
   },
 
   async deleteGalleryPhoto(id: string): Promise<void> {
-    const { error } = await supabase.from('gallery_photos').delete().eq('id', id);
+    const { error } = await supabase
+      .from('gallery_photos')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .single();
     throwIfError(error);
   },
 };

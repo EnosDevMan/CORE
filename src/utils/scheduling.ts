@@ -66,6 +66,27 @@ const bookingDuration = (booking: Booking, services: Service[]) => {
 };
 
 /**
+ * Resolves the duration used to draw candidate slots. Existing appointments
+ * pass their immutable server snapshot so a later catalog edit cannot make
+ * the reschedule UI disagree with PostgreSQL.
+ */
+export function resolveRequestedDuration(
+  serviceId: string,
+  services: Service[],
+  durationSnapshot?: number,
+): number {
+  if (Number.isInteger(durationSnapshot) && (durationSnapshot ?? 0) > 0) {
+    return durationSnapshot as number;
+  }
+
+  return serviceId
+    .split(',')
+    .map(id => id.trim())
+    .filter(Boolean)
+    .reduce((total, id) => total + (services.find(service => service.id === id)?.duration ?? 0), 0);
+}
+
+/**
  * Single, side-effect-free availability engine used by public, customer and
  * administrative scheduling. It is deliberately independent from React and
  * persistence so the exact same business rules can be tested and reused.

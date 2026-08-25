@@ -1,10 +1,7 @@
 /**
  * Tipos do módulo de autenticação.
  *
- * Estes tipos descrevem o CONTRATO que a futura integração de auth
- * (ex: Supabase Auth) deverá cumprir. Nenhuma implementação concreta
- * existe ainda — apenas as formas de dados e as assinaturas de operação
- * que o restante do app poderá depender de forma estável.
+ * Contrato estável entre a UI e a implementação atual de Supabase Auth.
  */
 
 import { UserRole } from '../../types';
@@ -20,7 +17,7 @@ export interface AuthUser {
   profileId?: string;
 }
 
-/** Sessão autenticada (placeholder — formato final depende do provider escolhido). */
+/** Projeção mínima da sessão usada pela aplicação. */
 export interface AuthSession {
   userId: string;
   accessToken: string;
@@ -47,9 +44,8 @@ export interface AuthResult<T = AuthUser> {
 }
 
 /**
- * Contrato que um provedor de autenticação (ex: Supabase) deverá
- * implementar. Nada aqui está implementado — é a interface que a camada
- * `services/` deste módulo vai satisfazer no futuro.
+ * Contrato implementado pela camada `auth/services`, mantendo componentes
+ * desacoplados dos detalhes do SDK do provedor.
  */
 export interface IAuthProvider {
   login(credentials: LoginCredentials): Promise<AuthResult>;

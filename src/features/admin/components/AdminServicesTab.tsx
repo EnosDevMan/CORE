@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, PowerOff } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
 import { Service } from '../../../types';
 import { AdminServiceForm } from './services/AdminServiceForm';
@@ -16,7 +16,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
   setSuccessMessage,
   setErrorMessage,
 }) => {
-  const { services, deleteService } = useApp();
+  const { services, deactivateService } = useApp();
 
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -31,13 +31,13 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
     setShowServiceForm(true);
   };
 
-  const handleDeleteService = async (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o serviço "${name}"?`)) {
+  const handleDeactivateService = async (id: string, name: string) => {
+    if (window.confirm(`Tem certeza que deseja desativar o serviço "${name}"? O histórico será preservado.`)) {
       try {
-        await deleteService(id);
-        setSuccessMessage('Serviço removido com sucesso!');
+        await deactivateService(id);
+        setSuccessMessage('Serviço desativado com sucesso!');
       } catch (err) {
-        setErrorMessage(getErrorMessage(err, 'Erro ao remover serviço.'));
+        setErrorMessage(getErrorMessage(err, 'Erro ao desativar serviço.'));
       }
     }
   };
@@ -97,13 +97,16 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button
-                            onClick={() => handleDeleteService(service.id, service.name)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {service.active !== false && (
+                            <button
+                              onClick={() => handleDeactivateService(service.id, service.name)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Desativar"
+                              aria-label={`Desativar ${service.name}`}
+                            >
+                              <PowerOff size={16} />
+                            </button>
+                          )}
                         </div>
                       </div>
                       

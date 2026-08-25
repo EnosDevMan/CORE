@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../../store/useApp';
 import { Service, Booking } from '../../../types';
 import type { Professional } from '../../professionals/types';
@@ -35,6 +35,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   const [copiedPix, setCopiedPix] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('Verificando disponibilidade do horário...');
+  const processingRef = useRef(false);
 
   const totalDuration = useMemo(() => {
     return selectedServices.reduce((acc, s) => acc + s.duration, 0);
@@ -67,6 +68,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
 
   useEffect(() => {
     let cancelled = false;
+    let requestVersion = 0;
     let refreshInterval: ReturnType<typeof setInterval> | undefined;
 
     if (selectedProfessional && selectedDate && selectedServices.length > 0) {
@@ -75,22 +77,23 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setSlotsError('');
 
       const refreshAvailability = () => {
+        const version = ++requestVersion;
         getAvailableSlots(selectedProfessional.id, serviceIds, selectedDate)
           .then(times => {
-            if (cancelled) return;
+            if (cancelled || version !== requestVersion) return;
             setAvailableTimes(times);
             setSlotsError('');
             // Remove imediatamente horários escolhidos por outros clientes.
             setSelectedTime(prevTime => (prevTime && !times.includes(prevTime) ? '' : prevTime));
           })
           .catch((err: unknown) => {
-            if (!cancelled) {
+            if (!cancelled && version === requestVersion) {
               setAvailableTimes([]);
               setSlotsError(getErrorMessage(err, 'Não foi possível consultar os horários. Tente novamente.'));
             }
           })
           .finally(() => {
-            if (!cancelled) setLoadingTimes(false);
+            if (!cancelled && version === requestVersion) setLoadingTimes(false);
           });
       };
 
@@ -99,6 +102,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
     } else {
       setAvailableTimes([]);
       setSlotsError('');
+      setLoadingTimes(false);
     }
 
     return () => {
@@ -130,6 +134,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   };
 
   const handleConfirm = async () => {
+    if (processingRef.current) return;
     if (!selectedProfessional || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
 
     const effectiveName = currentUser?.name?.trim() || custName.trim();
@@ -139,11 +144,20 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setErrorMsg('Por favor, preencha todos os seus dados.');
       return;
     }
+    if (effectiveName.length < 2 || effectiveName.length > 100) {
+      setErrorMsg('Seu nome deve ter entre 2 e 100 caracteres.');
+      return;
+    }
     if (!validatePhoneBR(effectivePhone)) {
       setErrorMsg('Por favor, insira um telefone válido, com DDD.');
       return;
     }
+    if (notes.trim().length > 1000) {
+      setErrorMsg('A observação deve ter no máximo 1000 caracteres.');
+      return;
+    }
 
+    processingRef.current = true;
     try {
       setIsProcessing(true);
       setErrorMsg('');
@@ -157,7 +171,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
         date: selectedDate,
         time: selectedTime,
         status: 'Aguardando pagamento' as const,
-        notes: notes || undefined,
+        notes: notes.trim() || undefined,
         value: totalPrice,
         serviceId: selectedServices.map(s => s.id).join(","),
         feePaid: false,
@@ -169,9 +183,16 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setStep(5);
 
       if (onSuccess) {
-        onSuccess(newBooking.id);
+        // Uma integração opcional não pode transformar um agendamento já
+        // persistido em aparente falha nem mandar o cliente tentar de novo.
+        try {
+          onSuccess(newBooking.id);
+        } catch (callbackError) {
+          console.error('Falha no callback pós-agendamento:', callbackError);
+        }
       }
     } catch (err) {
+      processingRef.current = false;
       setErrorMsg(getErrorMessage(err, 'Erro ao realizar agendamento. O horário pode ter sido reservado.'));
       setIsProcessing(false);
       setSelectedTime('');

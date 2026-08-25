@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Booking, BusinessConfig } from '../../../types';
 import { CheckCircle2, Calendar as CalendarIcon, Clock, Copy, ArrowRight, MessageCircle } from 'lucide-react';
 import { buildBookingWhatsAppLink } from '../../../utils/whatsapp';
@@ -24,15 +24,6 @@ export const SuccessStep: React.FC<Props> = ({
 }) => {
   const whatsappLink = buildBookingWhatsAppLink({ booking, config, professionalName, serviceNames });
   const awaitingPayment = booking.status === 'Aguardando pagamento';
-  const attemptedWhatsApp = useRef(false);
-
-  useEffect(() => {
-    if (!whatsappLink || attemptedWhatsApp.current) return;
-    attemptedWhatsApp.current = true;
-    // Browsers may block this because persistence finishes asynchronously;
-    // the visible link below is the reliable fallback in that case.
-    window.open(whatsappLink, '_blank', 'noopener,noreferrer');
-  }, [whatsappLink]);
 
   return (
     <div className="text-center space-y-6 py-6 animate-in fade-in zoom-in-95 duration-500">

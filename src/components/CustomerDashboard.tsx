@@ -53,8 +53,6 @@ export const CustomerDashboard: React.FC = () => {
         return <span className="bg-red-100 text-red-600 py-1 px-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide">Cancelado</span>;
       case 'Não compareceu':
         return <span className="bg-slate-200 text-slate-600 py-1 px-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide">Não Compareceu</span>;
-      case 'Reagendado':
-        return <span className="bg-purple-100 text-purple-700 py-1 px-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide">Reagendado</span>;
       case 'Aguardando pagamento':
       default:
         return <span className="bg-amber-100 text-amber-700 py-1 px-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide">Pendente</span>;

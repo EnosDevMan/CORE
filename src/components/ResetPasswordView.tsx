@@ -24,8 +24,8 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
-      setError('A senha precisa ter pelo menos 6 caracteres.');
+    if (password.length < 6 || password.length > 128) {
+      setError('A senha precisa ter entre 6 e 128 caracteres.');
       return;
     }
     if (password !== confirmPassword) {
@@ -40,6 +40,8 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
         setError(result.error || 'Não foi possível atualizar a senha.');
         return;
       }
+      setPassword('');
+      setConfirmPassword('');
       setDone(true);
     } catch (err) {
       setError(getErrorMessage(err, 'Não foi possível atualizar a senha.'));
@@ -91,6 +93,7 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
                   className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
                   placeholder="••••••••"
                   minLength={6}
+                  maxLength={128}
                   required
                 />
               </div>
@@ -108,12 +111,13 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
                   className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
                   placeholder="••••••••"
                   minLength={6}
+                  maxLength={128}
                   required
                 />
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+                <div role="alert" className="flex items-start gap-2 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>

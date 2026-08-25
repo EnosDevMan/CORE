@@ -25,7 +25,9 @@ import { BusinessRuntimeBoundary } from './core/business/BusinessRuntimeBoundary
 import { canAccessProfessionalWorkspace, isAdministratorRole } from './auth/authorization';
 
 function CoreSchedulingApp() {
-  const [currentView, setCurrentView] = useState<'landing' | 'booking' | 'customer' | 'professional' | 'admin' | 'privacy'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'booking' | 'customer' | 'professional' | 'admin' | 'privacy'>(() =>
+    window.location.hash === '#privacy' ? 'privacy' : 'landing',
+  );
   const [loginOpen, setLoginOpen] = useState(false);
   const [bookingSelection, setBookingSelection] = useState<{ serviceId?: string; professionalId?: string }>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -33,7 +35,15 @@ function CoreSchedulingApp() {
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { loading, loadError, currentUser, passwordRecoveryMode, completePasswordRecovery, logout } = useApp();
+  const {
+    loading,
+    loadError,
+    authInitializationError,
+    currentUser,
+    passwordRecoveryMode,
+    completePasswordRecovery,
+    logout,
+  } = useApp();
 
   useEffect(() => {
     const protectedView = currentView === 'customer' || currentView === 'professional' || currentView === 'admin';
@@ -63,6 +73,10 @@ function CoreSchedulingApp() {
 
   if (loading) {
     return <LoadingScreen />;
+  }
+
+  if (authInitializationError) {
+    return <LoadingScreen error={authInitializationError} onRetry={() => window.location.reload()} />;
   }
 
   if (loadError) {

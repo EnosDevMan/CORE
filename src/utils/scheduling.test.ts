@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { generateSlotStartMinutes, getAvailability, resolveDailyHours } from './scheduling';
+import { generateSlotStartMinutes, getAvailability, resolveDailyHours, resolveRequestedDuration } from './scheduling';
+
+describe('resolveRequestedDuration', () => {
+  const services = [{ id: 'service-1', name: 'Corte', duration: 30, price: 30, description: '', category: 'Corte' }];
+
+  it('usa o snapshot histórico durante um reagendamento', () => {
+    expect(resolveRequestedDuration('service-1', services, 60)).toBe(60);
+  });
+
+  it('usa o catálogo para um agendamento novo e rejeita snapshots inválidos', () => {
+    expect(resolveRequestedDuration('service-1', services)).toBe(30);
+    expect(resolveRequestedDuration('service-1', services, 0)).toBe(30);
+    expect(resolveRequestedDuration('missing', services)).toBe(0);
+  });
+});
 
 describe('resolveDailyHours', () => {
   it('mantém daysOpen como fallback para agendas semanais antigas', () => {

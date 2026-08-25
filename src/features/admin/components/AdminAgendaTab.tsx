@@ -7,6 +7,7 @@ import { getServiceName as getSharedServiceName, getProfessionalName as getShare
 import { Booking, BookingStatus } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
+import { getErrorMessage } from '../../../utils/errors';
 
 interface AdminAgendaTabProps {
   showFeedback: (msg: string, isError: boolean) => void;
@@ -31,19 +32,22 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
 
   const getServiceName = (id: string) => getSharedServiceName(services, id);
 
-  const handleStatusChange = (bookingId: string, newStatus: BookingStatus) => {
+  const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
     if (updateBookingStatus) {
-      updateBookingStatus(bookingId, newStatus);
-      const statusMessages: Record<BookingStatus, string> = {
-        'Confirmado': 'Agendamento confirmado!',
-        'Concluído': 'Agendamento marcado como concluído!',
-        'Cancelado': 'Agendamento cancelado!',
-        'Aguardando pagamento': 'Status alterado para aguardando pagamento!',
-        'Em atendimento': 'Status alterado para em atendimento!',
-        'Não compareceu': 'Cliente marcado como não compareceu!',
-        'Reagendado': 'Agendamento reagendado!'
-      };
-      showFeedback(statusMessages[newStatus] || 'Status atualizado!', false);
+      try {
+        await updateBookingStatus(bookingId, newStatus);
+        const statusMessages: Record<BookingStatus, string> = {
+          'Confirmado': 'Agendamento confirmado!',
+          'Concluído': 'Agendamento marcado como concluído!',
+          'Cancelado': 'Agendamento cancelado!',
+          'Aguardando pagamento': 'Status alterado para aguardando pagamento!',
+          'Em atendimento': 'Status alterado para em atendimento!',
+          'Não compareceu': 'Cliente marcado como não compareceu!'
+        };
+        showFeedback(statusMessages[newStatus] || 'Status atualizado!', false);
+      } catch (error) {
+        showFeedback(getErrorMessage(error, 'Não foi possível atualizar o status.'), true);
+      }
     }
   };
 
@@ -94,7 +98,7 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
           </select>
           <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium bg-white">
             <option value="all">Todos os status</option>
-            {['Aguardando pagamento','Confirmado','Em atendimento','Concluído','Cancelado','Não compareceu','Reagendado'].map(status => <option key={status}>{status}</option>)}
+            {['Aguardando pagamento','Confirmado','Em atendimento','Concluído','Cancelado','Não compareceu'].map(status => <option key={status}>{status}</option>)}
           </select>
           <div className="w-full relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Pesquisar cliente, telefone ou serviço" className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm" /></div>
         </div>
