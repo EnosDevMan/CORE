@@ -27,8 +27,14 @@ registro/contexto. Pets permanece uma capability opcional.
 
 Serviço, profissional, cliente, duração, disponibilidade, bloqueio, exceção e
 timezone pertencem ao motor compartilhado. Escritas passam por RPC transacional;
-triggers no banco são a última barreira contra conflitos. A migração futura de
-`date`/`time` para um intervalo `tstzrange` está descrita no plano.
+triggers no banco são a última barreira contra conflitos.
+
+A agenda já persiste `starts_at`, `ends_at` e `duration_minutes` e possui a
+constraint GiST `bookings_no_professional_overlap`, baseada em intervalo
+`tstzrange`, como barreira definitiva contra double-booking concorrente. As
+colunas legadas `date`, `time` e `service_id` permanecem temporariamente na
+fronteira de compatibilidade enquanto consumidores antigos são eliminados; elas
+não são mais a fonte de verdade para detecção de sobreposição.
 
 ## Módulos verticais
 
@@ -39,8 +45,15 @@ migrada. `features/pets` e suas tabelas só aceitam escrita quando a capability
 
 O workspace operacional já usa a rota interna `professional`, o shell
 `ProfessionalDashboard` e a feature `professional-dashboard`. Nomes como
-`barber_id`, `barbers` e `protect_barber_updates` aparecem somente nas bordas de
-persistência que ainda precisam de migration de banco.
+`barber_id`, `barbers`, `barbershop_config` e `protect_barber_updates` são
+nomes físicos legados mantidos somente nas bordas de persistência enquanto a
+migração gradual preserva compatibilidade com instalações existentes. Eles não
+definem o nicho da aplicação nem podem fornecer identidade pública padrão.
+
+Em particular, `barbershop_config` permanece como tabela física de
+compatibilidade para a configuração singleton do negócio. O contrato da
+aplicação é `BusinessConfig`, e novas instalações usam identidade neutra `CORE`
+até o onboarding persistir o nome real do estabelecimento.
 
 Os contratos de aplicação `Booking`, `ScheduleBlock` e `AvailabilityInput`
 usam exclusivamente `professionalId`. A tradução temporária para
