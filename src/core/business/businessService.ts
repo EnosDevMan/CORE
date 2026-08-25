@@ -1,4 +1,6 @@
 import { supabase } from '../../lib/supabaseClient';
+import { NICHE_REGISTRY } from '../../niches/registry';
+import type { NicheId } from '../../niches/types';
 import { THEME_REGISTRY } from '../../themes/registry';
 import type { ThemeId } from '../../themes/types';
 import type { BusinessProfile, Capability } from './types';
@@ -40,9 +42,11 @@ export const businessService = {
   },
 
   async updateTheme(themeId: ThemeId, nicheId: BusinessProfile['nicheId']): Promise<void> {
-    const theme = THEME_REGISTRY[themeId];
-    if (!theme) throw new Error('Tema visual desconhecido.');
-    if (nicheId === 'core_bootstrap' || (!theme.recommendedNiches.includes(nicheId) && theme.category !== 'universal')) {
+    if (!THEME_REGISTRY[themeId]) throw new Error('Tema visual desconhecido.');
+    if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
+
+    const niche = NICHE_REGISTRY[nicheId as NicheId];
+    if (!niche.recommendedThemeIds.includes(themeId)) {
       throw new Error('Este tema não está disponível para o nicho configurado.');
     }
 
