@@ -57,7 +57,7 @@ export const THEME_REGISTRY: Readonly<Record<ThemeId, ThemePreset>> = {
   heritage_copper: preset(
     'heritage_copper', 'Heritage Copper', 'Cobre, couro e tons terrosos para uma identidade clássica e artesanal.',
     ['barbershop'],
-    { primary: '#b66a3c', accent: '#e0b37e', accentForeground: '#24150d', ring: '#d58a55', background: '#15100d', surface: '#211915', surfaceElevated: '#2c211b', border: '#4a352a', muted: '#2a211c' },
+    { primary: '#b66a3c', primaryForeground: '#1a0f09', accent: '#e0b37e', accentForeground: '#24150d', ring: '#d58a55', background: '#15100d', surface: '#211915', surfaceElevated: '#2c211b', border: '#4a352a', muted: '#2a211c' },
     { mode: 'dark' },
   ),
   urban_steel: preset(
@@ -89,7 +89,7 @@ export const THEME_REGISTRY: Readonly<Record<ThemeId, ThemePreset>> = {
   blush_glass: preset(
     'blush_glass', 'Blush Glass', 'Blush translúcido, violeta e superfícies suaves para um visual contemporâneo.',
     ['nail_studio'],
-    { primary: '#a855f7', accent: '#fb7185', accentForeground: '#881337', ring: '#c084fc', background: '#fff7fb', muted: '#fae8ff', border: '#f5d0fe', radius: '1.1rem' },
+    { primary: '#a855f7', primaryForeground: '#1f0a3d', accent: '#fb7185', accentForeground: '#5f0f2b', ring: '#c084fc', background: '#fff7fb', muted: '#fae8ff', border: '#f5d0fe', radius: '1.1rem' },
   ),
   cocoa_nude: preset(
     'cocoa_nude', 'Cocoa Nude', 'Nudes, cacau e areia para uma identidade minimalista, quente e refinada.',
