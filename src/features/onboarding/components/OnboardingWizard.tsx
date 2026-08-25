@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Check, ChevronLeft, ChevronRight, LoaderCircle, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Field } from '../../../components/ui/Field';
@@ -20,7 +20,7 @@ const suggestedServices = (nicheId: NicheId) => NICHE_REGISTRY[nicheId].serviceS
 export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [nicheId, setNicheId] = useState<NicheId>('barbershop');
-  const [themeId, setThemeId] = useState<ThemeId>('minimal_light');
+  const [themeId, setThemeId] = useState<ThemeId>('premium_dark');
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -36,7 +36,7 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
   const [error, setError] = useState<string | null>(null);
   const step = steps[stepIndex];
   const niche = NICHE_REGISTRY[nicheId];
-  const themes = useMemo(() => Object.values(THEME_REGISTRY).filter(theme => theme.recommendedNiches.includes(nicheId) || theme.category === 'universal'), [nicheId]);
+  const themes = niche.recommendedThemeIds.map(id => THEME_REGISTRY[id as ThemeId]);
   const validHours = open < close && daysOpen.length > 0;
   const requiresOwnerClaim = shouldClaimInstallation(currentRole);
   const validBusiness = businessName.trim().length >= 2
@@ -71,8 +71,9 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
               : true;
 
   const chooseNiche = (id: NicheId) => {
+    const nextNiche = NICHE_REGISTRY[id];
     setNicheId(id);
-    setThemeId('minimal_light');
+    setThemeId(nextNiche.recommendedThemeIds[0] as ThemeId);
     setServices(suggestedServices(id));
   };
   const next = () => {
@@ -85,8 +86,6 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    // O botão desabilitado protege o clique, mas o formulário também pode
-    // ser enviado com Enter ou programaticamente. Valide novamente aqui.
     if (!canContinue) return;
     if (step !== 'review') { next(); return; }
     setSaving(true); setError(null);
