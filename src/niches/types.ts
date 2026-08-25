@@ -2,8 +2,15 @@ import type { Capability } from '../core/business/types';
 
 export type NicheId = 'barbershop' | 'beauty_salon' | 'nail_studio' | 'pet_shop';
 
+/**
+ * Runtime-only niche used while a fresh installation has not been configured.
+ * It is intentionally not part of `NicheId`, so it can never be persisted by
+ * the onboarding flow or sent to the database enum.
+ */
+export type RuntimeNicheId = NicheId | 'core_bootstrap';
+
 export interface NichePreset {
-  id: NicheId;
+  id: RuntimeNicheId;
   name: string;
   professionalLabel: string;
   customerLabel: string;
