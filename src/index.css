@@ -6,7 +6,7 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* Identidade visual da marca */
+  /* Identidade visual legada da marca. A área pública usa os tokens CORE. */
   --color-brand-navy: #07182b;
   --color-brand-navy-soft: #102e4e;
   --color-brand-cream: #f7f4ee;
@@ -20,13 +20,12 @@
   --color-indigo-300: #97b8de;
   --color-indigo-400: #598fc2;
   --color-indigo-500: #1c5d99;
-  --color-indigo-600: #0f2e54; /* Gorgeous Navy Blue */
-  --color-indigo-700: #0b2240; /* Deep Navy Blue */
+  --color-indigo-600: #0f2e54;
+  --color-indigo-700: #0b2240;
   --color-indigo-800: #081a30;
   --color-indigo-900: #05101f;
   --color-indigo-950: #02070d;
 
-  /* Redefine purple to support complementary slate-navy tones */
   --color-purple-50: #f3f6fa;
   --color-purple-100: #e4eaf2;
   --color-purple-200: #c9d5e6;
@@ -37,7 +36,7 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-brand-cream);
+  background-color: var(--core-background, var(--color-brand-cream));
 }
 
 .core-theme-root {
@@ -45,6 +44,21 @@ body {
   background: var(--core-background);
   color: var(--core-foreground);
 }
+
+/* Semantic public-site primitives. Components depend on these roles instead of
+   hard-coded niche colors, so every registered theme controls the whole site. */
+.core-public-page { background: var(--core-background); color: var(--core-foreground); }
+.core-public-surface { background: var(--core-surface); color: var(--core-foreground); }
+.core-public-elevated { background: var(--core-surface-elevated); color: var(--core-foreground); box-shadow: var(--core-shadow); }
+.core-public-primary { background: var(--core-primary); color: var(--core-primary-foreground); }
+.core-public-secondary { background: var(--core-secondary); color: var(--core-secondary-foreground); }
+.core-public-accent { background: var(--core-accent); color: var(--core-accent-foreground); }
+.core-public-muted { background: var(--core-muted); color: var(--core-muted-foreground); }
+.core-public-primary-text { color: var(--core-primary); }
+.core-public-accent-text { color: var(--core-accent); }
+.core-public-muted-text { color: var(--core-muted-foreground); }
+.core-public-border { border-color: var(--core-border); }
+.core-public-ring:focus-visible { outline-color: var(--core-ring); }
 
 .ui-button {
   display: inline-flex;
@@ -85,7 +99,7 @@ button, a, input, textarea, select { touch-action: manipulation; }
 .service-card { width: 86.956%; }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-:focus-visible { outline: 2px solid var(--color-brand-copper); outline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--core-ring, var(--color-brand-copper)); outline-offset: 3px; }
 @media (min-width: 640px) { .service-card { width: calc(50% - .5rem); } }
 @media (min-width: 1024px) { .service-card { width: calc(33.333% - .667rem); } }
 @media (prefers-reduced-motion: reduce) {
