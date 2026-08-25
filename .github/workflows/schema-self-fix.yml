@@ -1,0 +1,65 @@
+name: Temporary schema sync
+
+on:
+  push:
+    branches:
+      - feat/professional-appearance-system-20260825
+
+permissions:
+  contents: write
+
+jobs:
+  sync-schema:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/professional-appearance-system-20260825
+          fetch-depth: 0
+
+      - name: Synchronize consolidated schema
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('supabase/schema.sql')
+          text = path.read_text()
+
+          old_themes = """  theme_id text not null default 'minimal_light' check (theme_id in (\n    'minimal_light', 'premium_dark', 'rose_elegance',\n    'lavender_studio', 'forest_clean'\n  )),"""
+          new_themes = """  theme_id text not null default 'minimal_light' check (theme_id in (\n    'minimal_light', 'graphite_modern',\n    'premium_dark', 'heritage_copper', 'urban_steel',\n    'rose_elegance', 'champagne_blush', 'lavender_studio', 'blush_glass',\n    'forest_clean', 'ocean_playful', 'sunshine_pet'\n  )),"""
+
+          old_features = """  delete from public.feature_settings;\n  foreach v_capability in array p_capabilities loop"""
+          new_features = """  -- Preserve capability rows/configuration and disable only currently enabled\n  -- switches before enabling the onboarding selection. Avoiding a whole-table\n  -- DELETE keeps the operation compatible with safe-update protections.\n  update public.feature_settings\n  set enabled = false, updated_at = now()\n  where enabled = true;\n\n  foreach v_capability in array p_capabilities loop"""
+
+          if text.count(old_themes) != 1:
+              raise SystemExit('Expected exactly one legacy theme constraint block.')
+          if text.count(old_features) != 1:
+              raise SystemExit('Expected exactly one legacy feature_settings DELETE block.')
+
+          text = text.replace(old_themes, new_themes).replace(old_features, new_features)
+
+          expected = [
+              'minimal_light', 'graphite_modern', 'premium_dark', 'heritage_copper',
+              'urban_steel', 'rose_elegance', 'champagne_blush', 'lavender_studio',
+              'blush_glass', 'forest_clean', 'ocean_playful', 'sunshine_pet',
+          ]
+          if 'delete from public.feature_settings;' in text.lower():
+              raise SystemExit('Unsafe whole-table feature_settings DELETE still present.')
+          for theme_id in expected:
+              if f"'{theme_id}'" not in text:
+                  raise SystemExit(f'Missing theme id in schema: {theme_id}')
+
+          path.write_text(text)
+
+      - name: Commit schema synchronization
+        run: |
+          if git diff --quiet -- supabase/schema.sql; then
+            echo 'Schema already synchronized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/schema.sql
+          git commit -m 'fix(db): sincronizar schema consolidado'
+          git push origin HEAD:feat/professional-appearance-system-20260825
