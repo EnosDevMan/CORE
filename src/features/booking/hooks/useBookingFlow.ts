@@ -11,7 +11,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   const { services: allServices, professionals: allProfessionals, config, currentUser, getAvailableSlots, addBooking } = useApp();
   const { profile } = useBusiness();
   // Profissionais desativados (active=false) não podem ser selecionados no
-  // fluxo público de agendamento — antes, "desativar" um barbeiro não
+  // fluxo público de agendamento — antes, "desativar" um profissional não
   // tinha nenhum efeito aqui e ele continuava aparecendo para reserva.
   const services = useMemo(() => allServices.filter(s => s.active !== false), [allServices]);
   const professionals = useMemo(() => allProfessionals.filter(b => b.active !== false), [allProfessionals]);

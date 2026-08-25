@@ -6,7 +6,7 @@ import { Booking, BusinessConfig } from '../types';
  *
  * Importante: isto NÃO é uma integração com a API do WhatsApp. É apenas um
  * link `https://wa.me/<numero>?text=<mensagem>` que abre o aplicativo/web do
- * WhatsApp do próprio cliente com uma conversa já iniciada com o número da
+ * WhatsApp do próprio cliente com uma conversa já iniciada com o número do
  * estabelecimento e a mensagem pronta. Nenhum serviço de terceiros, automação ou
  * API é utilizado — conforme especificado no escopo do projeto.
  */
@@ -23,7 +23,7 @@ export function normalizePhoneForWhatsApp(rawPhone: string): string {
 /**
  * Primitiva genérica de link wa.me: normaliza o telefone e monta a URL já
  * com a mensagem codificada. Vários lugares do app (confirmação de
- * reserva, contato do barbeiro com o cliente) precisam disso, então fica
+ * reserva, contato do profissional com o cliente) precisam disso, então fica
  * centralizado aqui em vez de cada tela reimplementar sua própria limpeza
  * de dígitos do telefone.
  */
