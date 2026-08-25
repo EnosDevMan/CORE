@@ -8,24 +8,28 @@ import {
   RegisterPayload,
 } from '../types';
 import { parseUserRole } from '../authorization';
+import { getPasswordRecoveryRedirectUrl } from '../passwordRecoveryIntent';
 import { PRIVACY_POLICY_VERSION } from '../../legal';
 
 /**
  * Implementação de IAuthProvider usando Supabase Auth + tabela `profiles`.
  *
  * `profiles` é criada automaticamente (trigger `handle_new_user`, ver
- * `supabase/schema.sql`) quando um usuário se
- * cadastra — sempre com role 'customer'. Promoção para owner/professional é
- * feita manualmente pelo painel administrativo ou direto no banco.
+ * `supabase/schema.sql`) quando um usuário se cadastra — sempre com role
+ * 'customer'. Promoção para owner/professional é feita pelo fluxo
+ * administrativo protegido no banco.
  */
 async function fetchProfile(userId: string): Promise<AuthUser | null> {
   const { data, error } = await supabase
     .from('profiles')
     .select('id, email, name, role, phone, avatar, profile_id')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return null;
+  // Diferencie "perfil ausente" de falha de rede/RLS. Tratar todo erro como
+  // ausência escondia a causa real e podia provocar logout indevido.
+  if (error) throw new Error(error.message);
+  if (!data) return null;
 
   return {
     id: data.id,
@@ -47,10 +51,8 @@ function toAuthSession(session: NonNullable<Awaited<ReturnType<typeof supabase.a
   };
 }
 
-function getPasswordRecoveryRedirectUrl(): string {
-  const url = new URL(window.location.origin);
-  url.searchParams.set('password-recovery', '1');
-  return url.toString();
+async function signOutCurrentSession(): Promise<void> {
+  await supabase.auth.signOut({ scope: 'local' });
 }
 
 export const supabaseAuthProvider: IAuthProvider = {
@@ -63,9 +65,20 @@ export const supabaseAuthProvider: IAuthProvider = {
     if (error || !data.user) {
       return { success: false, error: error?.message || 'Não foi possível entrar. Verifique seus dados.' };
     }
-    const profile = await fetchProfile(data.user.id);
+
+    let profile: AuthUser | null;
+    try {
+      profile = await fetchProfile(data.user.id);
+    } catch {
+      // O login Auth já criou uma sessão. Se a aplicação não consegue
+      // validar o perfil, remova somente ESTA sessão para não deixar um
+      // usuário autenticado invisível nem derrubar outros dispositivos.
+      await signOutCurrentSession();
+      return { success: false, error: 'Login confirmado, mas não foi possível carregar seu perfil. Tente novamente.' };
+    }
+
     if (!profile) {
-      await supabase.auth.signOut();
+      await signOutCurrentSession();
       return { success: false, error: 'Login realizado, mas o perfil do usuário não foi encontrado.' };
     }
     return { success: true, data: profile };
@@ -84,16 +97,34 @@ export const supabaseAuthProvider: IAuthProvider = {
     if (error || !data.user) {
       return { success: false, error: error?.message || 'Não foi possível criar sua conta.' };
     }
-    const profile = await fetchProfile(data.user.id);
-    return { success: true, data: profile ?? undefined };
+
+    // Com confirmação de e-mail habilitada, signup retorna usuário sem sessão.
+    // Consultar `profiles` nesse momento falha por RLS e não significa que o
+    // trigger de criação do perfil falhou.
+    if (!data.session) return { success: true };
+
+    try {
+      const profile = await fetchProfile(data.user.id);
+      if (!profile) {
+        await signOutCurrentSession();
+        return { success: false, error: 'Conta criada, mas o perfil do usuário não foi encontrado.' };
+      }
+      return { success: true, data: profile };
+    } catch {
+      await signOutCurrentSession();
+      return { success: false, error: 'Conta criada, mas não foi possível carregar seu perfil. Tente entrar novamente.' };
+    }
   },
 
   async logout(): Promise<void> {
-    await supabase.auth.signOut();
+    // "Sair" encerra apenas a sessão atual. O padrão do supabase-js é
+    // `global`, que também revoga as sessões do usuário em outros aparelhos.
+    await signOutCurrentSession();
   },
 
   async getSession(): Promise<AuthSession | null> {
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw new Error(error.message);
     return data.session ? toAuthSession(data.session) : null;
   },
 
@@ -106,11 +137,7 @@ export const supabaseAuthProvider: IAuthProvider = {
 
   async sendPasswordResetEmail(email: string, captchaToken?: string): Promise<AuthResult<void>> {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      // O link precisa voltar para um estado identificável da aplicação. O
-      // evento PASSWORD_RECOVERY continua sendo a fonte principal, mas o
-      // marcador também permite recuperar a tela correta se o listener for
-      // registrado depois de o SDK já ter processado a sessão da URL.
-      redirectTo: getPasswordRecoveryRedirectUrl(),
+      redirectTo: getPasswordRecoveryRedirectUrl(window.location.origin),
       captchaToken,
     });
     if (error) return { success: false, error: error.message };
@@ -124,7 +151,8 @@ export const supabaseAuthProvider: IAuthProvider = {
   },
 
   async confirmEmail(_token: string): Promise<AuthResult<void>> {
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return { success: false, error: error.message };
     return data.session ? { success: true } : { success: false, error: 'Sessão não encontrada.' };
   },
 
