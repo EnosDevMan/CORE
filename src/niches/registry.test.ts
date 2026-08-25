@@ -18,10 +18,20 @@ describe('niche registry', () => {
     });
   });
 
-  it.each(Object.values(NICHE_REGISTRY))('$name has editable onboarding suggestions', niche => {
+  it('keeps public fallback copy specific to each niche', () => {
+    expect(NICHE_REGISTRY.nail_studio.landing.heroTitle).toBe('Seu estilo, em cada detalhe.');
+    expect(NICHE_REGISTRY.nail_studio.landing.heroDescription).not.toMatch(/barba|corte/i);
+    expect(NICHE_REGISTRY.pet_shop.landing.heroDescription).toMatch(/pet/i);
+    expect(NICHE_REGISTRY.barbershop.landing.heroDescription).toMatch(/barba/i);
+  });
+
+  it.each(Object.values(NICHE_REGISTRY))('$name has complete onboarding and public defaults', niche => {
     expect(niche.serviceSuggestions.length).toBeGreaterThan(0);
     expect(niche.recommendedThemeIds.length).toBeGreaterThan(0);
     expect(niche.dashboard.todayLabel).toBeTruthy();
     expect(niche.dashboard.scheduleLabel).toBeTruthy();
+    expect(niche.landing.eyebrow).toBeTruthy();
+    expect(niche.landing.heroTitle).toBeTruthy();
+    expect(niche.landing.heroDescription).toBeTruthy();
   });
 });
