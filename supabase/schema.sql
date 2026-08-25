@@ -1538,7 +1538,7 @@ create trigger barbers_sync_user_link
 -- ============================================================================
 -- 7. STORAGE
 -- ============================================================================
--- Bucket para fotos de barbeiros: público para leitura (aparecem no site
+-- Bucket para fotos de profissionais: público para leitura (aparecem no site
 -- institucional sem necessidade de login), só admin pode enviar/substituir/
 -- remover.
 insert into storage.buckets (id, name, public)
@@ -1557,7 +1557,7 @@ create policy "avatars_admin_update" on storage.objects for update
 create policy "avatars_admin_delete" on storage.objects for delete
   using (bucket_id = 'avatars' and auth_role() = 'owner');
 
--- Bucket para a galeria de cortes (home page): mesmo padrão do 'avatars'.
+-- Bucket para a galeria pública (home page): mesmo padrão do 'avatars'.
 insert into storage.buckets (id, name, public)
 values ('gallery', 'gallery', true)
 on conflict (id) do nothing;
@@ -1581,7 +1581,7 @@ set file_size_limit = 5242880,
     allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp']
 where id in ('avatars', 'gallery');
 
--- Barbeiros podem enviar e substituir somente a própria foto de perfil.
+-- Profissionais podem enviar e substituir somente a própria foto de perfil.
 create policy "avatars_barber_insert_own" on storage.objects for insert
   with check (
     bucket_id = 'avatars'
@@ -1642,7 +1642,7 @@ create policy "config_select_public" on barbershop_config for select using (true
 create policy "config_update_admin" on barbershop_config for update
   using (auth_role() = 'owner');
 
--- barbers: leitura pública, escrita só admin (exceto o próprio barbeiro,
+-- barbers: tabela física legada de profissionais; leitura pública e escrita administrativa (exceto o próprio profissional,
 -- que pode atualizar seu nome/foto/especialidade/descrição — ver policy
 -- abaixo e a trigger protect_barber_updates, que bloqueia campos sensíveis).
 create policy "barbers_select_public" on barbers for select using (true);
@@ -1663,7 +1663,7 @@ using ((select public.auth_role()) = 'owner') with check ((select public.auth_ro
 create policy services_delete_admin on public.services for delete
 using ((select public.auth_role()) = 'owner');
 
--- bookings: cliente vê/cancela os seus; barbeiro vê e gerencia os da
+-- bookings: cliente vê/cancela os seus; profissional vê e gerencia os da
 -- própria agenda; admin vê/edita/exclui tudo. (a restrição de QUAIS campos
 -- um cliente pode alterar no próprio agendamento é feita pelo trigger
 -- `bookings_protect_updates`, não por esta policy.)
@@ -1697,7 +1697,7 @@ create policy "bookings_delete_admin" on bookings for delete
   using (auth_role() = 'owner');
 
 -- schedule_blocks: leitura pública (para calcular disponibilidade), escrita
--- por admin ou pelo próprio barbeiro (bloqueios da própria agenda).
+-- por proprietário ou pelo próprio profissional (bloqueios da própria agenda).
 create policy "blocks_select_staff" on schedule_blocks for select to authenticated
   using (
     (select auth_role()) = 'owner'
@@ -1825,7 +1825,7 @@ grant execute on function create_admin_booking(
 revoke all on function reorder_gallery_photos(uuid[]) from public, anon;
 grant execute on function reorder_gallery_photos(uuid[]) to authenticated;
 
--- Reagendamento exige estar autenticado (cliente, barbeiro ou admin) —
+-- Reagendamento exige estar autenticado (cliente, profissional ou proprietário) —
 -- convidado não tem uma agenda própria para reagendar por conta própria.
 revoke all on function reschedule_booking(uuid, date, time) from public, anon;
 grant execute on function reschedule_booking(uuid, date, time) to authenticated;

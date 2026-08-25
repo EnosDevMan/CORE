@@ -204,7 +204,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const booking = previous.find(b => b.id === id);
     if (!booking) return;
     // "Confirmar" (Aguardando pagamento -> Confirmado) é, em toda a UI
-    // (barbeiro e admin), o botão que confirma o recebimento do PIX da
+    // (profissional e proprietário), o botão que confirma o recebimento do PIX da
     // taxa de reserva — mas antes desta correção nada marcava `feePaid` de
     // fato, então a métrica "Taxas de Agendamento" no painel nunca saía de
     // R$ 0,00.

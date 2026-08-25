@@ -46,7 +46,7 @@ const addDays = (date: Date, days: number): Date => {
 };
 
 // Semana começando na segunda-feira, para bater com o mesmo critério já
-// usado no painel do barbeiro (useProfessionalDashboard.isThisWeek).
+// usado no painel do profissional (useProfessionalDashboard.isThisWeek).
 const startOfWeek = (date: Date): Date => {
   const day = date.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
