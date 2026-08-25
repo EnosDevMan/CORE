@@ -4,16 +4,20 @@ import { BusinessRuntimeBoundary } from './BusinessRuntimeBoundary';
 import { businessService } from './businessService';
 import { useBusiness } from './hooks';
 
+vi.mock('./businessService', () => ({
+  businessService: { getRuntime: vi.fn() },
+}));
+
 function RuntimeProbe() {
   const { profile } = useBusiness();
   return <span>{profile.name}</span>;
 }
 
 describe('BusinessRuntimeBoundary', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.resetAllMocks());
 
   it('mantém cadastro e onboarding renderizáveis antes de existir business_profile', async () => {
-    vi.spyOn(businessService, 'getRuntime').mockResolvedValue(null);
+    vi.mocked(businessService.getRuntime).mockResolvedValue(null);
 
     render(
       <BusinessRuntimeBoundary>
