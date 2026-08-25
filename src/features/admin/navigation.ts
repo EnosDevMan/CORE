@@ -1,5 +1,5 @@
 import type { Capability } from '../../core/business/types';
-import type { NichePreset } from '../../niches/types';
+import type { NichePreset, RuntimeNicheId } from '../../niches/types';
 
 export type AdminTab =
   | 'overview' | 'new-booking' | 'agenda' | 'clients' | 'reports'
@@ -16,7 +16,7 @@ interface AdminNavigationItem {
 }
 
 export function getAdminNavigation(
-  niche: NichePreset,
+  niche: NichePreset<RuntimeNicheId>,
   hasCapability: (capability: Capability) => boolean,
 ): AdminNavigationItem[] {
   const items: AdminNavigationItem[] = [
