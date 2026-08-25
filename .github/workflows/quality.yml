@@ -48,3 +48,4 @@ jobs:
           --file supabase/tests/authorization_roles.sql
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql
+          --file supabase/tests/pet_notes_authorization.sql
