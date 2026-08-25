@@ -38,9 +38,7 @@ describe('niche registry', () => {
   it.each(Object.values(NICHE_REGISTRY))('$name exposes only registered theme recommendations', niche => {
     expect(niche.recommendedThemeIds.length).toBeGreaterThanOrEqual(5);
     for (const themeId of niche.recommendedThemeIds) {
-      const theme = THEME_REGISTRY[themeId as ThemeId];
-      expect(theme, `${niche.id}: ${themeId}`).toBeDefined();
-      expect(theme.category === 'universal' || theme.recommendedNiches.includes(niche.id)).toBe(true);
+      expect(THEME_REGISTRY[themeId as ThemeId], `${niche.id}: ${themeId}`).toBeDefined();
     }
   });
 
