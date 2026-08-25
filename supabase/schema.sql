@@ -2462,8 +2462,10 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_first_owner(text) from public, anon;
-grant execute on function public.claim_first_owner(text) to authenticated;
+revoke all on function public.claim_first_owner(text)
+  from public, anon, authenticated, service_role;
+comment on function public.claim_first_owner(text) is
+  'Internal first-owner claim used only by the atomic onboarding RPC. No browser or service-role Data API execute grant.';
 revoke all on function public.get_onboarding_state() from public, anon;
 grant execute on function public.get_onboarding_state() to authenticated;
 

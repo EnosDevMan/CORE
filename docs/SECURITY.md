@@ -41,6 +41,13 @@ Respostas de `profiles` também passam por `parseUserRole`; valores desconhecido
 falham fechados na boundary de autenticação, em vez de receberem um fallback de
 permissão ou serem propagados pela interface.
 
+`auth_role()` é um helper `SECURITY DEFINER` sem argumentos usado diretamente
+pelas policies RLS e de Storage para resolver somente a role do chamador atual.
+Ele permanece executável pelos papéis de navegador porque essas próprias
+policies dependem dele; não aceita IDs externos, não altera dados e não é usado
+como endpoint de mutação. Helpers privilegiados que alteram estado não recebem
+essa exceção.
+
 ## Bootstrap do proprietário
 
 Antes do cadastro público, o operador executa
@@ -50,10 +57,14 @@ hash, limita a validade a 24 horas e vincula a reivindicação ao e-mail confirm
 Não há grant para `anon` ou `authenticated` gerar códigos ou ler a tabela privada.
 
 `claim_first_owner(codigo)` usa advisory lock, validade, consumo único e uma
-restrição física que admite apenas um proprietário. O registro interno faz
-`auth_role()` reconhecer o proprietário antes da promoção do perfil, sem
-desabilitar a proteção contra autoelevação. O onboarding completo exige owner e
-é executado atomicamente por RPC.
+restrição física que admite apenas um proprietário. Ele é detalhe interno do
+`complete_business_onboarding()` e não possui grant de execução para `anon`,
+`authenticated` ou `service_role`; portanto não é uma RPC direta da Data API.
+O registro interno faz `auth_role()` reconhecer o proprietário antes da promoção
+do perfil, sem desabilitar a proteção contra autoelevação. O navegador conclui
+a primeira instalação somente pela RPC transacional
+`complete_business_onboarding()`, que reivindica o proprietário e persiste a
+configuração no mesmo commit ou faz rollback de tudo.
 
 ## Integridade da agenda
 
@@ -64,6 +75,6 @@ requisições concorrentes, e a janela pública, antecedência e prazo de cancel
 são validados pelo servidor.
 
 A CI aplica o schema consolidado em um PostgreSQL descartável sem grants
-automáticos e verifica a
-promoção inicial, isolamento por role, exposição pública, conflito de horários,
-imutabilidade dos snapshots, cancelamento e exclusão completa de contas.
+automáticos e verifica a promoção inicial, isolamento por role, superfície de
+RPC privilegiada, exposição pública, conflito de horários, imutabilidade dos
+snapshots, cancelamento e exclusão completa de contas.
