@@ -6,7 +6,6 @@ export type SectionStyle = 'structured' | 'editorial' | 'showcase' | 'friendly';
 export interface PublicLayoutPreset {
   id: PublicLayoutId;
   name: string;
-  description: string;
   heroVariant: HeroVariant;
   sectionStyle: SectionStyle;
   sectionOrder: readonly PublicSectionId[];
