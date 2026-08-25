@@ -19,9 +19,11 @@ npm ci
 npm run dev
 ```
 
-Validação: `npm run lint`, `npm run typecheck`, `npm run test` e
-`npm run build`. Esses comandos funcionam em Linux/Termux com Node 22; Docker
-ou IDE desktop não são requisitos.
+Validação completa: `npm run verify`. O comando executa lint, TypeScript,
+testes, build, orçamento do frontend, auditoria de dependências e verificações
+de produção. A CI também aplica o schema em PostgreSQL 17 sem os antigos
+grants automáticos do Supabase. Esses comandos funcionam em Linux/Termux com
+Node 22; Docker ou IDE desktop não são requisitos para o desenvolvimento.
 
 ## Banco e deploy
 
@@ -31,6 +33,8 @@ instalações que já existiam; não repita as migrations após o schema. Nunca 
 Antes de abrir o cadastro, gere no SQL Editor o código de uso único do proprietário
 com `select public.prepare_installation_owner('seu-email@exemplo.com');` e
 confirme esse mesmo e-mail durante o onboarding.
+Para receber clientes reais, configure SMTP próprio no Supabase Auth; o
+remetente padrão não entrega mensagens para endereços externos à equipe.
 Consulte [nova instalação](docs/NEW_BUSINESS_SETUP.md),
 [deploy](docs/DEPLOYMENT.md) e [arquitetura](docs/ARCHITECTURE.md).
 

@@ -14,6 +14,7 @@ describe('admin capability navigation', () => {
     expect(ids).toContain('agenda');
     expect(ids).not.toContain('reports');
     expect(ids).not.toContain('pets');
+    expect(ids).toContain('accounts');
   });
 
   it('uses niche terminology and exposes pets only when enabled', () => {

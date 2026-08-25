@@ -5,6 +5,8 @@ import { supabaseAuthProvider } from '../auth/services/supabaseAuthProvider';
 import { getErrorMessage } from '../utils/errors';
 import { validateEmail, validatePhoneBR } from '../utils/validation';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
+import { getPasswordValidationError, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwordPolicy';
+import { TurnstileChallenge } from '../auth/components/TurnstileChallenge';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -16,6 +18,8 @@ type Mode = 'login' | 'register' | 'forgot';
 
 const inputClass =
   'w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow';
+
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? '';
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenPrivacy }) => {
   const { login, register, loading, error: authError, clearError } = useAuth();
@@ -30,6 +34,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaVersion, setCaptchaVersion] = useState(0);
 
   const resetFields = React.useCallback(() => {
     setName('');
@@ -41,6 +47,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
     setPendingConfirmation(false);
     setPrivacyConsent(false);
     setSendingReset(false);
+    setCaptchaToken('');
+    setCaptchaVersion(version => version + 1);
     clearError();
   }, [clearError]);
 
@@ -69,6 +77,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
     e.preventDefault();
     setLocalError('');
 
+    if (turnstileSiteKey && !captchaToken) {
+      setLocalError('Conclua a verificação de segurança antes de continuar.');
+      return;
+    }
+
+    const consumedCaptcha = captchaToken || undefined;
+    const resetCaptcha = () => {
+      if (!turnstileSiteKey) return;
+      setCaptchaToken('');
+      setCaptchaVersion(version => version + 1);
+    };
+
     if (mode === 'forgot') {
       if (!validateEmail(email)) {
         setLocalError('Informe um e-mail válido.');
@@ -76,13 +96,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
       }
       setSendingReset(true);
       try {
-        const result = await supabaseAuthProvider.sendPasswordResetEmail(email.trim());
+        const result = await supabaseAuthProvider.sendPasswordResetEmail(email.trim(), consumedCaptcha);
         if (!result.success) {
+          resetCaptcha();
           setLocalError(result.error || 'Não foi possível enviar o e-mail de recuperação.');
           return;
         }
         setResetSent(true);
       } catch (err) {
+        resetCaptcha();
         setLocalError(getErrorMessage(err, 'Não foi possível enviar o e-mail de recuperação.'));
       } finally {
         setSendingReset(false);
@@ -99,8 +121,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
         setLocalError('Informe sua senha.');
         return;
       }
-      const ok = await login({ email: email.trim(), password });
+      const ok = await login({ email: email.trim(), password, captchaToken: consumedCaptcha });
       if (ok) handleClose();
+      else resetCaptcha();
       return;
     }
 
@@ -119,20 +142,28 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
       setLocalError('Informe um telefone válido, com DDD (ex: 11 91234-5678).');
       return;
     }
-    if (password.length < 6 || password.length > 128) {
-      setLocalError('A senha precisa ter entre 6 e 128 caracteres.');
+    const passwordError = getPasswordValidationError(password);
+    if (passwordError) {
+      setLocalError(passwordError);
       return;
     }
     if (!privacyConsent) {
       setLocalError('É necessário concordar com a Política de Privacidade para criar uma conta.');
       return;
     }
-    const result = await register({ name: normalizedName, email: email.trim(), phone: normalizedPhone, password });
+    const result = await register({
+      name: normalizedName,
+      email: email.trim(),
+      phone: normalizedPhone,
+      password,
+      captchaToken: consumedCaptcha,
+    });
     if (result === 'authenticated') {
       handleClose();
       return;
     }
     if (result === 'confirmation') setPendingConfirmation(true);
+    else resetCaptcha();
   };
 
   const displayError = localError || authError;
@@ -285,10 +316,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                     onChange={e => setPassword(e.target.value)}
                     className={inputClass}
                     placeholder="••••••••"
-                    minLength={6}
-                    maxLength={mode === 'register' ? 128 : undefined}
+                    minLength={mode === 'register' ? MIN_PASSWORD_LENGTH : undefined}
+                    maxLength={mode === 'register' ? MAX_PASSWORD_LENGTH : undefined}
                     required
                   />
+                  {mode === 'register' && (
+                    <p className="mt-1.5 text-xs text-slate-500">Use pelo menos {MIN_PASSWORD_LENGTH} caracteres.</p>
+                  )}
                 </div>
               )}
 
@@ -312,6 +346,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
                     .
                   </span>
                 </label>
+              )}
+
+              {turnstileSiteKey && (
+                <TurnstileChallenge
+                  key={`${mode}-${captchaVersion}`}
+                  siteKey={turnstileSiteKey}
+                  onTokenChange={setCaptchaToken}
+                />
               )}
 
               {displayError && (

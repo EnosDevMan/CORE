@@ -45,6 +45,12 @@ alter table storage.objects enable row level security;
 
 grant usage on schema public, auth, storage to anon, authenticated, service_role;
 grant select, insert, update, delete on storage.objects to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+
+-- Since May 2026, new Supabase projects no longer expose freshly created
+-- public tables/sequences automatically. Preserving the old broad defaults
+-- here made CI green while a clean production installation failed with 42501.
+-- The consolidated schema must explicitly grant every required API privilege.
+alter default privileges in schema public
+  revoke select, insert, update, delete on tables from anon, authenticated, service_role;
+alter default privileges in schema public
+  revoke usage, select on sequences from anon, authenticated, service_role;

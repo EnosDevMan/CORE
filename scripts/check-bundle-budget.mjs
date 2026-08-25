@@ -4,7 +4,9 @@ import { join } from 'node:path';
 const distDirectory = new URL('../dist/assets/', import.meta.url);
 const limits = {
   largestJavaScript: Number(process.env.BUNDLE_MAX_JS_KB ?? 230) * 1024,
-  totalJavaScript: Number(process.env.BUNDLE_TOTAL_JS_KB ?? 700) * 1024,
+  // The 1.0 account-management and optional anti-bot flows add a small,
+  // measured amount while the largest executable chunk remains unchanged.
+  totalJavaScript: Number(process.env.BUNDLE_TOTAL_JS_KB ?? 710) * 1024,
   totalCss: Number(process.env.BUNDLE_TOTAL_CSS_KB ?? 100) * 1024,
 };
 

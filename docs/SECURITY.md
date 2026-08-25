@@ -1,6 +1,8 @@
 # Segurança
 
 - Supabase Auth autentica; RLS e RPCs autorizam.
+- Grants explícitos e mínimos controlam quais tabelas a Data API consegue
+  alcançar; o teste SQL reproduz projetos novos sem permissões automáticas.
 - UI guards não são fronteira de segurança.
 - Tabelas públicas expõem apenas catálogo/configuração necessária. Disponibilidade
   pública contém horários e duração, nunca nome, telefone, observações ou IDs
@@ -13,6 +15,12 @@
   o payload informa a role `anon`; chaves secretas falham antes do bootstrap.
 - Contas são removidas por RPC exclusiva do proprietário, incluindo as sessões
   e a identidade em `auth.users`; a conta proprietária não pode se autoexcluir.
+- A tela **Contas e acessos** promove clientes para profissionais pelo caminho
+  protegido de `profiles`, impede rebaixamento com agenda vinculada e exige
+  confirmação antes da exclusão permanente da identidade.
+- Cadastro e recuperação compartilham política mínima de oito caracteres.
+- Turnstile opcional envia tokens ao Supabase Auth em login, cadastro e
+  recuperação; a chave secreta existe somente no servidor/painel do provedor.
 - Aceites de privacidade registram data do servidor e versão da política; o
   próprio cliente não consegue alterar essa evidência posteriormente.
 
@@ -55,6 +63,7 @@ de um reagendamento. A restrição GiST no banco impede conflitos inclusive entr
 requisições concorrentes, e a janela pública, antecedência e prazo de cancelamento
 são validados pelo servidor.
 
-A CI aplica o schema consolidado em um PostgreSQL descartável e verifica a
+A CI aplica o schema consolidado em um PostgreSQL descartável sem grants
+automáticos e verifica a
 promoção inicial, isolamento por role, exposição pública, conflito de horários,
 imutabilidade dos snapshots, cancelamento e exclusão completa de contas.

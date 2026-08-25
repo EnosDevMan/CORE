@@ -4,6 +4,13 @@ O estado final para projetos novos fica concentrado em `supabase/schema.sql`. As
 empresa usa um banco independente. `business_profile`, `booking_settings` e
 `feature_settings` separam identidade, regras de agenda e capabilities.
 
+Projetos novos do Supabase não expõem automaticamente tabelas recém-criadas.
+O bloco final do schema revoga defaults legados e concede, explicitamente,
+somente os privilégios necessários para `anon` e `authenticated`; tabelas de
+bootstrap e owner permanecem privadas. A migration
+`202608240003_explicit_data_api_grants.sql` aplica a mesma matriz a instalações
+existentes. A CI verifica essa fronteira em `supabase/tests/data_api_grants.sql`.
+
 `202608220006_canonical_application_roles.sql` renomeia valores do enum sem
 trocar seus OIDs (`admin → owner`, `barber → professional`) e adiciona manager e
 receptionist com negação por padrão. Constantes armazenadas em funções, triggers
@@ -17,7 +24,9 @@ para o mesmo profissional, inclusive entre transações concorrentes.
 
 `booking_services` normaliza a seleção e preserva nome, duração e preço no
 momento do agendamento. O campo CSV legado permanece sincronizado durante a
-migração das telas/RPCs. Antes do deploy, corrija referências inválidas e
+migração das telas/RPCs. Relatórios administrativos usam os snapshots originais
+para distribuir corretamente o faturamento de combos, mesmo após alterações no
+catálogo. Antes do deploy, corrija referências inválidas e
 sobreposições existentes: a migration falha deliberadamente em vez de ocultar
 dados inconsistentes. O teste SQL descartável está em
 `supabase/tests/booking_overlap.sql`.

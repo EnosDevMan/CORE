@@ -10,6 +10,7 @@ import { AdminServicesTab } from '../features/admin/components/AdminServicesTab'
 import { AdminProfessionalsTab } from '../features/admin/components/AdminProfessionalsTab';
 import { AdminGalleryTab } from '../features/admin/components/AdminGalleryTab';
 import { AdminClientsTab } from '../features/admin/components/AdminClientsTab';
+import { AdminAccountsTab } from '../features/admin/components/AdminAccountsTab';
 import { AdminAgendaTab } from '../features/admin/components/AdminAgendaTab';
 import { AdminSettingsTab } from '../features/admin/components/AdminSettingsTab';
 import { AdminBookingForm } from '../features/admin/components/agenda/AdminBookingForm';
@@ -250,6 +251,8 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                       showFeedback={showFeedback}
                     />
                   )}
+
+                  {activeTab === 'accounts' && <AdminAccountsTab showFeedback={showFeedback} />}
 
                   {activeTab === 'settings' && (
                     <AdminSettingsTab

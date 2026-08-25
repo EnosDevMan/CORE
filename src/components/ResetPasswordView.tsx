@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KeyRound, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabaseAuthProvider } from '../auth/services/supabaseAuthProvider';
 import { getErrorMessage } from '../utils/errors';
+import { getPasswordValidationError, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwordPolicy';
 
 interface ResetPasswordViewProps {
   onComplete: () => void;
@@ -24,8 +25,9 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
     e.preventDefault();
     setError('');
 
-    if (password.length < 6 || password.length > 128) {
-      setError('A senha precisa ter entre 6 e 128 caracteres.');
+    const passwordError = getPasswordValidationError(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     if (password !== confirmPassword) {
@@ -76,7 +78,7 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
             </div>
             <h1 className="text-xl font-black text-slate-900 tracking-tight text-center mb-1">Definir nova senha</h1>
             <p className="text-sm text-slate-500 text-center leading-relaxed mb-6">
-              Escolha uma nova senha para sua conta.
+              Escolha uma nova senha com pelo menos {MIN_PASSWORD_LENGTH} caracteres.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -92,8 +94,8 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
                   onChange={e => setPassword(e.target.value)}
                   className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
                   placeholder="••••••••"
-                  minLength={6}
-                  maxLength={128}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  maxLength={MAX_PASSWORD_LENGTH}
                   required
                 />
               </div>
@@ -110,8 +112,8 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
                   onChange={e => setConfirmPassword(e.target.value)}
                   className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
                   placeholder="••••••••"
-                  minLength={6}
-                  maxLength={128}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  maxLength={MAX_PASSWORD_LENGTH}
                   required
                 />
               </div>

@@ -32,6 +32,10 @@ interface DataState {
   /** Marca a carga inicial como falha, destravando a tela de loading. */
   setLoadError: (message: string) => void;
 
+  // Owner-managed application accounts
+  updateUserRole: (id: string, role: 'customer' | 'professional') => Promise<void>;
+  deleteUserAccount: (id: string) => Promise<void>;
+
   // Professionals
   addProfessional: (professional: Omit<Professional, 'id'> & { id?: string }) => Promise<Professional>;
   updateProfessional: (professional: Professional) => Promise<void>;
@@ -74,6 +78,36 @@ export const useDataStore = create<DataState>((set, get) => ({
   setInitialData: (data) => set({ ...data, loading: false, loadError: null }),
   beginLoad: () => set({ bookings: [], users: [], scheduleBlocks: [], loading: true, loadError: null }),
   setLoadError: (message) => set({ loading: false, loadError: message }),
+
+  updateUserRole: async (id, role) => {
+    const user = get().users.find(account => account.id === id);
+    if (!user) throw new Error('Conta de usuário não encontrada.');
+    if (user.profileId && role !== 'professional') {
+      throw new Error('Desvincule a conta do cadastro do profissional antes de alterar seu papel.');
+    }
+
+    await dataService.updateUserRole(id, role);
+    set(state => ({
+      users: state.users.map(account => account.id === id ? { ...account, role } : account),
+    }));
+  },
+
+  deleteUserAccount: async (id) => {
+    if (!get().users.some(account => account.id === id)) {
+      throw new Error('Conta de usuário não encontrada.');
+    }
+
+    await dataService.deleteUserAccount(id);
+    set(state => ({
+      users: state.users.filter(account => account.id !== id),
+      professionals: state.professionals.map(professional => professional.userId === id
+        ? { ...professional, userId: undefined }
+        : professional),
+      bookings: state.bookings.map(booking => booking.customerId === id
+        ? { ...booking, customerId: 'guest' }
+        : booking),
+    }));
+  },
 
   addProfessional: async (professional) => {
     const newProfessional = await dataService.createProfessional(professional);

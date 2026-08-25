@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { User, Phone, Mail, Calendar as CalendarIcon, Search } from 'lucide-react';
 import { useApp } from '../../../store/useApp';
 import { isCustomerRole } from '../../../auth/authorization';
@@ -11,13 +11,28 @@ export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) =
   const { users, bookings } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const clientsList = users.filter(u => isCustomerRole(u.role));
+  const filteredClients = useMemo(() => {
+    const search = searchTerm.trim().toLocaleLowerCase('pt-BR');
+    return users.filter(client => isCustomerRole(client.role) && (
+      client.name.toLocaleLowerCase('pt-BR').includes(search)
+      || client.email.toLocaleLowerCase('pt-BR').includes(search)
+      || Boolean(client.phone?.includes(searchTerm.trim()))
+    ));
+  }, [searchTerm, users]);
 
-  const filteredClients = clientsList.filter(client => 
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.phone && client.phone.includes(searchTerm))
-  );
+  const histories = useMemo(() => {
+    const summaries = new Map<string, { count: number; totalSpent: number; lastDate: string }>();
+
+    for (const booking of bookings) {
+      const summary = summaries.get(booking.customerId) ?? { count: 0, totalSpent: 0, lastDate: '' };
+      summary.count += 1;
+      if (booking.status === 'Concluído') summary.totalSpent += booking.value;
+      if (booking.date > summary.lastDate) summary.lastDate = booking.date;
+      summaries.set(booking.customerId, summary);
+    }
+
+    return summaries;
+  }, [bookings]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -51,9 +66,7 @@ export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) =
             </thead>
             <tbody>
               {filteredClients.map((client) => {
-                const clientBookings = bookings.filter(b => b.customerId === client.id);
-                const totalSpent = clientBookings.filter(b => b.status === 'Concluído').reduce((acc, b) => acc + b.value, 0);
-                const lastBooking = clientBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+                const history = histories.get(client.id);
 
                 return (
                   <tr key={client.id} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
@@ -90,18 +103,18 @@ export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) =
                       <div className="flex flex-col gap-1 text-xs">
                         <div className="flex items-center gap-2 text-slate-700 font-medium">
                           <CalendarIcon size={12} className="text-slate-400" />
-                          {clientBookings.length} agendamentos
+                          {history?.count ?? 0} agendamentos
                         </div>
-                        {lastBooking && (
+                        {history?.lastDate && (
                           <span className="text-[10px] text-slate-500">
-                            Último em: {new Date(lastBooking.date + "T12:00:00").toLocaleDateString("pt-BR")}
+                            Último em: {new Date(history.lastDate + "T12:00:00").toLocaleDateString("pt-BR")}
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="font-extrabold text-emerald-600 font-sans block">
-                        {formatBRL(totalSpent)}
+                        {formatBRL(history?.totalSpent ?? 0)}
                       </span>
                     </td>
                   </tr>
