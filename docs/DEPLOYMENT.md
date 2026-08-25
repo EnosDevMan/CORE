@@ -31,8 +31,8 @@ No Supabase Auth:
 - Em URL Configuration, defina Site URL como a URL HTTPS real da instalação e
   permita somente os redirects exatos de produção/staging necessários.
 - Mantenha confirmação de e-mail habilitada.
-- Configure senha mínima de **8 caracteres**; ative proteção contra senhas
-  vazadas quando o plano disponibilizar essa opção.
+- Configure senha mínima de **8 caracteres** e habilite proteção contra senhas
+  vazadas antes de abrir a instalação para usuários reais.
 - Em SMTP Settings, ative um provedor SMTP próprio com host, porta, usuário,
   senha, nome do remetente e endereço de envio válidos.
 - Autentique o domínio do remetente com SPF/DKIM e, quando aplicável, DMARC;
@@ -85,13 +85,24 @@ da Vercel. Um segundo job da CI aplica o schema consolidado em PostgreSQL 17 e
 executa testes reais de autorização, isolamento e integridade da agenda. Esses
 gates reduzem erro humano, mas não substituem os passos operacionais abaixo.
 
+### Proteção obrigatória do repositório
+
+A branch `main` de produção deve aceitar mudanças somente via pull request. A
+proteção/ruleset do GitHub deve exigir, no mínimo, os checks **`quality`** e
+**`database`** do workflow `Quality` antes do merge e impedir push direto que
+contorne esses gates. Administradores não devem ignorar essa regra no fluxo
+normal de release; exceções de emergência precisam ser registradas e seguidas
+de validação/rollback explícitos.
+
 Uma versão só está pronta para produção depois de registrar evidência de:
 
+- branch `main` protegida com PR obrigatório e checks `quality` + `database`;
 - migration aplicada e testada em staging, seguida de backup restaurável;
 - proprietário previamente preparado pelo SQL Editor com e-mail confirmado e
   código de instalação de uso único;
 - URLs de redirect do Supabase Auth limitadas aos domínios reais;
-- SMTP próprio autenticado, envio para endereço externo e senha mínima de oito;
+- SMTP próprio autenticado, envio para endereço externo, senha mínima de oito e
+  proteção contra senhas vazadas habilitada;
 - Turnstile configurado nos dois lados ou justificativa de risco registrada;
 - smoke tests como anônimo, customer, professional e owner em viewport móvel;
 - criação, remarcação, cancelamento e conflito simultâneo de agendamentos;
@@ -100,9 +111,9 @@ Uma versão só está pronta para produção depois de registrar evidência de:
 - monitoramento de erros, responsável pelo incidente e rollback ensaiado;
 - aceite de privacidade/LGPD e política de retenção definidos pelo operador.
 
-Os itens dependentes de Supabase, Vercel, domínio e operação não podem ser
-certificados pelo repositório ou pela CI. Devem bloquear a promoção enquanto
-não houver evidência no ambiente de destino.
+Os itens dependentes de Supabase, Vercel, domínio, GitHub e operação não podem
+ser certificados apenas pelo repositório ou pela CI. Devem bloquear a promoção
+enquanto não houver evidência no ambiente de destino.
 
 ## Variáveis técnicas
 
