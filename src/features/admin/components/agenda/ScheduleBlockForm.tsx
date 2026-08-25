@@ -11,13 +11,6 @@ interface ScheduleBlockFormProps {
 export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedback }) => {
   const { professionals, scheduleBlocks, addScheduleBlock, deleteScheduleBlock } = useApp();
 
-  // 'special_hours' é uma opção só de UI (ajuda o admin a diferenciar
-  // visualmente "feriado fechado" de "dia com horário especial"), mas o
-  // banco (enum block_type) só aceita 'block' | 'offday' | 'vacation' |
-  // 'special'. Antes, o valor 'special_hours' era salvo como está e a
-  // gravação sempre falhava (violação do enum no Postgres). Agora mapeamos
-  // para 'special' na hora de montar o payload, mantendo os dados de
-  // specialHours.
   type BlockFormType = BlockType | 'special_hours';
   const [blockProfessionalId, setBlockProfessionalId] = useState<string>('all');
   const [blockType, setBlockType] = useState<BlockFormType>('block');
@@ -27,13 +20,7 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
   const [blockStartTime, setBlockStartTime] = useState<string>('09:00');
   const [blockEndTime, setBlockEndTime] = useState<string>('10:00');
   const [blockReason, setBlockReason] = useState<string>('');
-  // Modo explícito para o bloqueio de férias (dia único vs período) — antes
-  // era inferido de `blockEndDate === '' && !blockStartDate`, que ficava
-  // dessincronizado do que o usuário via na tela (ex: digitar uma data de
-  // início e depois clicar em "Um dia" não voltava pro campo de dia único,
-  // porque `blockStartDate` continuava preenchido).
   const [vacationMode, setVacationMode] = useState<'single' | 'range'>('single');
-  
   const [specialOpen, setSpecialOpen] = useState<string>('09:00');
   const [specialClose, setSpecialClose] = useState<string>('18:00');
   const [specialBreakStart, setSpecialBreakStart] = useState<string>('12:00');
@@ -127,12 +114,6 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
       newBlockData.startDate = blockStartDate;
       newBlockData.endDate = blockEndDate;
     } else if (blockType === 'special_hours') {
-      // O horário customizado abaixo agora é respeitado de verdade no
-      // cálculo de disponibilidade (ver src/store/appStore.ts e a
-      // migration 0005_special_hours_availability.sql) — o dia deixa de
-      // ser bloqueado por completo e passa a aceitar agendamento dentro
-      // da janela especial (fora dela, e na pausa se configurada, continua
-      // bloqueado).
       newBlockData.type = 'special';
       newBlockData.date = blockDate;
       newBlockData.specialHours = {
@@ -174,10 +155,10 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
     <>
       <form onSubmit={handleSaveScheduleBlock} className="space-y-4 text-xs" noValidate>
         <select value={blockProfessionalId} onChange={(e) => setBlockProfessionalId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">
-          <option value="all">Todos os Profissionais (Salão)</option>
+          <option value="all">Todos os profissionais (estabelecimento)</option>
           {professionals.filter(b => b.active !== false).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        
+
         <select value={blockType} onChange={(e) => setBlockType(e.target.value as BlockFormType)} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">
           <option value="block">Bloqueio de Horário Específico</option>
           <option value="vacation">Férias / Ausência Dia(s)</option>
@@ -199,24 +180,14 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
           <div className="space-y-3">
             <div className="flex gap-2 mb-2 text-slate-500 font-medium">
               <label>
-                <input
-                  type="radio"
-                  name="v_type"
-                  checked={vacationMode === 'single'}
-                  onChange={() => { setVacationMode('single'); setBlockStartDate(''); setBlockEndDate(''); }}
-                /> Um dia
+                <input type="radio" name="v_type" checked={vacationMode === 'single'} onChange={() => { setVacationMode('single'); setBlockStartDate(''); setBlockEndDate(''); }} /> Um dia
               </label>
               <label>
-                <input
-                  type="radio"
-                  name="v_type"
-                  checked={vacationMode === 'range'}
-                  onChange={() => { setVacationMode('range'); setBlockDate(''); }}
-                /> Período
+                <input type="radio" name="v_type" checked={vacationMode === 'range'} onChange={() => { setVacationMode('range'); setBlockDate(''); }} /> Período
               </label>
             </div>
             {vacationMode === 'single' ? (
-               <input type="date" required value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+              <input type="date" required value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <input type="date" required value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
@@ -236,33 +207,32 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
         )}
 
         {blockType === 'special_hours' && (
-           <div className="space-y-3">
-             <input type="date" required value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-             <div className="grid grid-cols-2 gap-2">
-               <div>
-                 <label className="text-[10px] uppercase font-bold text-slate-500">Abertura</label>
-                 <input type="time" required value={specialOpen} onChange={(e) => setSpecialOpen(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-               </div>
-               <div>
-                 <label className="text-[10px] uppercase font-bold text-slate-500">Fechamento</label>
-                 <input type="time" required value={specialClose} onChange={(e) => setSpecialClose(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-               </div>
-             </div>
-             <label className="flex items-center gap-2 font-bold text-slate-700">
-               <input type="checkbox" checked={useSpecialBreak} onChange={(e) => setUseSpecialBreak(e.target.checked)} />
-               Adicionar Pausa/Almoço
-             </label>
-             {useSpecialBreak && (
-               <div className="grid grid-cols-2 gap-2">
-                 <input type="time" required value={specialBreakStart} onChange={(e) => setSpecialBreakStart(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-                 <input type="time" required value={specialBreakEnd} onChange={(e) => setSpecialBreakEnd(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-               </div>
-             )}
-           </div>
+          <div className="space-y-3">
+            <input type="date" required value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500">Abertura</label>
+                <input type="time" required value={specialOpen} onChange={(e) => setSpecialOpen(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500">Fechamento</label>
+                <input type="time" required value={specialClose} onChange={(e) => setSpecialClose(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 font-bold text-slate-700">
+              <input type="checkbox" checked={useSpecialBreak} onChange={(e) => setUseSpecialBreak(e.target.checked)} />
+              Adicionar Pausa/Almoço
+            </label>
+            {useSpecialBreak && (
+              <div className="grid grid-cols-2 gap-2">
+                <input type="time" required value={specialBreakStart} onChange={(e) => setSpecialBreakStart(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                <input type="time" required value={specialBreakEnd} onChange={(e) => setSpecialBreakEnd(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+              </div>
+            )}
+          </div>
         )}
 
         <input type="text" required maxLength={200} value={blockReason} onChange={(e) => setBlockReason(e.target.value)} placeholder="Motivo (Ex: Férias, Médico...)" className="w-full px-3 py-2 border border-slate-200 rounded-lg" />
-        
         <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white py-2 rounded-lg font-bold hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors">
           {isSaving ? 'Salvando...' : 'Salvar Bloqueio'}
         </button>
@@ -291,13 +261,7 @@ export const ScheduleBlockForm: React.FC<ScheduleBlockFormProps> = ({ showFeedba
                           : `${new Date(sb.startDate! + "T12:00:00").toLocaleDateString("pt-BR", {day: "2-digit", month: "2-digit"})} a ${new Date(sb.endDate! + "T12:00:00").toLocaleDateString("pt-BR", {day: "2-digit", month: "2-digit"})}`)
                   )}
                 </div>
-                <button
-                  type="button"
-                  aria-label={`Remover bloqueio ${sb.reason}`}
-                  disabled={deletingId === sb.id}
-                  onClick={() => handleDeleteScheduleBlock(sb.id)}
-                  className="absolute top-2 right-2 p-1 text-rose-500 bg-rose-50 rounded-md disabled:cursor-not-allowed disabled:opacity-40 transition-opacity"
-                >
+                <button type="button" aria-label={`Remover bloqueio ${sb.reason}`} disabled={deletingId === sb.id} onClick={() => handleDeleteScheduleBlock(sb.id)} className="absolute top-2 right-2 p-1 text-rose-500 bg-rose-50 rounded-md disabled:cursor-not-allowed disabled:opacity-40 transition-opacity">
                   <Ban size={12} />
                 </button>
               </div>
