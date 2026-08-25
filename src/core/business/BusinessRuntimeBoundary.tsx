@@ -6,16 +6,16 @@ import type { BusinessProfile } from './types';
 import { DEFAULT_BUSINESS_TIMEZONE } from '../../utils/validation';
 
 /**
- * A fresh installation has no business_profile until the owner completes the
- * wizard. The shell still needs a valid context so the login/registration UI
- * can render and the owner can reach that wizard.
+ * A fresh installation has no published business profile yet, but auth and
+ * onboarding still need a valid runtime context. This profile is deliberately
+ * niche-neutral and is never written to the database.
  */
 const BOOTSTRAP_BUSINESS_PROFILE: BusinessProfile = {
   name: 'CORE',
   timezone: DEFAULT_BUSINESS_TIMEZONE,
   currency: 'BRL',
   locale: 'pt-BR',
-  nicheId: 'barbershop',
+  nicheId: 'core_bootstrap',
   themeId: 'minimal_light',
 };
 
@@ -36,7 +36,16 @@ export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
   if (error) return <LoadingScreen error={error} onRetry={() => window.location.reload()} />;
   if (runtime === undefined) return <LoadingScreen />;
   if (runtime === null) {
-    return <BusinessProvider profile={BOOTSTRAP_BUSINESS_PROFILE} capabilities={[]}>{children}</BusinessProvider>;
+    return (
+      <BusinessProvider profile={BOOTSTRAP_BUSINESS_PROFILE} capabilities={[]} configured={false}>
+        {children}
+      </BusinessProvider>
+    );
   }
-  return <BusinessProvider profile={runtime.profile} capabilities={runtime.capabilities}>{children}</BusinessProvider>;
+
+  return (
+    <BusinessProvider profile={runtime.profile} capabilities={runtime.capabilities} configured>
+      {children}
+    </BusinessProvider>
+  );
 }

@@ -20,8 +20,10 @@ import { ResetPasswordView } from './components/ResetPasswordView';
 import { Shield, Scissors } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { OnboardingWizard } from './features/onboarding/components/OnboardingWizard';
+import { InstallationPendingView } from './features/onboarding/components/InstallationPendingView';
 import { onboardingService, type OnboardingState } from './features/onboarding/services/onboardingService';
 import { BusinessRuntimeBoundary } from './core/business/BusinessRuntimeBoundary';
+import { useBusiness } from './core/business/hooks';
 import { canAccessProfessionalWorkspace, isAdministratorRole } from './auth/authorization';
 
 function CoreSchedulingApp() {
@@ -35,6 +37,7 @@ function CoreSchedulingApp() {
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { configured: businessConfigured } = useBusiness();
   const {
     loading,
     loadError,
@@ -56,12 +59,16 @@ function CoreSchedulingApp() {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
   }, []);
 
+  // The protected onboarding RPC is only needed for an authenticated user
+  // while this installation is still unpublished. Public visitors rely on the
+  // business runtime's `configured` flag and never receive internal owner state.
   useEffect(() => {
-    if (loading || !currentUser) {
+    if (loading || businessConfigured || !currentUser) {
       setOnboardingState(null);
       setOnboardingError(null);
       return;
     }
+
     let active = true;
     onboardingService.getState()
       .then(state => { if (active) setOnboardingState(state); })
@@ -69,7 +76,7 @@ function CoreSchedulingApp() {
         if (active) setOnboardingError(error instanceof Error ? error.message : 'Não foi possível verificar a configuração inicial.');
       });
     return () => { active = false; };
-  }, [currentUser, loading]);
+  }, [businessConfigured, currentUser, loading]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -87,20 +94,60 @@ function CoreSchedulingApp() {
     return <ResetPasswordView onComplete={completePasswordRecovery} />;
   }
 
-  if (currentUser && onboardingError) {
-    return <LoadingScreen error={onboardingError} onRetry={() => window.location.reload()} />;
-  }
+  if (!businessConfigured) {
+    // Legal content must remain reachable before installation because account
+    // creation can require the user to review the privacy policy.
+    if (currentView === 'privacy') {
+      return (
+        <Suspense fallback={<LoadingScreen />}>
+          <PrivacyPolicyPage onBack={() => setCurrentView('landing')} />
+        </Suspense>
+      );
+    }
 
-  if (currentUser && onboardingState === null) {
-    return <LoadingScreen />;
-  }
+    if (!currentUser) {
+      return (
+        <>
+          <InstallationPendingView
+            onOpenAccess={() => setLoginOpen(true)}
+            onOpenPrivacy={() => setCurrentView('privacy')}
+          />
+          <LoginModal
+            isOpen={loginOpen}
+            onClose={() => setLoginOpen(false)}
+            onOpenPrivacy={() => { setLoginOpen(false); setCurrentView('privacy'); }}
+          />
+        </>
+      );
+    }
 
-  if (currentUser && !onboardingState?.completed && (isAdministratorRole(currentUser.role) || !onboardingState?.ownerExists)) {
-    return <OnboardingWizard currentRole={currentUser.role} />;
-  }
+    if (onboardingError) {
+      return <LoadingScreen error={onboardingError} onRetry={() => window.location.reload()} />;
+    }
 
-  if (currentUser && !onboardingState?.completed) {
-    return <LoadingScreen error="A configuração inicial ainda precisa ser concluída pelo proprietário." onRetry={() => window.location.reload()} />;
+    if (onboardingState === null) {
+      return <LoadingScreen />;
+    }
+
+    if (!onboardingState.completed && (isAdministratorRole(currentUser.role) || !onboardingState.ownerExists)) {
+      return <OnboardingWizard currentRole={currentUser.role} />;
+    }
+
+    if (onboardingState.completed) {
+      return (
+        <LoadingScreen
+          error="A configuração inicial foi concluída, mas o perfil público ainda não foi carregado."
+          onRetry={() => window.location.reload()}
+        />
+      );
+    }
+
+    return (
+      <LoadingScreen
+        error="A configuração inicial ainda precisa ser concluída pelo proprietário."
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   // O AdminDashboard tem seu próprio header/sidebar completo (marca, botão

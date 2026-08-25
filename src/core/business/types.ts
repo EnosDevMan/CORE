@@ -1,4 +1,4 @@
-import type { NicheId } from '../../niches/types';
+import type { RuntimeNicheId } from '../../niches/types';
 import type { ThemeId } from '../../themes/types';
 
 export type Capability =
@@ -24,12 +24,14 @@ export interface BusinessProfile {
   timezone: string;
   currency: string;
   locale: string;
-  nicheId: NicheId;
+  nicheId: RuntimeNicheId;
   themeId: ThemeId;
 }
 
 export interface BusinessContextValue {
   profile: BusinessProfile;
+  /** True only after the business onboarding has been completed and published. */
+  configured: boolean;
   capabilities: ReadonlySet<Capability>;
   hasCapability: (capability: Capability) => boolean;
 }
