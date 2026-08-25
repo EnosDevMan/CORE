@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { THEME_REGISTRY } from './registry';
 
-const schema = readFileSync(new URL('../../supabase/schema.sql', import.meta.url), 'utf8');
+const schema = readFileSync(resolve(process.cwd(), 'supabase/schema.sql'), 'utf8');
 
 function getBusinessProfileThemeConstraint(sql: string): string {
   const match = sql.match(/theme_id\s+text\s+not\s+null[\s\S]*?check\s*\(theme_id\s+in\s*\(([\s\S]*?)\)\)/i);
