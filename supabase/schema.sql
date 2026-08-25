@@ -76,8 +76,9 @@ create type block_type as enum ('block', 'offday', 'vacation', 'special');
 -- Convenções:
 --   * profiles.id = auth.users.id (1:1), criado automaticamente no signup
 --     via trigger `handle_new_user` (ver seção FUNCTIONS/TRIGGERS).
---   * "single-tenant": existe apenas 1 barbearia por projeto Supabase, por
---     isso `barbershop_config` tem sempre uma única linha (id fixo `true`).
+--   * "single-tenant": existe apenas 1 negócio por projeto Supabase;
+--     `barbershop_config` é um nome físico legado de compatibilidade e mantém
+--     sempre uma única linha (id fixo `true`).
 --   * `profiles.profile_id` aponta para `barbers.id` quando
 --     role='professional'; trigger, FK e índices únicos mantêm as duas pontas
 --     do vínculo consistentes.
@@ -112,7 +113,7 @@ create table profiles (
 -- ----------------------------------------------------------------------------
 create table barbershop_config (
   id boolean primary key default true constraint single_row check (id),
-  name text not null default 'Barbearia' check (char_length(btrim(name)) between 2 and 100),
+  name text not null default 'CORE' check (char_length(btrim(name)) between 2 and 100),
   logo text not null default '' check (char_length(logo) <= 2048),
   address text not null default '' check (char_length(address) <= 500),
   phone text not null default '' check (
@@ -146,6 +147,10 @@ create table barbershop_config (
   updated_at timestamptz not null default now()
 );
 insert into barbershop_config (id) values (true);
+comment on table public.barbershop_config is
+  'Legacy physical compatibility configuration for the single CORE business installation. Application code uses the neutral BusinessConfig contract.';
+comment on column public.barbershop_config.name is
+  'Compatibility business name. Fresh installations use the neutral CORE default until onboarding persists the real business identity.';
 
 -- ----------------------------------------------------------------------------
 -- barbers
@@ -217,7 +222,7 @@ create table schedule_blocks (
 );
 
 -- ----------------------------------------------------------------------------
--- gallery_photos (fotos de cortes exibidas na home page)
+-- gallery_photos (mídia pública exibida na home page)
 -- ----------------------------------------------------------------------------
 create table gallery_photos (
   id uuid primary key default gen_random_uuid(),
