@@ -47,6 +47,12 @@ function toAuthSession(session: NonNullable<Awaited<ReturnType<typeof supabase.a
   };
 }
 
+function getPasswordRecoveryRedirectUrl(): string {
+  const url = new URL(window.location.origin);
+  url.searchParams.set('password-recovery', '1');
+  return url.toString();
+}
+
 export const supabaseAuthProvider: IAuthProvider = {
   async login({ email, password, captchaToken }: LoginCredentials): Promise<AuthResult> {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -59,8 +65,6 @@ export const supabaseAuthProvider: IAuthProvider = {
     }
     const profile = await fetchProfile(data.user.id);
     if (!profile) {
-      // Não mantenha uma sessão autenticada "invisível" quando o perfil da
-      // aplicação não existe ou não pôde ser carregado.
       await supabase.auth.signOut();
       return { success: false, error: 'Login realizado, mas o perfil do usuário não foi encontrado.' };
     }
@@ -74,21 +78,12 @@ export const supabaseAuthProvider: IAuthProvider = {
       options: {
         captchaToken,
         data: { name: name.trim(), phone: phone.trim(), privacy_policy_version: PRIVACY_POLICY_VERSION },
-        // Sem isto, o link de confirmação por e-mail usa o "Site URL"
-        // configurado no painel do Supabase (Authentication > URL
-        // Configuration) — que por padrão, num projeto novo, aponta para
-        // localhost. Passar explicitamente a origem atual da página evita
-        // depender de lembrar de atualizar aquela configuração. Ainda
-        // assim, o domínio de produção precisa estar na lista "Redirect
-        // URLs" do mesmo painel, ou o Supabase rejeita o redirecionamento.
         emailRedirectTo: window.location.origin,
       },
     });
     if (error || !data.user) {
       return { success: false, error: error?.message || 'Não foi possível criar sua conta.' };
     }
-    // O trigger `handle_new_user` cria o profile de forma assíncrona; se a
-    // confirmação por e-mail estiver ativa, ainda não há sessão aqui.
     const profile = await fetchProfile(data.user.id);
     return { success: true, data: profile ?? undefined };
   },
@@ -110,10 +105,12 @@ export const supabaseAuthProvider: IAuthProvider = {
   },
 
   async sendPasswordResetEmail(email: string, captchaToken?: string): Promise<AuthResult<void>> {
-    // Mesmo raciocínio do emailRedirectTo em `register` acima: evita
-    // depender só do "Site URL" do painel do Supabase.
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin,
+      // O link precisa voltar para um estado identificável da aplicação. O
+      // evento PASSWORD_RECOVERY continua sendo a fonte principal, mas o
+      // marcador também permite recuperar a tela correta se o listener for
+      // registrado depois de o SDK já ter processado a sessão da URL.
+      redirectTo: getPasswordRecoveryRedirectUrl(),
       captchaToken,
     });
     if (error) return { success: false, error: error.message };
@@ -127,8 +124,6 @@ export const supabaseAuthProvider: IAuthProvider = {
   },
 
   async confirmEmail(_token: string): Promise<AuthResult<void>> {
-    // O Supabase confirma o e-mail via redirect próprio (link enviado por
-    // e-mail já autentica a sessão); nada a fazer aqui além de checar sessão.
     const { data } = await supabase.auth.getSession();
     return data.session ? { success: true } : { success: false, error: 'Sessão não encontrada.' };
   },
