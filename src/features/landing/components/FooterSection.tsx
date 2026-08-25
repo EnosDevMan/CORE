@@ -1,8 +1,9 @@
 import React from 'react';
-import { Scissors, Instagram, Facebook, MapPin, Phone, WalletCards } from 'lucide-react';
+import { Instagram, Facebook, MapPin, Phone, WalletCards } from 'lucide-react';
 import { Professional, BusinessConfig, ScheduleBlock } from '../../../types';
 import { getBusinessTodayStr, summarizeWeeklySchedule } from '../../../utils/validation';
-import { useBusiness } from '../../../core/business/hooks';
+import { useBusiness, useNiche } from '../../../core/business/hooks';
+import { NicheMark } from '../NicheMark';
 
 interface FooterSectionProps {
   config: BusinessConfig;
@@ -13,6 +14,7 @@ interface FooterSectionProps {
 
 export const FooterSection: React.FC<FooterSectionProps> = ({ config, professionals, scheduleBlocks, onOpenPrivacy }) => {
   const { profile } = useBusiness();
+  const niche = useNiche();
   const today = getBusinessTodayStr(profile.timezone);
   const activeProfessionalIds = new Set(professionals.map(professional => professional.id));
   const specialOpenings = scheduleBlocks
@@ -20,94 +22,67 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ config, profession
     .sort((a, b) => a.date!.localeCompare(b.date!))
     .slice(0, 4);
   return (
-    <footer className="bg-brand-navy text-slate-400 py-20 px-4 border-t border-white/10">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
-        {/* Column 1 - Brand */}
+    <footer className="core-public-surface core-public-border border-t px-4 py-20">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 md:grid-cols-3">
         <div className="space-y-5">
-          <h4 className="text-white font-extrabold text-xl tracking-wider uppercase flex items-center gap-2">
-            <Scissors size={20} className="text-brand-copper" /> {config.name}
+          <h4 className="flex items-center gap-2 text-xl font-extrabold tracking-wider uppercase">
+            <NicheMark nicheId={niche.id} size={20} className="core-public-primary-text" aria-hidden="true" /> {config.name}
           </h4>
-          <p className="text-xs md:text-sm leading-relaxed max-w-xs text-slate-400 font-light">
+          <p className="core-public-muted-text max-w-xs text-xs font-light leading-relaxed md:text-sm">
             {config.aboutText || profile.description || 'Atendimento profissional com qualidade e atenção aos detalhes.'}
           </p>
-          {/* Social icons */}
           <div className="flex gap-3 pt-2">
             {config.socialLinks.instagram && (
-              <a
-                href={config.socialLinks.instagram}
-                target="_blank"
-                rel="noreferrer"
-                className="p-3 bg-brand-navy-soft hover:bg-white/10 text-brand-copper hover:text-white rounded-xl transition-colors border border-white/10"
-              >
+              <a href={config.socialLinks.instagram} target="_blank" rel="noreferrer" aria-label="Instagram" className="core-public-muted core-public-border core-public-ring rounded-xl border p-3 transition-opacity hover:opacity-75">
                 <Instagram size={18} />
               </a>
             )}
             {config.socialLinks.facebook && (
-              <a
-                href={config.socialLinks.facebook}
-                target="_blank"
-                rel="noreferrer"
-                className="p-3 bg-brand-navy-soft hover:bg-white/10 text-brand-copper hover:text-white rounded-xl transition-colors border border-white/10"
-              >
+              <a href={config.socialLinks.facebook} target="_blank" rel="noreferrer" aria-label="Facebook" className="core-public-muted core-public-border core-public-ring rounded-xl border p-3 transition-opacity hover:opacity-75">
                 <Facebook size={18} />
               </a>
             )}
           </div>
         </div>
 
-        {/* Column 2 - Working hours */}
         <div className="space-y-5">
-          <h4 className="text-white font-extrabold text-sm uppercase tracking-widest text-slate-200">Atendimento</h4>
+          <h4 className="text-sm font-extrabold tracking-widest uppercase">Atendimento</h4>
           <ul className="space-y-3 text-xs md:text-sm">
             {summarizeWeeklySchedule(config.workingHours).map(({ label, value }) => (
-              <li key={label} className={`flex justify-between border-b border-white/10 pb-2 ${value === 'Fechado' ? 'text-slate-500' : ''}`}>
-                <span className="text-slate-400">{label}:</span>
+              <li key={label} className={`core-public-border flex justify-between border-b pb-2 ${value === 'Fechado' ? 'core-public-muted-text' : ''}`}>
+                <span className="core-public-muted-text">{label}:</span>
                 {value === 'Fechado' ? (
-                  <span className="font-bold bg-brand-navy-soft px-2 py-0.5 rounded text-[10px] uppercase">Fechado</span>
+                  <span className="core-public-muted rounded px-2 py-0.5 text-[10px] font-bold uppercase">Fechado</span>
                 ) : (
-                  <span className="text-slate-200 font-semibold">{value}</span>
+                  <span className="font-semibold">{value}</span>
                 )}
               </li>
             ))}
           </ul>
-          {specialOpenings.length > 0 && <div className="border-l-2 border-brand-copper pl-3">
-            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-widest text-brand-copper">Próximos horários especiais</p>
-            <ul className="space-y-2 text-xs text-slate-300">
+          {specialOpenings.length > 0 && <div className="border-l-2 border-[var(--core-primary)] pl-3">
+            <p className="core-public-primary-text mb-2 text-[10px] font-extrabold tracking-widest uppercase">Próximos horários especiais</p>
+            <ul className="core-public-muted-text space-y-2 text-xs">
               {specialOpenings.map(block => {
                 const professional = block.professionalId === 'all' ? 'Todos os profissionais' : professionals.find(item => item.id === block.professionalId)?.name;
                 const date = new Date(`${block.date}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                return <li key={block.id}><strong className="text-white">{date}</strong> · {block.specialHours!.open} - {block.specialHours!.close}{professional ? ` · ${professional}` : ''}</li>;
+                return <li key={block.id}><strong className="text-[var(--core-foreground)]">{date}</strong> · {block.specialHours!.open} - {block.specialHours!.close}{professional ? ` · ${professional}` : ''}</li>;
               })}
             </ul>
           </div>}
         </div>
 
-        {/* Column 3 - Contact Info */}
         <div className="space-y-5">
-          <h4 className="text-white font-extrabold text-sm uppercase tracking-widest text-slate-200">Localização e Contato</h4>
-          <div className="space-y-4 text-xs md:text-sm">
-            {config.address && (
-              <p className="flex items-start gap-3">
-                <MapPin size={18} className="text-brand-copper shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{config.address}</span>
-              </p>
-            )}
-            <p className="flex items-center gap-3">
-              <Phone size={18} className="text-brand-copper shrink-0" />
-              <span>{config.phone}</span>
-            </p>
-            <p className="flex items-center gap-3">
-              <WalletCards size={18} className="text-brand-copper shrink-0" />
-              <span>{config.bookingFee > 0 ? `Taxa de reserva: ${config.bookingFee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : 'Sem taxa de reserva'}</span>
-            </p>
+          <h4 className="text-sm font-extrabold tracking-widest uppercase">Localização e Contato</h4>
+          <div className="core-public-muted-text space-y-4 text-xs md:text-sm">
+            {config.address && <p className="flex items-start gap-3"><MapPin size={18} className="core-public-primary-text mt-0.5 shrink-0" /><span className="leading-relaxed">{config.address}</span></p>}
+            {config.phone && <p className="flex items-center gap-3"><Phone size={18} className="core-public-primary-text shrink-0" /><span>{config.phone}</span></p>}
+            <p className="flex items-center gap-3"><WalletCards size={18} className="core-public-primary-text shrink-0" /><span>{config.bookingFee > 0 ? `Taxa de reserva: ${config.bookingFee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : 'Sem taxa de reserva'}</span></p>
           </div>
         </div>
       </div>
-      
-      <div className="max-w-6xl mx-auto mt-16 pt-8 border-t border-white/10 text-center text-xs text-slate-500 space-y-2">
-        <button onClick={onOpenPrivacy} className="block mx-auto text-slate-400 hover:text-white underline underline-offset-2 transition-colors">
-          Política de Privacidade
-        </button>
+
+      <div className="core-public-border core-public-muted-text mx-auto mt-16 max-w-6xl space-y-2 border-t pt-8 text-center text-xs">
+        <button onClick={onOpenPrivacy} className="core-public-ring underline underline-offset-2 transition-opacity hover:opacity-75">Política de Privacidade</button>
         <div>&copy; {new Date().getFullYear()} {config.name}. Todos os direitos reservados.</div>
       </div>
     </footer>
