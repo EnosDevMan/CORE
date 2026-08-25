@@ -5,6 +5,20 @@ import { AuthUser, LoginCredentials, RegisterPayload } from '../types';
 import { getErrorMessage } from '../../utils/errors';
 import { parseUserRole } from '../authorization';
 
+const PASSWORD_RECOVERY_PARAM = 'password-recovery';
+
+function hasPasswordRecoveryMarker(): boolean {
+  return new URLSearchParams(window.location.search).get(PASSWORD_RECOVERY_PARAM) === '1';
+}
+
+function clearPasswordRecoveryMarker(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(PASSWORD_RECOVERY_PARAM)) return;
+
+  url.searchParams.delete(PASSWORD_RECOVERY_PARAM);
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
 interface AuthState {
   currentUser: AuthUser | null;
   isAuthenticated: boolean;
@@ -14,9 +28,9 @@ interface AuthState {
   initializationError: string | null;
   /**
    * true quando o usuário chegou no app através do link de "recuperar
-   * senha" por e-mail (evento `PASSWORD_RECOVERY` do Supabase). Enquanto
-   * true, a UI deve mostrar a tela de "definir nova senha" em vez do
-   * conteúdo normal.
+   * senha" por e-mail. O evento `PASSWORD_RECOVERY` é a fonte principal;
+   * um marcador explícito na URL serve de fallback caso o SDK processe o
+   * link antes de o listener da aplicação ser registrado.
    */
   passwordRecoveryMode: boolean;
   initialize: () => () => void;
@@ -73,6 +87,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   initialize: () => {
     let active = true;
     let requestVersion = 0;
+    const recoveryMarkerPresent = hasPasswordRecoveryMarker();
 
     const refreshUser = () => {
       const version = ++requestVersion;
@@ -82,6 +97,10 @@ export const useAuthStore = create<AuthState>((set) => ({
             set({
               currentUser: user,
               isAuthenticated: !!user,
+              // O marcador só ativa o fallback se uma sessão válida tiver
+              // sido restaurada. Assim, acrescentar ?password-recovery=1
+              // manualmente não cria uma falsa tela funcional de troca.
+              passwordRecoveryMode: recoveryMarkerPresent && !!user,
               loading: false,
               error: null,
               initializationError: null,
@@ -93,6 +112,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             set({
               currentUser: null,
               isAuthenticated: false,
+              passwordRecoveryMode: false,
               loading: false,
               error: null,
               initializationError: getErrorMessage(cause, 'Não foi possível restaurar sua sessão.'),
@@ -167,18 +187,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await supabaseAuthProvider.logout();
     } finally {
-      // A sessão visual nunca deve permanecer ativa quando o usuário pediu
-      // para sair, mesmo se a revogação remota falhar por falta de rede.
       set({
         currentUser: null,
         isAuthenticated: false,
         loading: false,
         error: null,
         initializationError: null,
+        passwordRecoveryMode: false,
       });
     }
   },
 
   clearError: () => set({ error: null }),
-  completePasswordRecovery: () => set({ passwordRecoveryMode: false }),
+  completePasswordRecovery: () => {
+    clearPasswordRecoveryMarker();
+    set({ passwordRecoveryMode: false });
+  },
 }));
