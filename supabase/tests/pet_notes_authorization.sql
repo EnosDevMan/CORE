@@ -43,6 +43,16 @@ values (
   'Pet'
 );
 
+-- Keep this authorization fixture independent from the weekday and from the
+-- installation defaults. The booking only exists to establish the
+-- professional↔pet relationship exercised by the RLS policy.
+update public.barbershop_config
+set booking_window_days = 365,
+    minimum_notice_minutes = 0,
+    interval_minutes = 30,
+    working_hours = '{"open":"00:00","close":"23:59","daysOpen":[0,1,2,3,4,5,6]}'::jsonb
+where id = true;
+
 insert into public.bookings(
   id, customer_id, customer_name, customer_phone, barber_id, service_id,
   date, time, status, value, starts_at, ends_at, duration_minutes
