@@ -2706,6 +2706,64 @@ $$;
 revoke all on function public.delete_user_account(uuid) from public, anon;
 grant execute on function public.delete_user_account(uuid) to authenticated;
 
+-- ============================================================================
+-- 11. EXPLICIT DATA API PRIVILEGES
+-- ============================================================================
+-- New Supabase projects no longer grant table access automatically. Reset the
+-- browser-role surface first so this schema behaves identically on both old
+-- installations with permissive defaults and new installations without them.
+-- RLS remains the independent row-level authorization layer in every case.
+revoke all on table
+  public.profiles,
+  public.barbershop_config,
+  public.barbers,
+  public.services,
+  public.bookings,
+  public.schedule_blocks,
+  public.gallery_photos,
+  public.business_profile,
+  public.feature_settings,
+  public.booking_settings,
+  public.booking_services,
+  public.installation_owners,
+  public.installation_bootstrap,
+  public.pets,
+  public.pet_notes,
+  public.booking_pets
+from anon, authenticated;
+
+-- Public visitors may read only the business/catalog configuration. Sensitive
+-- professional fields, booking identities and block reasons use safe RPCs.
+grant select on table
+  public.barbershop_config,
+  public.services,
+  public.gallery_photos,
+  public.business_profile,
+  public.feature_settings,
+  public.booking_settings
+to anon;
+
+-- Authenticated users receive only the operations consumed by the app; RLS
+-- and guarded trigger/RPC logic further distinguish owner, staff and customer.
+grant select, update on table
+  public.profiles,
+  public.barbershop_config,
+  public.bookings,
+  public.business_profile,
+  public.feature_settings,
+  public.booking_settings
+to authenticated;
+
+grant select, insert, update on table public.services to authenticated;
+grant insert, update on table public.barbers to authenticated;
+grant select (id) on table public.barbers to authenticated;
+grant select, insert, delete on table public.schedule_blocks to authenticated;
+grant select, insert, update, delete on table public.gallery_photos to authenticated;
+grant select on table public.booking_services to authenticated;
+grant select, insert, update, delete on table
+  public.pets, public.pet_notes, public.booking_pets
+to authenticated;
+
 -- Trigger-only helpers do not form part of the browser-accessible API.
 revoke all on function public.enforce_booking_customer_identity() from public, anon, authenticated;
 revoke all on function public.handle_new_user() from public, anon, authenticated;

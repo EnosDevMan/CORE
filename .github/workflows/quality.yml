@@ -44,6 +44,7 @@ jobs:
           psql --set ON_ERROR_STOP=1
           --file supabase/tests/standalone_bootstrap.sql
           --file supabase/schema.sql
+          --file supabase/tests/data_api_grants.sql
           --file supabase/tests/authorization_roles.sql
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql

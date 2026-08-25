@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../../../store/useApp';
 import { getBusinessTodayStr } from '../../../utils/validation';
 import { useBusiness } from '../../../core/business/hooks';
-import { getProfessionalName as getSharedProfessionalName, getServiceName as getSharedServiceName } from '../../../utils/lookups';
+import { getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
+import { buildServiceRevenueBreakdown } from '../serviceRevenue';
 
 export type ReportPeriod = 'day' | 'week' | 'month' | 'year' | 'custom';
 
@@ -271,26 +272,10 @@ export const useAdminReports = () => {
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [completedInRange, professionals]);
 
-  const serviceBreakdown: ReportBreakdownItem[] = useMemo(() => {
-    const map: Record<string, ReportBreakdownItem> = {};
-    completedInRange.forEach(b => {
-      if (!b.serviceId) return;
-      const ids = b.serviceId.split(',').map(id => id.trim()).filter(Boolean);
-      if (ids.length === 0) return;
-      // Quando o agendamento combina mais de um serviço, dividimos o valor
-      // igualmente entre eles para que a soma do detalhamento continue
-      // batendo com o faturamento total do período.
-      const share = b.value / ids.length;
-      ids.forEach(id => {
-        if (!map[id]) {
-          map[id] = { id, name: getSharedServiceName(services, id), count: 0, total: 0 };
-        }
-        map[id].count += 1;
-        map[id].total += share;
-      });
-    });
-    return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [completedInRange, services]);
+  const serviceBreakdown: ReportBreakdownItem[] = useMemo(
+    () => buildServiceRevenueBreakdown(completedInRange, services),
+    [completedInRange, services],
+  );
 
   return {
     period,

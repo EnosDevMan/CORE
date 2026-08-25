@@ -1,6 +1,6 @@
 # Auditoria de prontidão para produção
 
-Atualização: 24 de agosto de 2026.
+Atualização: 25 de agosto de 2026.
 
 ## Parecer executivo
 
@@ -13,25 +13,29 @@ Há duas métricas diferentes:
 
 | Métrica | Situação deste checkpoint | Para chegar a 100% |
 |---|---:|---|
-| Implementação verificável no repositório | 100% | Manter os checks obrigatórios verdes em toda alteração |
-| Prontidão real de lançamento | 80% | Staging/produção, testes no navegador e domínio reais, operação, jurídico e monitoramento |
+| Implementação verificável no repositório | 100% após CI verde do candidato | Manter schema realista, testes e checks obrigatórios verdes em toda alteração |
+| Prontidão real de lançamento | 85% | Supabase/Vercel, SMTP, testes no domínio real, operação e jurídico |
 
 A primeira nota mede somente aquilo que código e CI conseguem provar. A segunda
 inclui dependências que ainda não existem e não podem ser simuladas como
-concluídas. Os 20 pontos restantes estão distribuídos entre ambientes e domínio
-reais (6), smoke/E2E com Auth e Storage (5), backup/observabilidade/rollback (4),
-jurídico e retenção (3) e proteção contra abuso/notificações (2). A nota deve ser
-recalculada após cada evidência do checklist de deploy.
+concluídas. Os 15 pontos restantes estão distribuídos entre ambientes e domínio
+reais (5), SMTP/Auth reais (3), smoke/E2E com Auth e Storage (3),
+backup/observabilidade/rollback (2), jurídico e retenção (1) e ativação do
+anti-bot já implementado (1). A nota deve ser recalculada após cada evidência
+do checklist de deploy.
 
 ## Evidência automatizada do checkpoint
 
-- GitHub Actions `Quality` #15: instalação limpa com `npm ci` e `npm run verify`
-  concluídos sem vulnerabilidades conhecidas nas dependências de produção;
-- lint e TypeScript sem erros;
-- 24 arquivos de teste e 124 testes aprovados;
-- build de produção e orçamento de bundle aprovados;
-- job `database` aprovado em PostgreSQL 17, aplicando o schema consolidado e os
-  testes SQL de roles, sobreposição e segurança de reservas.
+- validação local do candidato: lint e TypeScript sem erros;
+- 29 arquivos de teste e 139 testes aprovados, cobrindo grants reais,
+  promoção/exclusão de contas, CAPTCHA, política de senhas e atribuição
+  financeira histórica;
+- build de produção aprovado; maior chunk 213,3 kB, JavaScript total 703,8 kB
+  e CSS total 69,8 kB, todos dentro do orçamento versionado;
+- a execução do candidato no GitHub Actions confirmou instalação limpa com
+  Node.js 22, auditoria das dependências de produção e todos os checks acima;
+- o job `database` aprovou o PostgreSQL 17 **sem defaults legados**, incluindo
+  testes SQL de grants, roles, sobreposição e segurança de reservas.
 
 ## Escopo revisado
 
@@ -48,16 +52,20 @@ recalculada após cada evidência do checklist de deploy.
 | Área | Correção aplicada |
 |---|---|
 | Instalação nova | Shell inicial funciona antes de existir `business_profile`; onboarding e reivindicação do primeiro proprietário são atômicos e protegidos por código de uso único. |
+| Supabase atual | Grants explícitos mínimos tornam o projeto compatível com bancos novos sem exposição automática; testes agora reproduzem o comportamento real e bloqueiam falsos positivos. |
 | Sessão | Dados privados são removidos na troca de sessão; falha ao restaurar perfil não é mais confundida com visitante anônimo. |
 | Autorização | Projeções públicas não expõem vínculo Auth dos profissionais; managers/receptionists permanecem negados até terem policies próprias; alterações sem linha afetada agora falham. |
 | Agenda concorrente | Criação e reagendamento passam por RPC, advisory lock, snapshots e exclusion constraint; duas requisições não podem ocupar o mesmo intervalo. |
 | Regras do servidor | Preço, duração, telefone, serviços ativos, janela, antecedência, grade, expediente, pausas, bloqueios e profissional ativo são revalidados no banco. |
 | Histórico | Valor, duração e intervalo são snapshots imutáveis; alterar ou desativar catálogo não reescreve agendamentos antigos. |
+| Financeiro | Relatórios de combos usam nome e preço históricos por item, preservam centavos e não dividem faturamento de forma arbitrária. |
 | Status | Fluxo operacional é `aguardando → confirmado → em atendimento → concluído`; profissional não pode pular etapas, registrar ausência antecipada ou adulterar cliente, serviço, preço, notas e horário diretamente. |
 | Cliente | Cliente não pode editar observações, desfazer presença, cancelar finalizados ou reagendar sem revalidar conflito/prazo. |
 | Pagamento | Taxa zero confirma automaticamente; taxa positiva exige PIX; valor e regra de cancelamento aparecem antes da reserva. |
 | Configuração | Horários semanais, taxa, PIX, janela, intervalo, antecedência e cancelamento têm validação no navegador e no banco. |
 | Profissionais/serviços | Exclusão destrutiva virou desativação, preservando histórico e FKs. Vínculos conta/agenda são sincronizados na mesma transação. |
+| Contas | Proprietário consegue promover clientes a profissionais e remover identidades/sessões pelo painel; owners permanecem protegidos e reservas históricas sobrevivem. |
+| Autenticação | Cadastro e reset compartilham mínimo de oito caracteres; Turnstile opcional protege login, cadastro e recuperação com validação pelo Supabase. |
 | Storage | MIME e tamanho são limitados no bucket; uploads usam nomes únicos; falhas compensam rascunhos; remoção respeita identidade e ordem segura banco→arquivo. |
 | Galeria | Reordenação é atômica; falha de banco não deixa foto pública quebrada. |
 | Privacidade | Versão do aceite foi centralizada; texto e comportamento do WhatsApp/taxa foram alinhados. |
@@ -70,10 +78,11 @@ recalculada após cada evidência do checklist de deploy.
 | Prioridade | Pendência | Evidência de conclusão |
 |---|---|---|
 | Bloqueador | Não existe ambiente Supabase/Vercel de staging ou produção. | Schema aplicado em Supabase vazio, Vercel ligada ao commit aprovado e variáveis separadas por ambiente. |
+| Bloqueador | Não existe SMTP próprio no Supabase; o remetente padrão não entrega para clientes externos. | Provedor SMTP configurado, domínio autenticado e confirmação/reset entregues a um endereço externo. |
 | Bloqueador | A política é um texto técnico e ainda precisa de decisão de retenção e revisão jurídica/LGPD. | Texto aprovado, contato real e prazos de retenção documentados antes de abrir cadastro. |
 | Bloqueador | Não houve smoke test no domínio e navegador reais. | Matriz anônimo/customer/professional/owner em mobile e desktop, incluindo Auth redirect, Storage e recuperação de senha. |
 | Alta | Não há provedor automático de WhatsApp/e-mail/SMS. O produto oferece link manual confiável. | Integrar provedor aprovado ou declarar formalmente que comunicação é manual. |
-| Alta | Rate limit por telefone reduz abuso, mas não substitui proteção distribuída contra bots. | CAPTCHA/Turnstile, WAF/rate limit de borda ou decisão de risco registrada após teste. |
+| Alta | Turnstile já está implementado, mas depende de chaves reais e ativação coordenada no Supabase/Vercel. | Widget validado em login, cadastro e reset; chave secreta limitada ao painel Auth. |
 | Alta | Backup, restauração, alertas, logs e responsável por incidentes ainda não foram configurados. | Restauração ensaiada, alertas ativos, runbook e rollback com responsáveis. |
 | Média | Não há suíte E2E de navegador versionada. | Playwright/Cypress para os fluxos críticos ou evidência manual reproduzível em staging. |
 
@@ -81,8 +90,8 @@ recalculada após cada evidência do checklist de deploy.
 
 - `loadAllData` ainda pagina todas as reservas permitidas na inicialização; mover
   consultas para cada tela antes de volume elevado.
-- `service_id` CSV continua como ponte; `booking_services` já preserva snapshots,
-  mas o detalhamento financeiro por serviço ainda divide combos igualmente.
+- `service_id` CSV continua como ponte de compatibilidade; relatórios já usam
+  os itens históricos normalizados de `booking_services`.
 - nomes físicos `barbers`/`barber_id` permanecem somente na fronteira SQL/Storage.
 - manager e receptionist existem no enum, mas ficam intencionalmente sem acesso
   até uma matriz de permissões ser desenhada e testada.
@@ -94,11 +103,11 @@ recalculada após cada evidência do checklist de deploy.
 1. Manter CI verde no SHA exato que será implantado — atendido neste checkpoint.
 2. Supabase novo criado e `supabase/schema.sql` aplicado uma única vez.
 3. Staging Vercel ligada ao Supabase de staging, sem usar dados de produção.
-4. Owner preparado, e-mail confirmado e onboarding completo.
-5. Smoke tests de cadastro, login, reset, reserva, colisão, PIX, status,
+4. SMTP próprio validado; owner preparado, e-mail confirmado e onboarding completo.
+5. Smoke tests de cadastro, login, reset, CAPTCHA, reserva, colisão, PIX, status,
    reagendamento, cancelamento, bloqueio e upload em mobile/desktop.
 6. Headers e CSP conferidos na resposta HTTP do domínio final.
 7. Backup restaurado em teste; monitoramento, alerta e rollback ensaiados.
 8. Termos, retenção, contato e operação de notificações aprovados.
-9. Proteção anti-bot decidida com base em teste de abuso.
+9. Turnstile real habilitado ou decisão de risco registrada após teste de abuso.
 10. Checklist e evidências anexados ao release; só então a prontidão real é 100%.

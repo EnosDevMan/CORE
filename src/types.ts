@@ -43,6 +43,13 @@ export type BookingStatus =
   | 'Cancelado'
   | 'Não compareceu';
 
+export interface BookingServiceItem {
+  serviceId: string;
+  name: string;
+  durationMinutes: number;
+  price: number;
+}
+
 export interface Booking {
   id: string;
   customerId: string;
@@ -62,6 +69,8 @@ export interface Booking {
   startsAt?: string;
   endsAt?: string;
   durationMinutes?: number;
+  /** Historical per-service prices/names, available in the owner workspace. */
+  serviceItems?: BookingServiceItem[];
 }
 
 export interface SocialLinks {

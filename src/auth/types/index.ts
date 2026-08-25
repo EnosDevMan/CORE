@@ -28,6 +28,7 @@ export interface AuthSession {
 export interface LoginCredentials {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface RegisterPayload {
@@ -35,6 +36,7 @@ export interface RegisterPayload {
   email: string;
   phone: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface AuthResult<T = AuthUser> {
@@ -53,7 +55,7 @@ export interface IAuthProvider {
   logout(): Promise<void>;
   getSession(): Promise<AuthSession | null>;
   onSessionChange(callback: (session: AuthSession | null) => void): () => void;
-  sendPasswordResetEmail(email: string): Promise<AuthResult<void>>;
+  sendPasswordResetEmail(email: string, captchaToken?: string): Promise<AuthResult<void>>;
   updatePassword(newPassword: string): Promise<AuthResult<void>>;
   confirmEmail(token: string): Promise<AuthResult<void>>;
   refreshSession(): Promise<AuthSession | null>;

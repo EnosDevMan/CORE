@@ -329,10 +329,19 @@ declare
   v_public_block jsonb;
   v_public_professional jsonb;
 begin
-  if exists(select 1 from public.bookings)
-     or exists(select 1 from public.schedule_blocks) then
-    raise exception 'TEST FAILURE: anonymous callers can read private rows';
-  end if;
+  begin
+    perform 1 from public.bookings;
+    raise exception 'TEST FAILURE: anonymous callers can reach private bookings';
+  exception when insufficient_privilege then
+    null;
+  end;
+
+  begin
+    perform 1 from public.schedule_blocks;
+    raise exception 'TEST FAILURE: anonymous callers can reach private schedule blocks';
+  exception when insufficient_privilege then
+    null;
+  end;
 
   if (select count(*) from public.get_public_occupied_intervals(
     '00000000-0000-4000-8000-000000000003',

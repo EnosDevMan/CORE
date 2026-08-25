@@ -48,8 +48,12 @@ function toAuthSession(session: NonNullable<Awaited<ReturnType<typeof supabase.a
 }
 
 export const supabaseAuthProvider: IAuthProvider = {
-  async login({ email, password }: LoginCredentials): Promise<AuthResult> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+  async login({ email, password, captchaToken }: LoginCredentials): Promise<AuthResult> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+      options: { captchaToken },
+    });
     if (error || !data.user) {
       return { success: false, error: error?.message || 'Não foi possível entrar. Verifique seus dados.' };
     }
@@ -63,11 +67,12 @@ export const supabaseAuthProvider: IAuthProvider = {
     return { success: true, data: profile };
   },
 
-  async register({ name, email, phone, password }: RegisterPayload): Promise<AuthResult> {
+  async register({ name, email, phone, password, captchaToken }: RegisterPayload): Promise<AuthResult> {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
+        captchaToken,
         data: { name: name.trim(), phone: phone.trim(), privacy_policy_version: PRIVACY_POLICY_VERSION },
         // Sem isto, o link de confirmação por e-mail usa o "Site URL"
         // configurado no painel do Supabase (Authentication > URL
@@ -104,11 +109,12 @@ export const supabaseAuthProvider: IAuthProvider = {
     return () => subscription.subscription.unsubscribe();
   },
 
-  async sendPasswordResetEmail(email: string): Promise<AuthResult<void>> {
+  async sendPasswordResetEmail(email: string, captchaToken?: string): Promise<AuthResult<void>> {
     // Mesmo raciocínio do emailRedirectTo em `register` acima: evita
     // depender só do "Site URL" do painel do Supabase.
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: window.location.origin,
+      captchaToken,
     });
     if (error) return { success: false, error: error.message };
     return { success: true };

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { Professional, Service, BusinessConfig, Booking, User, ScheduleBlock, GalleryPhoto, WorkingHours, UserRole } from '../types';
+import { Professional, Service, BusinessConfig, Booking, BookingServiceItem, User, ScheduleBlock, GalleryPhoto, WorkingHours, UserRole } from '../types';
 import { isAdministratorRole, isProfessionalRole, parseUserRole } from '../auth/authorization';
 export { DEFAULT_PROFESSIONAL_AVATAR as DEFAULT_AVATAR } from '../features/professionals/constants';
 
@@ -81,6 +81,15 @@ type ScheduleBlockRow = {
   end_time?: string;
   reason?: string;
   special_hours?: ScheduleBlock['specialHours'];
+};
+
+type BookingServiceRow = {
+  booking_id: string;
+  service_id: string;
+  position: number;
+  name_snapshot: string;
+  duration_minutes: number;
+  price_snapshot: number | string;
 };
 
 type GalleryPhotoRow = {
@@ -171,7 +180,7 @@ function mapService(row: ServiceRow): Service {
 
 const toHHMM = (t: string | null | undefined) => (t ? t.slice(0, 5) : t);
 
-function mapBooking(row: BookingRow): Booking {
+function mapBooking(row: BookingRow, serviceItems?: BookingServiceItem[]): Booking {
   return {
     id: row.id,
     customerId: row.customer_id ?? 'guest',
@@ -190,6 +199,7 @@ function mapBooking(row: BookingRow): Booking {
     startsAt: row.starts_at ?? undefined,
     endsAt: row.ends_at ?? undefined,
     durationMinutes: row.duration_minutes ?? undefined,
+    serviceItems: serviceItems?.length ? serviceItems : undefined,
   };
 }
 
@@ -280,24 +290,56 @@ export const dataService = {
 
     // Visitantes não consultam tabelas protegidas. Para usuários autenticados,
     // paginação explícita evita o limite silencioso de 1.000 linhas do PostgREST.
-    const bookings: BookingRow[] = [];
-    if (role) {
+    const loadBookings = async (): Promise<BookingRow[]> => {
+      if (!role) return [];
+      const rows: BookingRow[] = [];
       for (let from = 0; ; from += 500) {
         const result = await supabase.from('bookings').select('*').order('date').range(from, from + 499);
         throwIfError(result.error);
-        bookings.push(...((result.data || []) as BookingRow[]));
-        if ((result.data?.length ?? 0) < 500) break;
+        rows.push(...((result.data || []) as BookingRow[]));
+        if ((result.data?.length ?? 0) < 500) return rows;
       }
-    }
+    };
 
-    const users: ProfileRow[] = [];
-    if (isAdministratorRole(role)) {
+    const loadUsers = async (): Promise<ProfileRow[]> => {
+      if (!isAdministratorRole(role)) return [];
+      const rows: ProfileRow[] = [];
       for (let from = 0; ; from += 500) {
-        const result = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).range(from, from + 499);
+        const result = await supabase.from('profiles').select('*')
+          .order('created_at', { ascending: false }).range(from, from + 499);
         throwIfError(result.error);
-        users.push(...((result.data || []) as ProfileRow[]));
-        if ((result.data?.length ?? 0) < 500) break;
+        rows.push(...((result.data || []) as ProfileRow[]));
+        if ((result.data?.length ?? 0) < 500) return rows;
       }
+    };
+
+    const loadServiceItems = async (): Promise<BookingServiceRow[]> => {
+      if (!isAdministratorRole(role)) return [];
+      const rows: BookingServiceRow[] = [];
+      for (let from = 0; ; from += 500) {
+        const result = await supabase.from('booking_services')
+          .select('booking_id, service_id, position, name_snapshot, duration_minutes, price_snapshot')
+          .order('booking_id').order('position').range(from, from + 499);
+        throwIfError(result.error);
+        rows.push(...((result.data || []) as BookingServiceRow[]));
+        if ((result.data?.length ?? 0) < 500) return rows;
+      }
+    };
+
+    const [bookings, users, serviceItemRows] = await Promise.all([
+      loadBookings(), loadUsers(), loadServiceItems(),
+    ]);
+    const serviceItemsByBooking = new Map<string, BookingServiceItem[]>();
+
+    for (const row of serviceItemRows) {
+      const items = serviceItemsByBooking.get(row.booking_id) ?? [];
+      items.push({
+        serviceId: row.service_id,
+        name: row.name_snapshot,
+        durationMinutes: row.duration_minutes,
+        price: Number(row.price_snapshot),
+      });
+      serviceItemsByBooking.set(row.booking_id, items);
     }
 
     return {
@@ -306,7 +348,7 @@ export const dataService = {
         .map(mapProfessional)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
       services: (servicesRes.data || []).map(mapService),
-      bookings: bookings.map(mapBooking),
+      bookings: bookings.map(booking => mapBooking(booking, serviceItemsByBooking.get(booking.id))),
       users: users.map(mapProfile),
       scheduleBlocks: (blocksRes.data || []).map(mapScheduleBlock),
       galleryPhotos: (galleryRes.data || []).map(mapGalleryPhoto),
@@ -341,6 +383,23 @@ export const dataService = {
       .eq('id', true)
       .select('id')
       .single();
+    throwIfError(error);
+  },
+
+  /** Only an owner can change application roles; RLS and triggers enforce it. */
+  async updateUserRole(userId: string, role: 'customer' | 'professional'): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role })
+      .eq('id', userId)
+      .select('id')
+      .single();
+    throwIfError(error);
+  },
+
+  /** Deletes Auth identity and refresh sessions through an owner-only RPC. */
+  async deleteUserAccount(userId: string): Promise<void> {
+    const { error } = await supabase.rpc('delete_user_account', { p_user_id: userId });
     throwIfError(error);
   },
 
