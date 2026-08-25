@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../../store/useApp';
-import { LayoutDashboard, BarChart3, CalendarDays, CalendarPlus, Scissors, Users, Settings, Camera, PawPrint, ShieldCheck, Palette } from 'lucide-react';
+import { LayoutDashboard, BarChart3, CalendarDays, CalendarPlus, Scissors, Users, Settings, Camera, PawPrint, ShieldCheck } from 'lucide-react';
 import { formatBRL } from '../../../utils/validation';
 import { getErrorMessage } from '../../../utils/errors';
 import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
@@ -12,7 +12,7 @@ export const useAdminDashboard = () => {
   const { config, currentUser, professionals, services, updateBookingStatus } = useApp();
   const niche = useNiche();
   const { hasCapability } = useBusiness();
-  
+
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -48,12 +48,11 @@ export const useAdminDashboard = () => {
   };
 
   const getProfessionalName = (id: string) => getSharedProfessionalName(professionals, id);
-
   const getServiceName = (id: string) => getSharedServiceName(services, id);
 
   const icons = { overview: LayoutDashboard, 'new-booking': CalendarPlus, agenda: CalendarDays,
     clients: Users, reports: BarChart3, services: Scissors, professionals: Users,
-    pets: PawPrint, gallery: Camera, accounts: ShieldCheck, appearance: Palette, settings: Settings } as const;
+    pets: PawPrint, gallery: Camera, accounts: ShieldCheck, appearance: Settings, settings: Settings } as const;
   const navItems = getAdminNavigation(niche, hasCapability)
     .map(item => ({ ...item, icon: icons[item.id] }));
 
