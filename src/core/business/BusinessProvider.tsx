@@ -5,15 +5,37 @@ import type { BusinessContextValue, BusinessProfile, Capability } from './types'
 import { BusinessContext, NicheContext, ThemeContext } from './contexts';
 import { applyBusinessMetadata } from './metadata';
 
-export function BusinessProvider({ profile, capabilities, children }: { profile: BusinessProfile; capabilities?: readonly Capability[]; children: ReactNode }) {
+interface BusinessProviderProps {
+  profile: BusinessProfile;
+  capabilities?: readonly Capability[];
+  configured?: boolean;
+  children: ReactNode;
+}
+
+export function BusinessProvider({
+  profile,
+  capabilities,
+  configured = true,
+  children,
+}: BusinessProviderProps) {
   const niche = getNichePreset(profile.nicheId);
   const theme = getThemePreset(profile.themeId);
   const themeStyle = toCssVariables(theme) as CSSProperties;
   const value = useMemo<BusinessContextValue>(() => {
     const enabled = new Set(capabilities ?? niche.recommendedCapabilities);
-    return { profile, capabilities: enabled, hasCapability: capability => enabled.has(capability) };
-  }, [capabilities, niche.recommendedCapabilities, profile]);
-  useEffect(() => applyBusinessMetadata(document, window.location, profile, theme.tokens.background), [profile, theme.tokens.background]);
+    return {
+      profile,
+      configured,
+      capabilities: enabled,
+      hasCapability: capability => enabled.has(capability),
+    };
+  }, [capabilities, configured, niche.recommendedCapabilities, profile]);
+
+  useEffect(
+    () => applyBusinessMetadata(document, window.location, profile, theme.tokens.background),
+    [profile, theme.tokens.background],
+  );
+
   return (
     <BusinessContext.Provider value={value}>
       <NicheContext.Provider value={niche}>
