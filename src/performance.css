@@ -1,0 +1,123 @@
+/*
+ * Motion e renderização do CORE.
+ *
+ * O movimento é neutro: opacity/transform comunicam continuidade sem impor
+ * uma cor de nicho. Quando existe cor, ela vem dos tokens do tema atual.
+ */
+:root {
+  --core-motion-fast: 140ms;
+  --core-motion-normal: 190ms;
+  --core-motion-slow: 240ms;
+  --core-motion-ease: cubic-bezier(.2, .75, .25, 1);
+}
+
+@keyframes core-view-enter {
+  from { opacity: .94; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.core-view-enter {
+  animation: core-view-enter var(--core-motion-normal) var(--core-motion-ease) both;
+  will-change: opacity, transform;
+}
+
+/* Indicador só aparece quando React está realmente esperando um chunk/tela.
+   O pequeno atraso visual evita piscar em navegações que terminam quase no
+   mesmo frame. */
+@keyframes core-route-progress-reveal {
+  to { opacity: 1; }
+}
+
+@keyframes core-route-progress-move {
+  from { transform: translate3d(-130%, 0, 0); }
+  to { transform: translate3d(260%, 0, 0); }
+}
+
+.core-route-progress {
+  position: fixed;
+  z-index: 80;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--core-primary, #64748b) 12%, transparent);
+  animation: core-route-progress-reveal 70ms 100ms linear forwards;
+}
+
+.core-route-progress > span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--core-primary, #64748b);
+  animation: core-route-progress-move 760ms var(--core-motion-ease) infinite;
+  will-change: transform;
+}
+
+/* Seções abaixo do hero deixam de competir com o primeiro paint. O navegador
+   ainda preserva uma estimativa de altura, evitando saltos bruscos na página. */
+.core-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+/* Blur continua presente como acabamento, mas em intensidade menor. Em telas
+   pequenas preferimos superfícies quase opacas, que custam menos para a GPU
+   durante scroll e transições. */
+.core-navbar { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.core-hero__login { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.core-hero-visual__note,
+.core-hero-visual__availability,
+.core-hero-visual__stats { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+[data-section-style="showcase"] .core-service-card { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+[data-theme="blush_glass"] .core-service-card,
+[data-theme="blush_glass"] .core-professional-card,
+[data-theme="blush_glass"] .core-hero-visual__note,
+[data-theme="blush_glass"] .core-hero-visual__availability,
+[data-theme="blush_glass"] .core-hero-visual__stats { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+.core-hero__primary,
+.core-hero__login,
+.core-button-primary,
+.ui-button {
+  transition-duration: var(--core-motion-fast);
+}
+
+@media (max-width: 639px) {
+  .core-navbar {
+    background: color-mix(in srgb, var(--core-surface) 95%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .core-hero__login,
+  .core-hero-visual__note,
+  .core-hero-visual__availability,
+  .core-hero-visual__stats,
+  [data-section-style="showcase"] .core-service-card,
+  [data-theme="blush_glass"] .core-service-card,
+  [data-theme="blush_glass"] .core-professional-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .core-hero-visual__note,
+  .core-hero-visual__availability,
+  .core-hero-visual__stats {
+    background: color-mix(in srgb, var(--core-surface-elevated) 96%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .core-view-enter,
+  .core-route-progress,
+  .core-route-progress > span {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1;
+    will-change: auto;
+  }
+}
