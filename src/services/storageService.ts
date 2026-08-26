@@ -1,18 +1,30 @@
 import { supabase } from '../lib/supabaseClient';
+import { prepareOptimizedImage } from '../utils/imageOptimization';
 export { getPublicStoragePath } from './storagePath';
 import { getPublicStoragePath } from './storagePath';
 
 const MAX_FILE_SIZE_MB = 5;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+const asWebpPath = (path: string): string => {
+  const lastSlash = path.lastIndexOf('/');
+  const lastDot = path.lastIndexOf('.');
+  if (lastDot > lastSlash) return `${path.slice(0, lastDot)}.webp`;
+  return `${path}.webp`;
+};
+
 /**
  * Envia uma imagem para um bucket público do Supabase Storage e retorna a
  * URL pública definitiva.
  *
+ * Fotos de profissionais passam por otimização centralizada aqui. Assim tanto
+ * o painel administrativo quanto a autoedição do profissional recebem o mesmo
+ * limite sem cada tela precisar lembrar de comprimir a câmera do celular.
+ * Capa, galeria e logo já possuem pipelines específicos antes desta função.
+ *
  * @param file Arquivo de imagem selecionado pelo usuário
- * @param path Caminho/nome de destino dentro do bucket (ex: `barbers/${id}.jpg`)
- * @param bucket Bucket de destino (padrão: `avatars`, para não quebrar quem
- *   já chamava esta função sem o terceiro argumento)
+ * @param path Caminho/nome de destino dentro do bucket
+ * @param bucket Bucket de destino (padrão: `avatars`)
  */
 export async function uploadImage(file: File, path: string, bucket: string = 'avatars'): Promise<string> {
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -22,13 +34,25 @@ export async function uploadImage(file: File, path: string, bucket: string = 'av
     throw new Error(`Imagem muito grande. O tamanho máximo é ${MAX_FILE_SIZE_MB}MB.`);
   }
 
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+  let uploadFile = file;
+  let uploadPath = path;
+  if (bucket === 'avatars') {
+    uploadFile = await prepareOptimizedImage(file, {
+      maxDimension: 900,
+      quality: 0.82,
+      filenamePrefix: 'professional',
+    });
+    uploadPath = asWebpPath(path);
+  }
+
+  const { error } = await supabase.storage.from(bucket).upload(uploadPath, uploadFile, {
     upsert: false,
     cacheControl: '31536000',
+    contentType: uploadFile.type,
   });
   if (error) throw new Error(error.message);
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(uploadPath);
   return data.publicUrl;
 }
 

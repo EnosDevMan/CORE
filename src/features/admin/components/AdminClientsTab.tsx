@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { User, Phone, Mail, Calendar as CalendarIcon, Search } from 'lucide-react';
-import { useApp } from '../../../store/useApp';
+import { useBookings, useUsers } from '../../../store/useApp';
 import { isCustomerRole } from '../../../auth/authorization';
 import { useNiche } from '../../../core/business/hooks';
 
@@ -9,16 +9,18 @@ interface AdminClientsTabProps {
 }
 
 export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) => {
-  const { users, bookings } = useApp();
+  const users = useUsers();
+  const bookings = useBookings();
   const niche = useNiche();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredClients = useMemo(() => {
-    const search = searchTerm.trim().toLocaleLowerCase('pt-BR');
+    const normalizedSearch = searchTerm.trim();
+    const search = normalizedSearch.toLocaleLowerCase('pt-BR');
     return users.filter(client => isCustomerRole(client.role) && (
       client.name.toLocaleLowerCase('pt-BR').includes(search)
       || client.email.toLocaleLowerCase('pt-BR').includes(search)
-      || Boolean(client.phone?.includes(searchTerm.trim()))
+      || Boolean(client.phone?.includes(normalizedSearch))
     ));
   }, [searchTerm, users]);
 

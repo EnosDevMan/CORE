@@ -4,7 +4,15 @@
  */
 
 import { Suspense, lazy, useEffect, useState, useTransition } from 'react';
-import { useApp } from './store/useApp';
+import {
+  useAuthInitializationError,
+  useCompletePasswordRecovery,
+  useCurrentUser,
+  useDataLoading,
+  useLoadError,
+  useLogout,
+  usePasswordRecoveryMode,
+} from './store/useApp';
 import { AppDataLoader } from './store/AppDataLoader';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
@@ -14,17 +22,21 @@ const loadCustomerDashboard = () => import('./components/CustomerDashboard');
 const loadProfessionalDashboard = () => import('./components/ProfessionalDashboard');
 const loadAdminDashboard = () => import('./components/AdminDashboard');
 const loadPrivacyPolicyPage = () => import('./components/PrivacyPolicyPage');
+const loadLoginModal = () => import('./components/LoginModal');
+const loadResetPasswordView = () => import('./components/ResetPasswordView');
+const loadOnboardingWizard = () => import('./features/onboarding/components/OnboardingWizard');
 
 const BookingFlow = lazy(() => loadBookingFlow().then(module => ({ default: module.BookingFlow })));
 const CustomerDashboard = lazy(() => loadCustomerDashboard().then(module => ({ default: module.CustomerDashboard })));
 const ProfessionalDashboard = lazy(() => loadProfessionalDashboard().then(module => ({ default: module.ProfessionalDashboard })));
 const AdminDashboard = lazy(() => loadAdminDashboard().then(module => ({ default: module.AdminDashboard })));
 const PrivacyPolicyPage = lazy(() => loadPrivacyPolicyPage().then(module => ({ default: module.PrivacyPolicyPage })));
-import { LoginModal } from './components/LoginModal';
-import { ResetPasswordView } from './components/ResetPasswordView';
+const LoginModal = lazy(() => loadLoginModal().then(module => ({ default: module.LoginModal })));
+const ResetPasswordView = lazy(() => loadResetPasswordView().then(module => ({ default: module.ResetPasswordView })));
+const OnboardingWizard = lazy(() => loadOnboardingWizard().then(module => ({ default: module.OnboardingWizard })));
+
 import { Shield } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
-import { OnboardingWizard } from './features/onboarding/components/OnboardingWizard';
 import { InstallationPendingView } from './features/onboarding/components/InstallationPendingView';
 import { onboardingService, type OnboardingState } from './features/onboarding/services/onboardingService';
 import { BusinessRuntimeBoundary } from './core/business/BusinessRuntimeBoundary';
@@ -66,15 +78,21 @@ function CoreSchedulingApp() {
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [isRoutePending, startRouteTransition] = useTransition();
   const { configured: businessConfigured } = useBusiness();
-  const {
-    loading,
-    loadError,
-    authInitializationError,
-    currentUser,
-    passwordRecoveryMode,
-    completePasswordRecovery,
-    logout,
-  } = useApp();
+
+  // The shell subscribes only to state it actually renders. A booking, gallery
+  // edit or client update should not re-render the entire application tree.
+  const loading = useDataLoading();
+  const loadError = useLoadError();
+  const authInitializationError = useAuthInitializationError();
+  const currentUser = useCurrentUser();
+  const passwordRecoveryMode = usePasswordRecoveryMode();
+  const completePasswordRecovery = useCompletePasswordRecovery();
+  const logout = useLogout();
+
+  const openLogin = () => {
+    void loadLoginModal();
+    setLoginOpen(true);
+  };
 
   useEffect(() => {
     const protectedView = currentView === 'customer' || currentView === 'professional' || currentView === 'admin';
@@ -91,6 +109,7 @@ function CoreSchedulingApp() {
     if (loading || currentView !== 'landing' || !businessConfigured) return undefined;
     return scheduleWhenIdle(() => {
       warmView('booking');
+      if (!currentUser) void loadLoginModal();
       if (currentUser) warmView('customer');
       if (isAdministratorRole(currentUser?.role)) warmView('admin');
       else if (canAccessProfessionalWorkspace(currentUser?.role)) warmView('professional');
@@ -129,7 +148,11 @@ function CoreSchedulingApp() {
   }
 
   if (passwordRecoveryMode) {
-    return <ResetPasswordView onComplete={completePasswordRecovery} />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <ResetPasswordView onComplete={completePasswordRecovery} />
+      </Suspense>
+    );
   }
 
   if (!businessConfigured) {
@@ -147,21 +170,25 @@ function CoreSchedulingApp() {
       return (
         <>
           <InstallationPendingView
-            onOpenAccess={() => setLoginOpen(true)}
+            onOpenAccess={openLogin}
             onOpenPrivacy={() => {
               warmView('privacy');
               setCurrentView('privacy');
             }}
           />
-          <LoginModal
-            isOpen={loginOpen}
-            onClose={() => setLoginOpen(false)}
-            onOpenPrivacy={() => {
-              setLoginOpen(false);
-              warmView('privacy');
-              setCurrentView('privacy');
-            }}
-          />
+          {loginOpen && (
+            <Suspense fallback={null}>
+              <LoginModal
+                isOpen
+                onClose={() => setLoginOpen(false)}
+                onOpenPrivacy={() => {
+                  setLoginOpen(false);
+                  warmView('privacy');
+                  setCurrentView('privacy');
+                }}
+              />
+            </Suspense>
+          )}
         </>
       );
     }
@@ -175,7 +202,11 @@ function CoreSchedulingApp() {
     }
 
     if (!onboardingState.completed && (isAdministratorRole(currentUser.role) || !onboardingState.ownerExists)) {
-      return <OnboardingWizard currentRole={currentUser.role} />;
+      return (
+        <Suspense fallback={<LoadingScreen />}>
+          <OnboardingWizard currentRole={currentUser.role} />
+        </Suspense>
+      );
     }
 
     if (onboardingState.completed) {
@@ -208,7 +239,7 @@ function CoreSchedulingApp() {
     // 'booking' propositalmente NÃO exige login: o fluxo suporta convidado.
     // Só o painel do cliente, com histórico pessoal, exige sessão.
     if (view === 'customer' && !currentUser) {
-      setLoginOpen(true);
+      openLogin();
       return;
     }
 
@@ -229,7 +260,7 @@ function CoreSchedulingApp() {
         return (
           <LandingPage
             onStartBooking={(selection) => navigateTo('booking', selection)}
-            onOpenLogin={() => setLoginOpen(true)}
+            onOpenLogin={openLogin}
             onOpenPrivacy={() => navigateTo('privacy')}
           />
         );
@@ -257,7 +288,7 @@ function CoreSchedulingApp() {
                 Esta área é reservada exclusivamente para os profissionais da equipe.
               </p>
               <button
-                onClick={() => setLoginOpen(true)}
+                onClick={openLogin}
                 className="mt-6 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Fazer Login Profissional
@@ -278,7 +309,7 @@ function CoreSchedulingApp() {
                 Esta área é reservada para a administração do negócio. Por favor, autentique-se para continuar.
               </p>
               <button
-                onClick={() => setLoginOpen(true)}
+                onClick={openLogin}
                 className="mt-6 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Fazer Login de Administrador
@@ -299,7 +330,7 @@ function CoreSchedulingApp() {
         return (
           <LandingPage
             onStartBooking={(selection) => navigateTo('booking', selection)}
-            onOpenLogin={() => setLoginOpen(true)}
+            onOpenLogin={openLogin}
             onOpenPrivacy={() => navigateTo('privacy')}
           />
         );
@@ -319,7 +350,7 @@ function CoreSchedulingApp() {
 
       {!isAdminShell && (
         <Navbar
-          onOpenLogin={() => setLoginOpen(true)}
+          onOpenLogin={openLogin}
           onNavigate={(view) => navigateTo(view)}
           currentPage={currentView}
         />
@@ -334,11 +365,15 @@ function CoreSchedulingApp() {
         </Suspense>
       </main>
 
-      <LoginModal
-        isOpen={loginOpen}
-        onClose={() => setLoginOpen(false)}
-        onOpenPrivacy={() => { setLoginOpen(false); navigateTo('privacy'); }}
-      />
+      {loginOpen && (
+        <Suspense fallback={null}>
+          <LoginModal
+            isOpen
+            onClose={() => setLoginOpen(false)}
+            onOpenPrivacy={() => { setLoginOpen(false); navigateTo('privacy'); }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

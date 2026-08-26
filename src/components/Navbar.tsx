@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, LogIn, LogOut, Menu, X } from 'lucide-react';
-import { useApp } from '../store/useApp';
+import { useCurrentUser, useLogout } from '../store/useApp';
 import { UserRole } from '../types';
 import { getCompactDisplayName } from '../utils/displayName';
 import { getRoleLabel, isAdministratorRole, isCustomerRole, isProfessionalRole } from '../auth/authorization';
@@ -13,13 +13,16 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenLogin }) => {
-  const { currentUser, logout } = useApp();
+  const currentUser = useCurrentUser();
+  const logout = useLogout();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     const closeAtDesktop = () => { if (window.innerWidth >= 768) setMobileMenuOpen(false); };
     window.addEventListener('resize', closeAtDesktop);
     return () => window.removeEventListener('resize', closeAtDesktop);
   }, []);
+
   const compactUserName = currentUser ? getCompactDisplayName(currentUser.name) : '';
 
   const getRoleBadge = (role: UserRole) => (
@@ -59,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
                   <div className="mt-0.5 leading-none">{getRoleBadge(currentUser.role)}</div>
                 </div>
                 {currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.name} className="core-public-border size-8 rounded-full border object-cover" />
+                  <img src={currentUser.avatar} alt={currentUser.name} decoding="async" className="core-public-border size-8 rounded-full border object-cover" />
                 ) : (
                   <div className="core-public-secondary flex size-8 items-center justify-center rounded-full text-xs font-bold uppercase">{currentUser.name.charAt(0)}</div>
                 )}
@@ -99,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
             {currentUser ? (
               <div className="core-public-muted core-public-border flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-2">
-                  {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.name} className="size-8 rounded-full object-cover" /> : <div className="core-public-secondary flex size-8 items-center justify-center rounded-full text-xs font-bold">{currentUser.name.charAt(0)}</div>}
+                  {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.name} decoding="async" className="size-8 rounded-full object-cover" /> : <div className="core-public-secondary flex size-8 items-center justify-center rounded-full text-xs font-bold">{currentUser.name.charAt(0)}</div>}
                   <div><p className="text-xs font-semibold">{compactUserName}</p><div className="mt-0.5">{getRoleBadge(currentUser.role)}</div></div>
                 </div>
                 <button onClick={() => { void logout(); setMobileMenuOpen(false); }} className="core-public-ring core-public-muted-text rounded-lg p-2" aria-label="Sair"><LogOut size={16} /></button>

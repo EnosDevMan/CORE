@@ -1,5 +1,11 @@
-import React from 'react';
-import { useApp } from '../store/useApp';
+import React, { useMemo } from 'react';
+import {
+  useBusinessConfig,
+  useGalleryPhotos,
+  useProfessionals,
+  useScheduleBlocks,
+  useServices,
+} from '../store/useApp';
 import { useBusiness, useNiche } from '../core/business/hooks';
 import { getPublicLayoutPreset } from '../layouts/registry';
 import type { PublicSectionId } from '../layouts/types';
@@ -13,18 +19,31 @@ import { FooterSection } from '../features/landing/components/FooterSection';
 interface Props { onStartBooking: (selection?: { serviceId?: string; professionalId?: string }) => void; onOpenLogin: () => void; onOpenPrivacy: () => void; }
 
 export const LandingPage: React.FC<Props> = ({ onStartBooking, onOpenLogin, onOpenPrivacy }) => {
-  const { config, professionals, services, galleryPhotos, scheduleBlocks } = useApp();
+  const config = useBusinessConfig();
+  const professionals = useProfessionals();
+  const services = useServices();
+  const galleryPhotos = useGalleryPhotos();
+  const scheduleBlocks = useScheduleBlocks();
   const { profile } = useBusiness();
   const niche = useNiche();
   const layout = getPublicLayoutPreset(niche.defaultLayoutId);
-  const activeServices = services.filter(s => s.active !== false).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
-  const categories = Array.from(new Map(
+
+  const activeServices = useMemo(
+    () => services.filter(service => service.active !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [services],
+  );
+
+  const categories = useMemo(() => Array.from(new Map(
     activeServices
       .map(service => service.category?.trim())
       .filter((category): category is string => typeof category === 'string' && category.length > 0 && category.toLocaleLowerCase('pt-BR') !== 'todos')
       .map(category => [category.toLocaleLowerCase('pt-BR'), category]),
-  ).values());
-  const activeProfessionals = professionals.filter(b => b.active).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
+  ).values()), [activeServices]);
+
+  const activeProfessionals = useMemo(
+    () => professionals.filter(professional => professional.active).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [professionals],
+  );
 
   const renderSection = (section: PublicSectionId) => {
     switch (section) {

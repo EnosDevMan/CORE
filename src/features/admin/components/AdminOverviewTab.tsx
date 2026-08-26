@@ -1,12 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { DollarSign, Clock, UserPlus, Calendar as CalendarIcon, CheckCircle, XCircle, ArrowRight, User, Scissors } from 'lucide-react';
-import { useApp } from '../../../store/useApp';
+import { useBookings, useUsers } from '../../../store/useApp';
 import { BookingStatus } from '../../../types';
 import { getBusinessTodayStr } from '../../../utils/validation';
 import { Booking } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
-import { useState } from 'react';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { isCustomerRole } from '../../../auth/authorization';
 
@@ -20,13 +19,7 @@ interface AdminOverviewTabProps {
   showFeedback: (message: string, isError: boolean) => void;
 }
 
-/**
- * Relatório Diário — antes, esta tela misturava dados "desde a abertura"
- * (faturamento total, total de agendamentos) com um recorte de "hoje"
- * (todayBookings), o que confundia o que era um resumo do dia com um
- * resumo histórico. Agora ela é estritamente o snapshot de HOJE; o
- * histórico completo (com filtro de período) vive na aba "Relatórios".
- */
+/** Relatório diário: apenas dados necessários para o snapshot de hoje. */
 export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   formatBRL,
   getProfessionalName,
@@ -36,27 +29,32 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   canViewReports,
   showFeedback,
 }) => {
-  const { bookings, users } = useApp();
+  const bookings = useBookings();
+  const users = useUsers();
   const niche = useNiche();
   const { profile } = useBusiness();
   const todayStr = getBusinessTodayStr(profile.timezone);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
 
-  const todayBookings = bookings
-    .filter(b => b.date === todayStr)
-    .sort((a, b) => a.time.localeCompare(b.time));
+  const todayBookings = useMemo(
+    () => bookings.filter(booking => booking.date === todayStr).sort((a, b) => a.time.localeCompare(b.time)),
+    [bookings, todayStr],
+  );
 
-  const revenueToday = todayBookings
-    .filter(b => b.status === 'Concluído')
-    .reduce((acc, b) => acc + b.value, 0);
+  const revenueToday = useMemo(
+    () => todayBookings.filter(booking => booking.status === 'Concluído').reduce((acc, booking) => acc + booking.value, 0),
+    [todayBookings],
+  );
 
-  const pendingTodayCount = todayBookings.filter(
-    b => b.status === 'Aguardando pagamento' || b.status === 'Confirmado'
-  ).length;
+  const pendingTodayCount = useMemo(
+    () => todayBookings.filter(booking => booking.status === 'Aguardando pagamento' || booking.status === 'Confirmado').length,
+    [todayBookings],
+  );
 
-  const newCustomersToday = users.filter(
-    u => isCustomerRole(u.role) && u.createdAt?.slice(0, 10) === todayStr
-  ).length;
+  const newCustomersToday = useMemo(
+    () => users.filter(user => isCustomerRole(user.role) && user.createdAt?.slice(0, 10) === todayStr).length,
+    [todayStr, users],
+  );
 
   const todayLabel = new Date(todayStr + 'T12:00:00').toLocaleDateString('pt-BR', {
     weekday: 'long', day: '2-digit', month: 'long',
@@ -101,7 +99,6 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         </button>}
       </div>
 
-      {/* Bento Stats Row — tudo escopado a hoje */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div className="col-span-2 sm:col-span-1 bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
@@ -149,8 +146,6 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           <p className="px-6 py-10 text-center text-slate-400 text-sm">Nenhum agendamento para hoje.</p>
         ) : (
           <>
-            {/* Celular: cards empilhados — a tabela de 6 colunas abaixo
-                fica ilegível numa tela pequena. */}
             <div className="sm:hidden divide-y divide-slate-100">
               {todayBookings.map(booking => (
                 <div key={booking.id} className="p-4 space-y-2.5">
@@ -176,7 +171,6 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
               ))}
             </div>
 
-            {/* Tablet largo / desktop: tabela tradicional */}
             <div className="hidden sm:block overflow-x-auto custom-scrollbar">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 font-bold border-b border-slate-100">

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useApp } from '../../../store/useApp';
+import { useBookings, useProfessionals, useServices } from '../../../store/useApp';
 import { getBusinessTodayStr } from '../../../utils/validation';
 import { useBusiness } from '../../../core/business/hooks';
 import { getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
@@ -8,9 +8,6 @@ import { buildServiceRevenueBreakdown } from '../serviceRevenue';
 export type ReportPeriod = 'day' | 'week' | 'month' | 'year' | 'custom';
 
 export interface ReportChartBucket {
-  /** Data de início do bucket (YYYY-MM-DD) — único dentro de qualquer
-   * período exibido, então serve como key estável no gráfico (o `label`
-   * sozinho pode se repetir, ex: mesmo dia da semana em semanas diferentes). */
   start: string;
   label: string;
   value: number;
@@ -45,19 +42,12 @@ const addDays = (date: Date, days: number): Date => {
   return copy;
 };
 
-// Semana começando na segunda-feira, para bater com o mesmo critério já
-// usado no painel do profissional (useProfessionalDashboard.isThisWeek).
 const startOfWeek = (date: Date): Date => {
   const day = date.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
   return addDays(date, diffToMonday);
 };
 
-// Divide um intervalo arbitrário (filtro "Período personalizado") em
-// buckets para o gráfico, adaptando a granularidade ao tamanho do
-// intervalo: dia a dia se for curto, por semana se for médio, por mês se
-// for longo — um intervalo de 2 anos dividido dia a dia teria centenas de
-// barras minúsculas e ilegíveis no gráfico.
 const buildCustomBuckets = (start: Date, end: Date): DateBucket[] => {
   const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
 
@@ -98,17 +88,8 @@ const buildCustomBuckets = (start: Date, end: Date): DateBucket[] => {
   return buckets;
 };
 
-/**
- * Calcula, para um período (dia/semana/mês/ano) e um deslocamento em
- * relação ao período atual (0 = período atual, 1 = anterior, etc.), o
- * intervalo de datas correspondente e os "buckets" usados no gráfico de
- * evolução (ex: 7 dias numa semana, 12 meses num ano).
- */
 const buildRange = (period: ReportPeriod, offset: number, today: Date, customStart?: string, customEnd?: string) => {
   if (period === 'custom') {
-    // Se o cliente ainda não escolheu nada, ou escolheu fim antes do
-    // início, cai num intervalo padrão razoável (últimos 30 dias) em vez
-    // de gerar um intervalo inválido/vazio.
     const validStart = customStart && customEnd && customStart <= customEnd ? customStart : toYMD(addDays(today, -29));
     const validEnd = customStart && customEnd && customStart <= customEnd ? customEnd : toYMD(today);
     const startDate = new Date(validStart + 'T00:00:00');
@@ -174,7 +155,6 @@ const buildRange = (period: ReportPeriod, offset: number, today: Date, customSta
     };
   }
 
-  // year
   const targetYear = today.getFullYear() - offset;
   const buckets: DateBucket[] = MONTH_LABELS.map((label, idx) => {
     const first = new Date(targetYear, idx, 1);
@@ -190,7 +170,9 @@ const buildRange = (period: ReportPeriod, offset: number, today: Date, customSta
 };
 
 export const useAdminReports = () => {
-  const { bookings, professionals, services } = useApp();
+  const bookings = useBookings();
+  const professionals = useProfessionals();
+  const services = useServices();
   const { profile } = useBusiness();
   const [period, setPeriodState] = useState<ReportPeriod>('week');
   const [offset, setOffset] = useState(0);
@@ -203,16 +185,14 @@ export const useAdminReports = () => {
     setPeriodState(next);
     setOffset(0);
     if (next === 'custom' && !customStartDate && !customEndDate) {
-      // Preenche com os últimos 30 dias como ponto de partida, para não
-      // abrir o filtro personalizado com os campos vazios.
       const today = new Date(todayStr + 'T00:00:00');
       setCustomStartDate(toYMD(addDays(today, -29)));
       setCustomEndDate(todayStr);
     }
   };
 
-  const goToPreviousPeriod = () => setOffset(o => o + 1);
-  const goToNextPeriod = () => setOffset(o => Math.max(0, o - 1));
+  const goToPreviousPeriod = () => setOffset(current => current + 1);
+  const goToNextPeriod = () => setOffset(current => Math.max(0, current - 1));
 
   const { rangeStart, rangeEnd, rangeLabel, buckets } = useMemo(() => {
     const today = new Date(todayStr + 'T00:00:00');
@@ -220,31 +200,28 @@ export const useAdminReports = () => {
   }, [period, offset, todayStr, customStartDate, customEndDate]);
 
   const bookingsInRange = useMemo(
-    () => bookings.filter(b => b.date >= rangeStart && b.date <= rangeEnd),
-    [bookings, rangeStart, rangeEnd]
+    () => bookings.filter(booking => booking.date >= rangeStart && booking.date <= rangeEnd),
+    [bookings, rangeStart, rangeEnd],
   );
 
   const completedInRange = useMemo(
-    () => bookingsInRange.filter(b => b.status === 'Concluído'),
-    [bookingsInRange]
+    () => bookingsInRange.filter(booking => booking.status === 'Concluído'),
+    [bookingsInRange],
   );
 
   const revenueInRange = useMemo(
-    () => completedInRange.reduce((sum, b) => sum + b.value, 0),
-    [completedInRange]
+    () => completedInRange.reduce((sum, booking) => sum + booking.value, 0),
+    [completedInRange],
   );
 
   const cancelledCount = useMemo(
-    () => bookingsInRange.filter(b => b.status === 'Cancelado').length,
-    [bookingsInRange]
+    () => bookingsInRange.filter(booking => booking.status === 'Cancelado').length,
+    [bookingsInRange],
   );
 
-  // Bug corrigido: "não compareceu" antes entrava na conta de "pendente"
-  // (calculada por exclusão), o que é enganoso — um no-show é um desfecho
-  // já resolvido, não algo aguardando ação.
   const noShowCount = useMemo(
-    () => bookingsInRange.filter(b => b.status === 'Não compareceu').length,
-    [bookingsInRange]
+    () => bookingsInRange.filter(booking => booking.status === 'Não compareceu').length,
+    [bookingsInRange],
   );
 
   const pendingCount = bookingsInRange.length - completedInRange.length - cancelledCount - noShowCount;
@@ -252,22 +229,27 @@ export const useAdminReports = () => {
   const chartData: ReportChartBucket[] = useMemo(() => {
     return buckets.map(bucket => {
       const value = completedInRange
-        .filter(b => b.date >= bucket.start && b.date <= bucket.end)
-        .reduce((sum, b) => sum + b.value, 0);
+        .filter(booking => booking.date >= bucket.start && booking.date <= bucket.end)
+        .reduce((sum, booking) => sum + booking.value, 0);
       return { start: bucket.start, label: bucket.label, value };
     });
   }, [buckets, completedInRange]);
 
-  const maxChartValue = Math.max(1, ...chartData.map(d => d.value));
+  const maxChartValue = Math.max(1, ...chartData.map(data => data.value));
 
   const professionalBreakdown: ReportBreakdownItem[] = useMemo(() => {
     const map: Record<string, ReportBreakdownItem> = {};
-    completedInRange.forEach(b => {
-      if (!map[b.professionalId]) {
-        map[b.professionalId] = { id: b.professionalId, name: getSharedProfessionalName(professionals, b.professionalId), count: 0, total: 0 };
+    completedInRange.forEach(booking => {
+      if (!map[booking.professionalId]) {
+        map[booking.professionalId] = {
+          id: booking.professionalId,
+          name: getSharedProfessionalName(professionals, booking.professionalId),
+          count: 0,
+          total: 0,
+        };
       }
-      map[b.professionalId].count += 1;
-      map[b.professionalId].total += b.value;
+      map[booking.professionalId].count += 1;
+      map[booking.professionalId].total += booking.value;
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [completedInRange, professionals]);

@@ -25,8 +25,15 @@ vi.mock('../core/business/businessService', () => ({
   businessService: { getRuntime: mocks.getRuntime },
 }));
 
+vi.mock('../services/bootstrapDataService', () => ({
+  bootstrapDataService: { loadAllData: mocks.loadAllData },
+}));
+
+// dataStore owns mutation actions backed by dataService. This test only covers
+// bootstrap state, so keep those unrelated mutation dependencies isolated from
+// Supabase/environment initialization just as the previous loader test did.
 vi.mock('../services/dataService', () => ({
-  dataService: { loadAllData: mocks.loadAllData },
+  dataService: {},
 }));
 
 describe('AppDataLoader', () => {
