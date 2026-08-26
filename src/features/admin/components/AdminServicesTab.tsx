@@ -55,9 +55,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
       grouped.set(key, current);
     });
 
-    // A category earns visual grouping only when it actually groups services.
-    // Single-item categories would merely repeat the service name and lengthen
-    // the page, as happened with "Alongamento > Alongamento" in Nail Studio.
+    // Uma categoria só ganha bloco visual quando realmente agrupa serviços.
+    // Categorias com um único item repetem informação e alongam a tela.
     const categoryGroups = [...grouped.values()].filter(group => group.services.length >= 2);
     const groupedIds = new Set(categoryGroups.flatMap(group => group.services.map(service => service.id)));
     const standaloneServices = sorted.filter(service => !groupedIds.has(service.id));
@@ -65,12 +64,12 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
     return { sorted, categoryGroups, standaloneServices };
   }, [services]);
 
-  const renderServiceCard = (service: Service) => (
+  const renderServiceCard = (service: Service, showCategory = false) => (
     <div key={service.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:border-slate-300 transition-colors group flex flex-col h-full">
       <div className="flex justify-between items-start mb-2">
         <div className="min-w-0">
           <h4 className="font-extrabold text-slate-900 text-lg leading-tight">{service.name}</h4>
-          {service.category?.trim() && (
+          {showCategory && service.category?.trim() && (
             <p className="mt-1 text-[11px] font-semibold text-slate-400">{service.category.trim()}</p>
           )}
         </div>
@@ -164,7 +163,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                 <p className="mt-0.5 text-xs text-slate-400">{group.services.length} serviços nesta categoria</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.services.map(renderServiceCard)}
+                {group.services.map(service => renderServiceCard(service))}
               </div>
             </section>
           ))}
@@ -175,7 +174,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
                 <h3 className="text-sm font-bold text-slate-500">Outros serviços</h3>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {catalog.standaloneServices.map(renderServiceCard)}
+                {catalog.standaloneServices.map(service => renderServiceCard(service))}
               </div>
             </section>
           )}
