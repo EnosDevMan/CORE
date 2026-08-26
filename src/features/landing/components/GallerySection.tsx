@@ -38,6 +38,7 @@ export function GallerySection({ galleryPhotos, config, style }: Props) {
                   width="720"
                   height="720"
                   loading="lazy"
+                  decoding="async"
                   onError={() => setFailedImages(current => ({ ...current, [photo.imageUrl]: true }))}
                 />
               )}

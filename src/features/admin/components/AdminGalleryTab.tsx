@@ -4,6 +4,7 @@ import { useApp } from '../../../store/useApp';
 import { GalleryPhoto } from '../../../types';
 import { removePublicImage, uploadImage } from '../../../services/storageService';
 import { getErrorMessage } from '../../../utils/errors';
+import { prepareOptimizedImage } from '../../../utils/imageOptimization';
 
 interface AdminGalleryTabProps {
   setSuccessMessage: (msg: string) => void;
@@ -15,8 +16,8 @@ interface AdminGalleryTabProps {
  * componente atende todos os nichos; a página pública continua livre para
  * apresentar títulos e textos próprios do nicho selecionado.
  *
- * As imagens são enviadas diretamente para o Supabase Storage, sem depender
- * de Instagram, Meta ou qualquer API externa paga.
+ * As imagens são reduzidas no navegador e enviadas diretamente ao Supabase
+ * Storage, sem depender de Instagram, Meta ou qualquer API externa paga.
  */
 export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   setSuccessMessage,
@@ -60,16 +61,15 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
     setIsUploading(true);
     let uploadedUrl: string | null = null;
     try {
-      const extensionByMime: Record<string, string> = {
-        'image/jpeg': 'jpg',
-        'image/png': 'png',
-        'image/webp': 'webp',
-      };
-      const ext = extensionByMime[file.type] ?? 'bin';
-      const path = `business-media/${crypto.randomUUID()}-${Date.now()}.${ext}`;
-      uploadedUrl = await uploadImage(file, path, 'gallery');
+      const optimizedFile = await prepareOptimizedImage(file, {
+        maxDimension: 1440,
+        quality: 0.82,
+        filenamePrefix: 'gallery',
+      });
+      const path = `business-media/${crypto.randomUUID()}-${Date.now()}.webp`;
+      uploadedUrl = await uploadImage(optimizedFile, path, 'gallery');
       await addGalleryPhoto({ imageUrl: uploadedUrl, caption: '', order: sortedPhotos.length });
-      setSuccessMessage('Foto adicionada à galeria!');
+      setSuccessMessage('Foto otimizada e adicionada à galeria!');
     } catch (err) {
       if (uploadedUrl) {
         try {
@@ -142,13 +142,13 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
         {isUploading ? (
           <>
             <Loader2 size={24} className="animate-spin text-slate-400" />
-            <span className="text-sm font-semibold text-slate-500">Enviando foto...</span>
+            <span className="text-sm font-semibold text-slate-500">Otimizando e enviando...</span>
           </>
         ) : (
           <>
             <Camera size={24} className="text-slate-400" />
             <span className="text-sm font-bold text-slate-700">Adicionar foto</span>
-            <span className="text-xs text-slate-400">JPG, PNG ou WEBP, até 5MB</span>
+            <span className="text-xs text-slate-400">JPG, PNG ou WEBP, até 5MB · otimização automática</span>
           </>
         )}
         <input
@@ -189,6 +189,8 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
                 <img
                   src={photo.imageUrl}
                   alt={photo.caption || 'Imagem da galeria do estabelecimento'}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               </div>

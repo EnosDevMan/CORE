@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { capturePasswordRecoveryIntent } from './auth/passwordRecoveryIntent.ts';
 import { getSupabaseConfigError } from './utils/environment.ts';
 import './index.css';
+import './performance.css';
 
 const root = createRoot(document.getElementById('root')!);
 
@@ -27,13 +28,29 @@ const renderStartupError = (message: string) => {
   );
 };
 
+const preconnectToSupabase = (rawUrl: string | undefined) => {
+  if (!rawUrl) return;
+  try {
+    const origin = new URL(rawUrl).origin;
+    if (document.head.querySelector(`link[rel="preconnect"][href="${origin}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = origin;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  } catch {
+    // A validação abaixo exibirá uma mensagem útil se a URL estiver inválida.
+  }
+};
+
 // `App` importa o cliente Supabase dinamicamente abaixo. Capture primeiro a
 // sessão que veio no fragmento do link de recovery: depois que o SDK iniciar,
 // `detectSessionInUrl` pode consumir/limpar esses parâmetros.
 capturePasswordRecoveryIntent();
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseConfigError = getSupabaseConfigError({
-  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_URL: supabaseUrl,
   VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
 });
@@ -44,6 +61,10 @@ if (supabaseConfigError) {
   // totalmente vazia nos previews de branches sem ambiente configurado.
   renderStartupError(supabaseConfigError);
 } else {
+  // Abre DNS/TLS enquanto o chunk principal é baixado, reduzindo o tempo até
+  // a primeira leitura do runtime sem adicionar serviço ou custo externo.
+  preconnectToSupabase(supabaseUrl);
+
   import('./App.tsx')
     .then(({ default: App }) => {
       root.render(
