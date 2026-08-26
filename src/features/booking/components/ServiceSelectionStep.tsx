@@ -9,15 +9,27 @@ interface Props {
   toggleService: (service: Service) => void;
 }
 
+const servicePriceLabel = (price: number) => price === 0 ? 'Grátis' : formatBRL(price);
+
 export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, selectedServices, toggleService }) => {
-  const categories = useMemo(
-    () => Array.from(new Set(services.map(service => service.category?.trim()).filter((value): value is string => Boolean(value)))),
-    [services],
-  );
+  const categoryInfo = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    services.forEach(service => {
+      const category = service.category?.trim();
+      if (!category) return;
+      const key = category.toLocaleLowerCase('pt-BR');
+      const current = counts.get(key) ?? { label: category, count: 0 };
+      current.count += 1;
+      counts.set(key, current);
+    });
+    const categories = [...counts.values()].map(item => item.label);
+    const usefulAsFilter = [...counts.values()].some(item => item.count >= 2) && categories.length > 1;
+    return { categories, usefulAsFilter };
+  }, [services]);
   const [activeCategory, setActiveCategory] = useState('Todos');
   const visibleServices = activeCategory === 'Todos'
     ? services
-    : services.filter(service => service.category === activeCategory);
+    : services.filter(service => service.category?.trim() === activeCategory);
   const selectedDuration = selectedServices.reduce((total, service) => total + service.duration, 0);
   const selectedPrice = selectedServices.reduce((total, service) => total + service.price, 0);
 
@@ -31,9 +43,9 @@ export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, sel
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-      {categories.length > 1 && (
+      {categoryInfo.usefulAsFilter && (
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 no-scrollbar" role="tablist" aria-label="Categorias de serviços">
-          {['Todos', ...categories].map(category => (
+          {['Todos', ...categoryInfo.categories].map(category => (
             <button
               key={category}
               type="button"
@@ -60,7 +72,7 @@ export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, sel
             </p>
             <p className="mt-0.5 flex items-center gap-1 text-[11px] text-indigo-600/70"><Clock3 size={12} /> Aproximadamente {selectedDuration} min</p>
           </div>
-          <strong className="text-sm text-indigo-700">{formatBRL(selectedPrice)}</strong>
+          <strong className="text-sm text-indigo-700">{servicePriceLabel(selectedPrice)}</strong>
         </div>
       )}
 
@@ -80,7 +92,7 @@ export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, sel
               }`}
             >
               <div className="min-w-0">
-                {service.category && <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{service.category}</p>}
+                {categoryInfo.usefulAsFilter && service.category?.trim() && <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{service.category.trim()}</p>}
                 <h4 className={`font-bold text-[15px] ${isSelected ? 'text-indigo-950' : 'text-slate-800'}`}>
                   {service.name}
                 </h4>
@@ -89,11 +101,11 @@ export const ServiceSelectionStep: React.FC<Props> = React.memo(({ services, sel
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className={`font-bold ${isSelected ? 'text-indigo-600' : 'text-slate-700'}`}>
-                  {formatBRL(service.price)}
+                  {servicePriceLabel(service.price)}
                 </span>
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
-                  isSelected 
-                    ? 'bg-indigo-600 border-indigo-600' 
+                  isSelected
+                    ? 'bg-indigo-600 border-indigo-600'
                     : 'border-slate-300'
                 }`}>
                   {isSelected && <Check size={14} className="text-white" />}

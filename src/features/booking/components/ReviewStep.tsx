@@ -70,7 +70,7 @@ export const ReviewStep: React.FC<Props> = ({
           <div className="flex justify-between items-center pt-2">
             <span className="text-slate-500">Valor dos serviços</span>
             <div className="text-right">
-              <div className="font-bold text-lg text-indigo-600">{formatBRL(totalPrice)}</div>
+              <div className="font-bold text-lg text-indigo-600">{totalPrice === 0 ? 'Grátis' : formatBRL(totalPrice)}</div>
               <div className="text-xs text-slate-400">Duração: ~{totalDuration} min</div>
             </div>
           </div>
