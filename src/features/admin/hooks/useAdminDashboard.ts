@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useApp } from '../../../store/useApp';
+import {
+  useBusinessConfig,
+  useCurrentUser,
+  useProfessionals,
+  useServices,
+  useUpdateBookingStatus,
+} from '../../../store/useApp';
 import { LayoutDashboard, BarChart3, CalendarDays, CalendarPlus, Scissors, Users, Settings, Camera, PawPrint, ShieldCheck } from 'lucide-react';
 import { formatBRL } from '../../../utils/validation';
 import { getErrorMessage } from '../../../utils/errors';
@@ -9,7 +15,11 @@ import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { getAdminNavigation, type AdminTab } from '../navigation';
 
 export const useAdminDashboard = () => {
-  const { config, currentUser, professionals, services, updateBookingStatus } = useApp();
+  const config = useBusinessConfig();
+  const currentUser = useCurrentUser();
+  const professionals = useProfessionals();
+  const services = useServices();
+  const updateBookingStatus = useUpdateBookingStatus();
   const niche = useNiche();
   const { hasCapability } = useBusiness();
 
