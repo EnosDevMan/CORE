@@ -25,8 +25,8 @@ vi.mock('../core/business/businessService', () => ({
   businessService: { getRuntime: mocks.getRuntime },
 }));
 
-vi.mock('../services/dataService', () => ({
-  dataService: { loadAllData: mocks.loadAllData },
+vi.mock('../services/bootstrapDataService', () => ({
+  bootstrapDataService: { loadAllData: mocks.loadAllData },
 }));
 
 describe('AppDataLoader', () => {
