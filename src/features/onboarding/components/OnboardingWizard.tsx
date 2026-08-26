@@ -76,9 +76,8 @@ export function OnboardingWizard({ currentRole }: { currentRole: UserRole }) {
     const nextNiche = NICHE_REGISTRY[id];
     setNicheId(id);
     setThemeId(nextNiche.recommendedThemeIds[0] as ThemeId);
-    // A mudança de nicho nunca deve cadastrar um catálogo presumido. Serviços
-    // são dados reais do estabelecimento e precisam ser escolhidos pelo dono.
-    setServices([]);
+    // O nicho altera sugestões e identidade, mas nunca injeta nem apaga o
+    // catálogo que o proprietário já informou.
   };
 
   const addSuggestedService = (suggestion: { name: string; duration: number }) => {
