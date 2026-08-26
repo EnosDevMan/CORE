@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useApp } from '../../../../store/useApp';
 import { Service } from '../../../../types';
@@ -18,23 +18,32 @@ export const AdminServiceForm: React.FC<AdminServiceFormProps> = ({
   setSuccessMessage,
   setErrorMessage,
 }) => {
-  const { addService, updateService } = useApp();
+  const { addService, updateService, services } = useApp();
 
   const [serviceName, setServiceName] = useState('');
   const [servicePrice, setServicePrice] = useState('');
   const [serviceDuration, setServiceDuration] = useState('');
-  const [serviceCategory, setServiceCategory] = useState('Cabelo');
+  const [serviceCategory, setServiceCategory] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
   const [serviceActive, setServiceActive] = useState(true);
   const [serviceOrder, setServiceOrder] = useState('0');
   const [isSaving, setIsSaving] = useState(false);
+
+  const categorySuggestions = useMemo(() => {
+    const unique = new Map<string, string>();
+    services.forEach(service => {
+      const category = service.category?.trim();
+      if (category) unique.set(category.toLocaleLowerCase('pt-BR'), category);
+    });
+    return [...unique.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [services]);
 
   useEffect(() => {
     if (editingService) {
       setServiceName(editingService.name);
       setServicePrice(editingService.price.toString());
       setServiceDuration(editingService.duration.toString());
-      setServiceCategory(editingService.category || 'Cabelo');
+      setServiceCategory(editingService.category || '');
       setServiceDescription(editingService.description || '');
       setServiceActive(editingService.active !== false);
       setServiceOrder((editingService.order || 0).toString());
@@ -62,7 +71,8 @@ export const AdminServiceForm: React.FC<AdminServiceFormProps> = ({
       setErrorMessage('A descrição deve ter no máximo 1000 caracteres.');
       return;
     }
-    if (serviceCategory.trim().length > 100) {
+    const normalizedCategory = serviceCategory.trim();
+    if (normalizedCategory.length > 100) {
       setErrorMessage('A categoria deve ter no máximo 100 caracteres.');
       return;
     }
@@ -77,7 +87,7 @@ export const AdminServiceForm: React.FC<AdminServiceFormProps> = ({
         name: normalizedName,
         price: parsedPrice,
         duration: parsedDuration,
-        category: serviceCategory.trim(),
+        category: normalizedCategory,
         description: serviceDescription.trim(),
         active: serviceActive,
         order: parsedOrder
@@ -114,7 +124,7 @@ export const AdminServiceForm: React.FC<AdminServiceFormProps> = ({
           <X size={20} />
         </button>
       </div>
-      
+
       <form onSubmit={handleServiceSubmit} className="space-y-6" noValidate>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
@@ -122,21 +132,24 @@ export const AdminServiceForm: React.FC<AdminServiceFormProps> = ({
             <input
               type="text" required minLength={2} maxLength={100} value={serviceName} onChange={(e) => setServiceName(e.target.value)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-medium"
-              placeholder="Ex: Corte Degrade"
+              placeholder="Ex: Alongamento em gel"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Categoria *</label>
-            <select
-              required value={serviceCategory} onChange={(e) => setServiceCategory(e.target.value)}
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Categoria <span className="font-medium normal-case tracking-normal text-slate-400">(opcional)</span></label>
+            <input
+              type="text"
+              list="service-category-options"
+              maxLength={100}
+              value={serviceCategory}
+              onChange={(e) => setServiceCategory(e.target.value)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 bg-white font-medium"
-            >
-              <option value="Cabelo">Cabelo</option>
-              <option value="Barba">Barba</option>
-              <option value="Combos">Combos</option>
-              <option value="Tratamentos">Tratamentos</option>
-              <option value="Outros">Outros</option>
-            </select>
+              placeholder="Ex: Alongamentos"
+            />
+            <datalist id="service-category-options">
+              {categorySuggestions.map(category => <option key={category} value={category} />)}
+            </datalist>
+            <p className="text-xs leading-5 text-slate-400">Use apenas quando ajudar a organizar vários serviços. Você pode escolher uma categoria já usada ou criar outra.</p>
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Preço (R$) *</label>
@@ -145,6 +158,7 @@ export const AdminServiceForm: React.FC<AdminServiceFormProps> = ({
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-medium"
               placeholder="45,00"
             />
+            <p className="text-xs leading-5 text-slate-400">Use 0,00 somente quando o serviço for realmente gratuito.</p>
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Duração (Minutos) *</label>
