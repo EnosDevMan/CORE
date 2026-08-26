@@ -21,8 +21,22 @@ export const useScheduleBlocks = () => useDataStore(state => state.scheduleBlock
 export const useGalleryPhotos = () => useDataStore(state => state.galleryPhotos);
 export const useDataLoading = () => useDataStore(state => state.loading);
 export const useLoadError = () => useDataStore(state => state.loadError);
+
+export const useAddService = () => useDataStore(state => state.addService);
+export const useUpdateService = () => useDataStore(state => state.updateService);
+export const useDeactivateService = () => useDataStore(state => state.deactivateService);
 export const useUpdateBookingStatus = () => useDataStore(state => state.updateBookingStatus);
+export const useAddScheduleBlock = () => useDataStore(state => state.addScheduleBlock);
+export const useDeleteScheduleBlock = () => useDataStore(state => state.deleteScheduleBlock);
+export const useAddGalleryPhoto = () => useDataStore(state => state.addGalleryPhoto);
+export const useUpdateGalleryPhoto = () => useDataStore(state => state.updateGalleryPhoto);
+export const useReorderGalleryPhotos = () => useDataStore(state => state.reorderGalleryPhotos);
+export const useDeleteGalleryPhoto = () => useDataStore(state => state.deleteGalleryPhoto);
+export const useUpdateUserRole = () => useDataStore(state => state.updateUserRole);
+export const useDeleteUserAccount = () => useDataStore(state => state.deleteUserAccount);
+
 export const useBusinessConfig = () => useConfigStore(state => state.config);
+export const useUpdateBusinessConfig = () => useConfigStore(state => state.updateConfig);
 export const useCurrentUser = () => useAuthStore(state => state.currentUser);
 export const useLogout = () => useAuthStore(state => state.logout);
 export const useAuthInitializationError = () => useAuthStore(state => state.initializationError);
