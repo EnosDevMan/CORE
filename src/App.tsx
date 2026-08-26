@@ -3,18 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useState, useTransition } from 'react';
 import { useApp } from './store/useApp';
 import { AppDataLoader } from './store/AppDataLoader';
 import { Navbar } from './components/Navbar';
-import { Suspense, lazy } from 'react';
+import { LandingPage } from './components/LandingPage';
 
-const LandingPage = lazy(() => import('./components/LandingPage').then(module => ({ default: module.LandingPage })));
-const BookingFlow = lazy(() => import('./components/BookingFlow').then(module => ({ default: module.BookingFlow })));
-const CustomerDashboard = lazy(() => import('./components/CustomerDashboard').then(module => ({ default: module.CustomerDashboard })));
-const ProfessionalDashboard = lazy(() => import('./components/ProfessionalDashboard').then(module => ({ default: module.ProfessionalDashboard })));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
-const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage').then(module => ({ default: module.PrivacyPolicyPage })));
+const loadBookingFlow = () => import('./components/BookingFlow');
+const loadCustomerDashboard = () => import('./components/CustomerDashboard');
+const loadProfessionalDashboard = () => import('./components/ProfessionalDashboard');
+const loadAdminDashboard = () => import('./components/AdminDashboard');
+const loadPrivacyPolicyPage = () => import('./components/PrivacyPolicyPage');
+
+const BookingFlow = lazy(() => loadBookingFlow().then(module => ({ default: module.BookingFlow })));
+const CustomerDashboard = lazy(() => loadCustomerDashboard().then(module => ({ default: module.CustomerDashboard })));
+const ProfessionalDashboard = lazy(() => loadProfessionalDashboard().then(module => ({ default: module.ProfessionalDashboard })));
+const AdminDashboard = lazy(() => loadAdminDashboard().then(module => ({ default: module.AdminDashboard })));
+const PrivacyPolicyPage = lazy(() => loadPrivacyPolicyPage().then(module => ({ default: module.PrivacyPolicyPage })));
 import { LoginModal } from './components/LoginModal';
 import { ResetPasswordView } from './components/ResetPasswordView';
 import { Shield } from 'lucide-react';
@@ -25,19 +30,41 @@ import { onboardingService, type OnboardingState } from './features/onboarding/s
 import { BusinessRuntimeBoundary } from './core/business/BusinessRuntimeBoundary';
 import { useBusiness } from './core/business/hooks';
 import { canAccessProfessionalWorkspace, isAdministratorRole } from './auth/authorization';
-import { BusinessBrand } from './core/business/BusinessBrand';
+
+type CoreView = 'landing' | 'booking' | 'customer' | 'professional' | 'admin' | 'privacy';
+type IdleCapableWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+const warmView = (view: CoreView): void => {
+  if (view === 'booking') void loadBookingFlow();
+  else if (view === 'customer') void loadCustomerDashboard();
+  else if (view === 'professional') void loadProfessionalDashboard();
+  else if (view === 'admin') void loadAdminDashboard();
+  else if (view === 'privacy') void loadPrivacyPolicyPage();
+};
+
+const scheduleWhenIdle = (callback: () => void): (() => void) => {
+  const idleWindow = window as IdleCapableWindow;
+  if (idleWindow.requestIdleCallback) {
+    const handle = idleWindow.requestIdleCallback(callback, { timeout: 1500 });
+    return () => idleWindow.cancelIdleCallback?.(handle);
+  }
+
+  const handle = window.setTimeout(callback, 900);
+  return () => window.clearTimeout(handle);
+};
 
 function CoreSchedulingApp() {
-  const [currentView, setCurrentView] = useState<'landing' | 'booking' | 'customer' | 'professional' | 'admin' | 'privacy'>(() =>
+  const [currentView, setCurrentView] = useState<CoreView>(() =>
     window.location.hash === '#privacy' ? 'privacy' : 'landing',
   );
   const [loginOpen, setLoginOpen] = useState(false);
   const [bookingSelection, setBookingSelection] = useState<{ serviceId?: string; professionalId?: string }>({});
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [transitionMessage, setTransitionMessage] = useState('');
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
-  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isRoutePending, startRouteTransition] = useTransition();
   const { configured: businessConfigured } = useBusiness();
   const {
     loading,
@@ -56,9 +83,19 @@ function CoreSchedulingApp() {
     }
   }, [currentUser, currentView, loading]);
 
-  useEffect(() => () => {
-    if (transitionTimer.current) clearTimeout(transitionTimer.current);
-  }, []);
+  // A agenda é o destino de maior conversão. Depois que a home já apareceu,
+  // o browser baixa esse pequeno chunk em tempo ocioso; assim o clique em
+  // "Agendar" normalmente não precisa esperar uma segunda ida à rede.
+  // Áreas autenticadas só são aquecidas quando existe uma sessão compatível.
+  useEffect(() => {
+    if (loading || currentView !== 'landing' || !businessConfigured) return undefined;
+    return scheduleWhenIdle(() => {
+      warmView('booking');
+      if (currentUser) warmView('customer');
+      if (isAdministratorRole(currentUser?.role)) warmView('admin');
+      else if (canAccessProfessionalWorkspace(currentUser?.role)) warmView('professional');
+    });
+  }, [businessConfigured, currentUser, currentView, loading]);
 
   // The protected onboarding RPC is only needed for an authenticated user
   // while this installation is still unpublished. Public visitors rely on the
@@ -111,12 +148,19 @@ function CoreSchedulingApp() {
         <>
           <InstallationPendingView
             onOpenAccess={() => setLoginOpen(true)}
-            onOpenPrivacy={() => setCurrentView('privacy')}
+            onOpenPrivacy={() => {
+              warmView('privacy');
+              setCurrentView('privacy');
+            }}
           />
           <LoginModal
             isOpen={loginOpen}
             onClose={() => setLoginOpen(false)}
-            onOpenPrivacy={() => { setLoginOpen(false); setCurrentView('privacy'); }}
+            onOpenPrivacy={() => {
+              setLoginOpen(false);
+              warmView('privacy');
+              setCurrentView('privacy');
+            }}
           />
         </>
       );
@@ -156,55 +200,27 @@ function CoreSchedulingApp() {
   // fica oculta para não duplicar essa navegação (e não sobrepor no mobile).
   const isAdminShell = currentView === 'admin' && isAdministratorRole(currentUser?.role);
 
-  const navigateTo = (view: typeof currentView, selection?: { serviceId?: string; professionalId?: string }) => {
+  const navigateTo = (view: CoreView, selection?: { serviceId?: string; professionalId?: string }) => {
     // Validação de RBAC
-    if (view === 'admin' && !isAdministratorRole(currentUser?.role)) {
-      return;
-    }
-    if (view === 'professional' && !canAccessProfessionalWorkspace(currentUser?.role)) {
-      return;
-    }
-    // 'booking' propositalmente NÃO exige login: o fluxo de agendamento
-    // suporta convidado (nome/telefone/e-mail avulsos), tanto no backend
-    // (RPC create_booking aceita customer_id nulo) quanto na UI
-    // (ReviewStep mostra um formulário de convidado quando não há sessão).
-    // Só o painel do cliente ('customer', com histórico pessoal) exige login.
+    if (view === 'admin' && !isAdministratorRole(currentUser?.role)) return;
+    if (view === 'professional' && !canAccessProfessionalWorkspace(currentUser?.role)) return;
+
+    // 'booking' propositalmente NÃO exige login: o fluxo suporta convidado.
+    // Só o painel do cliente, com histórico pessoal, exige sessão.
     if (view === 'customer' && !currentUser) {
       setLoginOpen(true);
       return;
     }
 
-    // Uma navegação nova sempre invalida a transição anterior. Sem isso,
-    // cliques rápidos podiam executar timers fora de ordem e abrir uma tela
-    // diferente da última escolhida pelo usuário.
-    if (transitionTimer.current) clearTimeout(transitionTimer.current);
-
-    if (view === 'booking') {
-      setBookingSelection(selection || {});
-      setIsTransitioning(true);
-      setTransitionMessage('Preparando a agenda...');
-      transitionTimer.current = setTimeout(() => {
-        setCurrentView(view);
-        setIsTransitioning(false);
-        transitionTimer.current = null;
-      }, 750);
-    } else if (view === 'customer' && currentView === 'booking') {
-      setIsTransitioning(true);
-      setTransitionMessage('Carregando seus agendamentos...');
-      transitionTimer.current = setTimeout(() => {
-        setCurrentView(view);
-        setIsTransitioning(false);
-        transitionTimer.current = null;
-      }, 700);
-    } else {
-      setIsTransitioning(true);
-      setTransitionMessage('Carregando...');
-      transitionTimer.current = setTimeout(() => {
-        setCurrentView(view);
-        setIsTransitioning(false);
-        transitionTimer.current = null;
-      }, 450);
-    }
+    // Inicia o download antes de pedir a troca de tela. React mantém a tela
+    // atual visível caso o chunk ainda esteja chegando, em vez de impor um
+    // overlay e um atraso fixo. O indicador superior só aparece se houver
+    // espera real.
+    warmView(view);
+    startRouteTransition(() => {
+      if (view === 'booking') setBookingSelection(selection || {});
+      setCurrentView(view);
+    });
   };
 
   const renderView = () => {
@@ -230,12 +246,6 @@ function CoreSchedulingApp() {
       case 'privacy':
         return <PrivacyPolicyPage onBack={() => navigateTo('landing')} />;
       case 'professional':
-        // Proprietários também podem usar o modo de simulação para
-        // visualizar o painel de um profissional (ver
-        // useProfessionalDashboard e withRoleGuard em ProfessionalDashboard.tsx). Antes,
-        // A autorização central mantém compatibilidade com as roles legadas enquanto
-        // navigateTo já deixava passar — caía nesta tela de "Acesso
-        // Restrito" em vez do painel.
         if (!currentUser || !canAccessProfessionalWorkspace(currentUser.role)) {
           return (
             <div className="max-w-md mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-100 shadow-xl text-center flex flex-col items-center">
@@ -280,7 +290,7 @@ function CoreSchedulingApp() {
           <AdminDashboard
             onLogout={async () => {
               await logout();
-              setCurrentView('landing');
+              startRouteTransition(() => setCurrentView('landing'));
             }}
             onNavigateHome={() => navigateTo('landing')}
           />
@@ -297,7 +307,16 @@ function CoreSchedulingApp() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--core-background,#f8fafc)] flex flex-col font-sans antialiased text-[var(--core-foreground,#1e293b)]">
+    <div
+      className="min-h-screen bg-[var(--core-background,#f8fafc)] flex flex-col font-sans antialiased text-[var(--core-foreground,#1e293b)]"
+      aria-busy={isRoutePending || undefined}
+    >
+      {isRoutePending && (
+        <div className="core-route-progress" role="progressbar" aria-label="Carregando próxima tela">
+          <span />
+        </div>
+      )}
+
       {!isAdminShell && (
         <Navbar
           onOpenLogin={() => setLoginOpen(true)}
@@ -308,7 +327,7 @@ function CoreSchedulingApp() {
 
       <main
         key={currentView}
-        className={`flex-1 animate-in fade-in slide-in-from-bottom-2.5 duration-300 ${currentView === 'landing' ? '' : 'core-themed-workspace'}`}
+        className={`flex-1 core-view-enter ${currentView === 'landing' ? '' : 'core-themed-workspace'}`}
       >
         <Suspense fallback={<LoadingScreen />}>
           {renderView()}
@@ -320,15 +339,6 @@ function CoreSchedulingApp() {
         onClose={() => setLoginOpen(false)}
         onOpenPrivacy={() => { setLoginOpen(false); navigateTo('privacy'); }}
       />
-
-      {isTransitioning && (
-        <div className="core-transition-overlay fixed inset-0 z-50 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-200">
-          <div className="flex flex-col items-center text-center max-w-sm px-6" role="status">
-            <BusinessBrand showName={false} size="lg" />
-            <p className="mt-5 text-sm font-bold">{transitionMessage}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
