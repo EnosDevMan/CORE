@@ -1,22 +1,26 @@
-
-import React from 'react';
-import { CheckCircle, AlertCircle, Menu, X, ArrowLeft, LogOut, CalendarPlus, ChevronRight } from 'lucide-react';
+import React, { lazy, Suspense } from 'react';
+import { CheckCircle, AlertCircle, Menu, X, ArrowLeft, LogOut, CalendarPlus, ChevronRight, Loader2 } from 'lucide-react';
 import { withRoleGuard } from '../auth/middleware/withRoleGuard';
 import { getCompactDisplayName } from '../utils/displayName';
 import { useAdminDashboard } from '../features/admin/hooks/useAdminDashboard';
 import { AdminOverviewTab } from '../features/admin/components/AdminOverviewTab';
-import { AdminReportsTab } from '../features/admin/components/AdminReportsTab';
-import { AdminServicesTab } from '../features/admin/components/AdminServicesTab';
-import { AdminProfessionalsTab } from '../features/admin/components/AdminProfessionalsTab';
-import { AdminGalleryTab } from '../features/admin/components/AdminGalleryTab';
-import { AdminClientsTab } from '../features/admin/components/AdminClientsTab';
-import { AdminAccountsTab } from '../features/admin/components/AdminAccountsTab';
-import { AdminAgendaTab } from '../features/admin/components/AdminAgendaTab';
-import { AdminAppearanceTab } from '../features/admin/components/AdminAppearanceTab';
-import { AdminSettingsTab } from '../features/admin/components/AdminSettingsTab';
-import { AdminBookingForm } from '../features/admin/components/agenda/AdminBookingForm';
-import { AdminPetsTab } from '../features/pets/components/AdminPetsTab';
 import { BusinessBrand } from '../core/business/BusinessBrand';
+
+// Overview is the default tab and stays in the first admin chunk. Every other
+// workspace is downloaded only when the owner actually opens it, so entering
+// the dashboard no longer pays upfront for reports, gallery, settings, pets,
+// account management and forms that may never be used in that session.
+const AdminReportsTab = lazy(() => import('../features/admin/components/AdminReportsTab').then(module => ({ default: module.AdminReportsTab })));
+const AdminServicesTab = lazy(() => import('../features/admin/components/AdminServicesTab').then(module => ({ default: module.AdminServicesTab })));
+const AdminProfessionalsTab = lazy(() => import('../features/admin/components/AdminProfessionalsTab').then(module => ({ default: module.AdminProfessionalsTab })));
+const AdminGalleryTab = lazy(() => import('../features/admin/components/AdminGalleryTab').then(module => ({ default: module.AdminGalleryTab })));
+const AdminClientsTab = lazy(() => import('../features/admin/components/AdminClientsTab').then(module => ({ default: module.AdminClientsTab })));
+const AdminAccountsTab = lazy(() => import('../features/admin/components/AdminAccountsTab').then(module => ({ default: module.AdminAccountsTab })));
+const AdminAgendaTab = lazy(() => import('../features/admin/components/AdminAgendaTab').then(module => ({ default: module.AdminAgendaTab })));
+const AdminAppearanceTab = lazy(() => import('../features/admin/components/AdminAppearanceTab').then(module => ({ default: module.AdminAppearanceTab })));
+const AdminSettingsTab = lazy(() => import('../features/admin/components/AdminSettingsTab').then(module => ({ default: module.AdminSettingsTab })));
+const AdminBookingForm = lazy(() => import('../features/admin/components/agenda/AdminBookingForm').then(module => ({ default: module.AdminBookingForm })));
+const AdminPetsTab = lazy(() => import('../features/pets/components/AdminPetsTab').then(module => ({ default: module.AdminPetsTab })));
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -60,6 +64,14 @@ const ADMIN_NEUTRAL_THEME = {
   '--core-shadow': '0 10px 28px rgba(15, 23, 42, 0.08)',
   '--core-shadow-strong': '0 18px 45px rgba(15, 23, 42, 0.12)',
 } as React.CSSProperties;
+
+const AdminTabFallback = () => (
+  <div className="flex min-h-44 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm" role="status" aria-live="polite">
+    <div className="flex items-center gap-2 text-sm font-semibold">
+      <Loader2 size={17} className="animate-spin" /> Carregando seção…
+    </div>
+  </div>
+);
 
 const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNavigateHome }) => {
   const {
@@ -114,8 +126,8 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
       <nav className="core-admin-sidebar hidden md:flex md:w-64 flex-col border-r border-white/10">
         <div className="px-5 py-5 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={onNavigateHome} 
+            <button
+              onClick={onNavigateHome}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
               title="Voltar ao site"
               aria-label="Voltar ao site"
@@ -154,8 +166,8 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="core-admin-sidebar md:hidden px-4 py-3 flex items-center justify-between sticky top-0 z-40 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={onNavigateHome} 
+            <button
+              onClick={onNavigateHome}
               className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
             >
               <ArrowLeft size={20} />
@@ -165,8 +177,8 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
               <p className="text-[11px] text-slate-400">Painel administrativo</p>
             </div>
           </div>
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -178,21 +190,21 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
             <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 border-b-2 border-emerald-300 px-6 py-4 flex items-center gap-4 shadow-sm">
               <CheckCircle className="text-emerald-600 flex-shrink-0" size={24} />
               <p className="text-emerald-900 font-semibold text-sm flex-1">{successMessage}</p>
-              <button 
-                onClick={() => setSuccessMessage('')} 
+              <button
+                onClick={() => setSuccessMessage('')}
                 className="text-emerald-600 hover:text-emerald-800 font-bold text-xl"
               >
                 ×
               </button>
             </div>
           )}
-          
+
           {errorMessage && (
             <div className="bg-gradient-to-r from-rose-50 to-rose-100 border-b-2 border-rose-300 px-6 py-4 flex items-center gap-4 shadow-sm">
               <AlertCircle className="text-rose-600 flex-shrink-0" size={24} />
               <p className="text-rose-900 font-semibold text-sm flex-1">{errorMessage}</p>
-              <button 
-                onClick={() => setErrorMessage('')} 
+              <button
+                onClick={() => setErrorMessage('')}
                 className="text-rose-600 hover:text-rose-800 font-bold text-xl"
               >
                 ×
@@ -217,65 +229,67 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                 )}
               </div>
 
-              <div>
-                {activeTab === 'overview' && (
-                  <AdminOverviewTab 
-                    formatBRL={formatBRL}
-                    getProfessionalName={getProfessionalName}
-                    getServiceName={getServiceName}
-                    handleUpdateBookingStatus={handleUpdateBookingStatus}
-                    onViewFullReport={() => setActiveTab('reports')}
-                    canViewReports={hasTab('reports')}
-                    showFeedback={showFeedback}
-                  />
-                )}
+              <Suspense fallback={<AdminTabFallback />}>
+                <div>
+                  {activeTab === 'overview' && (
+                    <AdminOverviewTab
+                      formatBRL={formatBRL}
+                      getProfessionalName={getProfessionalName}
+                      getServiceName={getServiceName}
+                      handleUpdateBookingStatus={handleUpdateBookingStatus}
+                      onViewFullReport={() => setActiveTab('reports')}
+                      canViewReports={hasTab('reports')}
+                      showFeedback={showFeedback}
+                    />
+                  )}
 
-                {hasTab('new-booking') && activeTab === 'new-booking' && (
-                  <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-sm">
-                    <div className="mb-6">
-                      <h2 className="text-xl font-extrabold text-slate-900">Criar novo agendamento</h2>
-                      <p className="text-sm text-slate-500 mt-1">Escolha profissional e serviço para consultar a disponibilidade real.</p>
+                  {hasTab('new-booking') && activeTab === 'new-booking' && (
+                    <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-sm">
+                      <div className="mb-6">
+                        <h2 className="text-xl font-extrabold text-slate-900">Criar novo agendamento</h2>
+                        <p className="text-sm text-slate-500 mt-1">Escolha profissional e serviço para consultar a disponibilidade real.</p>
+                      </div>
+                      <AdminBookingForm showFeedback={showFeedback} onSuccess={() => setActiveTab('overview')} />
                     </div>
-                    <AdminBookingForm showFeedback={showFeedback} onSuccess={() => setActiveTab('overview')} />
-                  </div>
-                )}
+                  )}
 
-                {hasTab('reports') && activeTab === 'reports' && <AdminReportsTab formatBRL={formatBRL} />}
+                  {hasTab('reports') && activeTab === 'reports' && <AdminReportsTab formatBRL={formatBRL} />}
 
-                {hasTab('services') && activeTab === 'services' && (
-                  <AdminServicesTab
-                    formatBRL={formatBRL}
-                    setSuccessMessage={setSuccessMessage}
-                    setErrorMessage={setErrorMessage}
-                  />
-                )}
+                  {hasTab('services') && activeTab === 'services' && (
+                    <AdminServicesTab
+                      formatBRL={formatBRL}
+                      setSuccessMessage={setSuccessMessage}
+                      setErrorMessage={setErrorMessage}
+                    />
+                  )}
 
-                {hasTab('professionals') && activeTab === 'professionals' && (
-                  <AdminProfessionalsTab
-                    setSuccessMessage={setSuccessMessage}
-                    setErrorMessage={setErrorMessage}
-                  />
-                )}
+                  {hasTab('professionals') && activeTab === 'professionals' && (
+                    <AdminProfessionalsTab
+                      setSuccessMessage={setSuccessMessage}
+                      setErrorMessage={setErrorMessage}
+                    />
+                  )}
 
-                {activeTab === 'gallery' && (
-                  <AdminGalleryTab
-                    setSuccessMessage={setSuccessMessage}
-                    setErrorMessage={setErrorMessage}
-                  />
-                )}
+                  {activeTab === 'gallery' && (
+                    <AdminGalleryTab
+                      setSuccessMessage={setSuccessMessage}
+                      setErrorMessage={setErrorMessage}
+                    />
+                  )}
 
-                {hasTab('pets') && activeTab === 'pets' && <AdminPetsTab />}
+                  {hasTab('pets') && activeTab === 'pets' && <AdminPetsTab />}
 
-                {hasTab('clients') && activeTab === 'clients' && <AdminClientsTab formatBRL={formatBRL} />}
+                  {hasTab('clients') && activeTab === 'clients' && <AdminClientsTab formatBRL={formatBRL} />}
 
-                {hasTab('agenda') && activeTab === 'agenda' && <AdminAgendaTab showFeedback={showFeedback} />}
+                  {hasTab('agenda') && activeTab === 'agenda' && <AdminAgendaTab showFeedback={showFeedback} />}
 
-                {activeTab === 'accounts' && <AdminAccountsTab showFeedback={showFeedback} />}
+                  {activeTab === 'accounts' && <AdminAccountsTab showFeedback={showFeedback} />}
 
-                {activeTab === 'appearance' && <AdminAppearanceTab showFeedback={showFeedback} />}
+                  {activeTab === 'appearance' && <AdminAppearanceTab showFeedback={showFeedback} />}
 
-                {activeTab === 'settings' && <AdminSettingsTab showFeedback={showFeedback} />}
-              </div>
+                  {activeTab === 'settings' && <AdminSettingsTab showFeedback={showFeedback} />}
+                </div>
+              </Suspense>
             </div>
           </div>
         </main>
@@ -283,11 +297,11 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
 
       {isMobileMenuOpen && (
         <>
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
+          <div
+            className="fixed inset-0 bg-black/60 z-20 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          
+
           <nav className="core-admin-sidebar fixed left-0 top-0 h-screen w-72 flex flex-col z-30 md:hidden shadow-2xl">
             <div className="p-6 border-b border-white/10">
               <BusinessBrand size="md" nameClassName="max-w-44 text-white" />
