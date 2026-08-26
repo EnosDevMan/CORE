@@ -16,7 +16,7 @@ for (const file of [
   'supabase/tests/standalone_bootstrap.sql',
   'supabase/tests/data_api_grants.sql',
   'supabase/tests/branding_storage_security.sql',
-  'supabase/migrations/202608260001_branding_logo_storage.sql',
+  'supabase/migrations/20260826193609_branding_logo_storage.sql',
   'supabase/tests/booking_overlap.sql',
   'supabase/tests/booking_security.sql',
   'vercel.json',
