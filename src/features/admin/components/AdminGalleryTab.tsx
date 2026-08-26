@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Trash2, Loader2, Camera, ArrowLeft, ArrowRight, GripVertical } from 'lucide-react';
-import { useApp } from '../../../store/useApp';
+import {
+  useAddGalleryPhoto,
+  useDeleteGalleryPhoto,
+  useGalleryPhotos,
+  useReorderGalleryPhotos,
+  useUpdateGalleryPhoto,
+} from '../../../store/useApp';
 import { GalleryPhoto } from '../../../types';
 import { removePublicImage, uploadImage } from '../../../services/storageService';
 import { getErrorMessage } from '../../../utils/errors';
@@ -23,17 +29,21 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   setSuccessMessage,
   setErrorMessage,
 }) => {
-  const { galleryPhotos, addGalleryPhoto, updateGalleryPhoto, reorderGalleryPhotos, deleteGalleryPhoto } = useApp();
+  const galleryPhotos = useGalleryPhotos();
+  const addGalleryPhoto = useAddGalleryPhoto();
+  const updateGalleryPhoto = useUpdateGalleryPhoto();
+  const reorderGalleryPhotos = useReorderGalleryPhotos();
+  const deleteGalleryPhoto = useDeleteGalleryPhoto();
 
   const [isUploading, setIsUploading] = useState(false);
   const [captionDrafts, setCaptionDrafts] = useState<Record<string, string>>({});
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isReordering, setIsReordering] = useState(false);
 
-  const sortedPhotos = [...galleryPhotos].sort((a, b) =>
+  const sortedPhotos = useMemo(() => [...galleryPhotos].sort((a, b) =>
     (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
     (a.createdAt || '').localeCompare(b.createdAt || '')
-  );
+  ), [galleryPhotos]);
 
   const persistOrder = async (photos: GalleryPhoto[]) => {
     await reorderGalleryPhotos(photos);
@@ -101,9 +111,6 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   const handleDelete = async (photo: GalleryPhoto) => {
     if (window.confirm('Tem certeza que deseja excluir esta foto da galeria?')) {
       try {
-        // Remove primeiro o registro público. Se o banco falhar, a imagem
-        // continua íntegra; se só a limpeza do bucket falhar, sobra um objeto
-        // órfão, mas nunca uma foto quebrada na página pública.
         await deleteGalleryPhoto(photo.id);
         try {
           await removePublicImage(photo.imageUrl, 'gallery');
