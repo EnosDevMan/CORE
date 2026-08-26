@@ -22,10 +22,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onOpenLogin,
   variant,
   imageUrl,
-  serviceCount,
-  professionalCount,
 }) => {
   const niche = useNiche();
+  const confirmationCopy = config.bookingFee > 0
+    ? 'Reserva com confirmação por PIX'
+    : 'Confirmação imediata';
+
   return (
     <section className="core-hero" data-hero-variant={variant}>
       <div className="core-hero__inner">
@@ -45,10 +47,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
           <div className="core-hero__assurances" aria-label="Vantagens do agendamento">
             <span><Check size={14} /> Horários em tempo real</span>
-            <span><Check size={14} /> Confirmação imediata</span>
+            <span><Check size={14} /> {confirmationCopy}</span>
           </div>
         </div>
-        <NicheHeroVisual nicheId={niche.id} imageUrl={imageUrl} serviceCount={serviceCount} professionalCount={professionalCount} />
+        <NicheHeroVisual nicheId={niche.id} imageUrl={imageUrl} />
       </div>
     </section>
   );
