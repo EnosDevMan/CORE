@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { businessService } from '../core/business/businessService';
-import { dataService } from '../services/dataService';
+import { bootstrapDataService } from '../services/bootstrapDataService';
 import { useConfigStore } from './configStore';
 import { useDataStore } from './dataStore';
 
@@ -48,7 +48,7 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
           return;
         }
 
-        const data = await dataService.loadAllData(currentUserRole);
+        const data = await bootstrapDataService.loadAllData(currentUserRole);
         if (mounted) {
           setConfig(data.config);
           setInitialData({
