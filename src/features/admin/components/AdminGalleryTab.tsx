@@ -11,11 +11,12 @@ interface AdminGalleryTabProps {
 }
 
 /**
- * Galeria de cortes exibida na home page ("Nossos Trabalhos"). Alternativa
- * a puxar posts do Instagram (que exigiria autenticação via API do
- * Instagram/Meta e manutenção de token): o admin faz upload direto das
- * fotos aqui, e elas ficam hospedadas no Supabase Storage (bucket
- * `gallery`), sem depender de nenhuma API externa.
+ * Galeria pública do negócio. O painel usa linguagem neutra porque o mesmo
+ * componente atende todos os nichos; a página pública continua livre para
+ * apresentar títulos e textos próprios do nicho selecionado.
+ *
+ * As imagens são enviadas diretamente para o Supabase Storage, sem depender
+ * de Instagram, Meta ou qualquer API externa paga.
  */
 export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
   setSuccessMessage,
@@ -65,7 +66,7 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
         'image/webp': 'webp',
       };
       const ext = extensionByMime[file.type] ?? 'bin';
-      const path = `cortes/${crypto.randomUUID()}-${Date.now()}.${ext}`;
+      const path = `business-media/${crypto.randomUUID()}-${Date.now()}.${ext}`;
       uploadedUrl = await uploadImage(file, path, 'gallery');
       await addGalleryPhoto({ imageUrl: uploadedUrl, caption: '', order: sortedPhotos.length });
       setSuccessMessage('Foto adicionada à galeria!');
@@ -123,9 +124,9 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900">Galeria de Cortes</h2>
+          <h2 className="text-xl font-extrabold text-slate-900">Galeria</h2>
           <p className="text-sm font-medium text-slate-500 mt-1">
-            Fotos exibidas na home page, na seção "Nossos Trabalhos". Arraste as fotos ou use os botões para definir a ordem de exibição.
+            Gerencie as imagens exibidas na página do seu negócio. Arraste as fotos ou use os botões para definir a ordem de exibição.
           </p>
         </div>
       </div>
@@ -146,7 +147,7 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
         ) : (
           <>
             <Camera size={24} className="text-slate-400" />
-            <span className="text-sm font-bold text-slate-700">Enviar foto de um corte</span>
+            <span className="text-sm font-bold text-slate-700">Adicionar foto</span>
             <span className="text-xs text-slate-400">JPG, PNG ou WEBP, até 5MB</span>
           </>
         )}
@@ -163,8 +164,8 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
       {sortedPhotos.length === 0 ? (
         <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
           <Camera size={28} className="mx-auto text-slate-300 mb-3" />
-          <p className="text-sm font-semibold text-slate-500">Nenhuma foto na galeria ainda</p>
-          <p className="text-xs text-slate-400 mt-1">Envie a primeira foto de um corte realizado.</p>
+          <p className="text-sm font-semibold text-slate-500">Nenhuma imagem na galeria</p>
+          <p className="text-xs text-slate-400 mt-1">Adicione fotos dos seus serviços, resultados, ambiente ou equipe.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -187,7 +188,7 @@ export const AdminGalleryTab: React.FC<AdminGalleryTabProps> = ({
                 <span aria-hidden="true" className="absolute left-2 top-2 rounded bg-slate-900/70 p-1 text-white"><GripVertical size={14} /></span>
                 <img
                   src={photo.imageUrl}
-                  alt={photo.caption || 'Trabalho realizado pelo estabelecimento'}
+                  alt={photo.caption || 'Imagem da galeria do estabelecimento'}
                   className="w-full h-full object-cover"
                 />
               </div>
