@@ -38,6 +38,7 @@ export function mapBusinessProfile(value: unknown): BusinessProfile {
     name: requiredString(row, 'business_name'),
     description: optionalString(row.description),
     logoUrl: optionalString(row.logo_url),
+    faviconUrl: optionalString(row.favicon_url),
     coverUrl: optionalString(row.cover_url),
     phone: optionalString(row.phone),
     whatsapp: optionalString(row.whatsapp),

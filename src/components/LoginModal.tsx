@@ -170,7 +170,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onOpenP
 
   return (
     <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-250 border border-slate-100 flex flex-col max-h-[92vh]">
+      <div className="core-themed-dialog bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full sm:max-w-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-250 border border-slate-100 flex flex-col max-h-[92vh]">
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
           <h2 id="auth-dialog-title" className="text-xl font-black text-slate-900 tracking-tight">
             {mode === 'login' && 'Entrar'}

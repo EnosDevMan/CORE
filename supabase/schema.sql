@@ -1574,12 +1574,48 @@ create policy "gallery_admin_update" on storage.objects for update
 create policy "gallery_admin_delete" on storage.objects for delete
   using (bucket_id = 'gallery' and auth_role() = 'owner');
 
+-- Identidade visual pública. Escrita limitada ao proprietário e a nomes
+-- únicos gerados pelo editor de logo; não há overwrite/cache stale.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'branding',
+  'branding',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "branding_public_read" on storage.objects for select
+  using (bucket_id = 'branding');
+
+create policy "branding_owner_insert" on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'branding'
+    and auth_role() = 'owner'
+    and name ~ '^logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$'
+  );
+
+create policy "branding_owner_update" on storage.objects for update to authenticated
+  using (bucket_id = 'branding' and auth_role() = 'owner')
+  with check (
+    bucket_id = 'branding'
+    and auth_role() = 'owner'
+    and name ~ '^logos/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$'
+  );
+
+create policy "branding_owner_delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'branding' and auth_role() = 'owner');
+
 
 -- A validação do navegador é apenas UX; o Storage também limita tamanho e MIME.
 update storage.buckets
 set file_size_limit = 5242880,
     allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp']
-where id in ('avatars', 'gallery');
+where id in ('avatars', 'gallery', 'branding');
 
 -- Profissionais podem enviar e substituir somente a própria foto de perfil.
 create policy "avatars_barber_insert_own" on storage.objects for insert

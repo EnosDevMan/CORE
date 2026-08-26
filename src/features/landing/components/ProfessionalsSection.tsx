@@ -1,27 +1,60 @@
-import React, { useState } from 'react';
-import { UserRound } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowUpRight, UserRound } from 'lucide-react';
 import type { Professional } from '../../professionals/types';
 import { useNiche } from '../../../core/business/hooks';
 import type { SectionStyle } from '../../../layouts/types';
 
-const cardStyle: Record<SectionStyle, string> = {
-  structured: '',
-  editorial: 'rounded-[var(--core-radius)] shadow-[var(--core-shadow)]',
-  showcase: 'rounded-[calc(var(--core-radius)*1.35)] shadow-[var(--core-shadow)]',
-  friendly: 'rounded-[calc(var(--core-radius)*1.7)] shadow-[var(--core-shadow)]',
-};
+interface Props {
+  activeProfessionals: Professional[];
+  onSelectProfessional: (id: string) => void;
+  style: SectionStyle;
+}
 
-export const ProfessionalsSection: React.FC<{ activeProfessionals: Professional[]; onSelectProfessional: (id: string) => void; style: SectionStyle }> = ({ activeProfessionals, onSelectProfessional, style }) => {
+export function ProfessionalsSection({ activeProfessionals, onSelectProfessional, style }: Props) {
   const niche = useNiche();
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   if (!activeProfessionals.length) return null;
-  return <section id="professionals-section" className="core-public-page px-4 py-14 sm:py-16 lg:py-20" data-section-style={style}><div className="mx-auto max-w-6xl">
-    <div className={style === 'editorial' ? 'text-center' : ''}><p className="core-public-primary-text text-xs font-bold uppercase tracking-[.16em]">Equipe</p><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{niche.landing.professionalsTitle}</h2></div>
-    <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{activeProfessionals.map(professional => <article key={professional.id} className={`core-public-elevated core-public-border flex min-w-0 flex-col border p-4 ${cardStyle[style]}`}>
-      <div className={`flex min-w-0 gap-4 ${style === 'editorial' ? 'flex-col items-center text-center' : 'items-center'}`}>{professional.avatar && !failed[professional.id] ? <img src={professional.avatar} alt={`Foto de ${professional.name}`} width="72" height="72" loading="lazy" onError={() => setFailed(v => ({ ...v, [professional.id]: true }))} className="size-[72px] shrink-0 rounded-full object-cover"/> : <div className="core-public-muted grid size-[72px] shrink-0 place-items-center rounded-full" aria-hidden="true"><UserRound size={30}/></div>}
-      <div className="min-w-0"><h3 className="break-words text-lg font-extrabold">{professional.name}</h3><p className="core-public-primary-text mt-1 break-words text-sm font-semibold">{professional.specialty}</p></div></div>
-      {professional.description && <p className={`core-public-muted-text mt-4 line-clamp-3 text-sm leading-6 ${style === 'editorial' ? 'text-center' : ''}`}>{professional.description}</p>}
-      <button onClick={() => onSelectProfessional(professional.id)} className="core-public-ring core-public-primary-text mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--core-radius)] border border-[var(--core-primary)] px-3 py-3 text-sm font-bold transition-opacity hover:opacity-75"><UserRound size={16}/>Agendar com {professional.name}</button>
-    </article>)}</div>
-  </div></section>;
-};
+
+  return (
+    <section id="professionals-section" className="core-section core-team-section" data-section-style={style}>
+      <div className="core-section__inner">
+        <div className="core-section-heading">
+          <div>
+            <p className="core-section-kicker">Pessoas que fazem acontecer</p>
+            <h2>{niche.landing.professionalsTitle}</h2>
+            <p className="core-section-intro">Veja especialidades e escolha quem combina com o atendimento que você procura.</p>
+          </div>
+        </div>
+        <div className="core-team-grid">
+          {activeProfessionals.map((professional, index) => (
+            <article key={professional.id} className="core-professional-card">
+              <div className="core-professional-card__portrait">
+                {professional.avatar && !failed[professional.id] ? (
+                  <img
+                    src={professional.avatar}
+                    alt={`Foto de ${professional.name}`}
+                    width="560"
+                    height="680"
+                    loading="lazy"
+                    onError={() => setFailed(current => ({ ...current, [professional.id]: true }))}
+                  />
+                ) : (
+                  <div className="core-professional-card__fallback" aria-hidden="true"><UserRound size={52} /></div>
+                )}
+                <span className="core-professional-card__index">{String(index + 1).padStart(2, '0')}</span>
+              </div>
+              <div className="core-professional-card__content">
+                <p>{professional.specialty || 'Atendimento profissional'}</p>
+                <h3>{professional.name}</h3>
+                {professional.description && <span>{professional.description}</span>}
+                <button type="button" onClick={() => onSelectProfessional(professional.id)} className="core-public-ring">
+                  Ver horários <ArrowUpRight size={17} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -23,8 +23,8 @@ export async function uploadImage(file: File, path: string, bucket: string = 'av
   }
 
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
-    upsert: true,
-    cacheControl: '3600',
+    upsert: false,
+    cacheControl: '31536000',
   });
   if (error) throw new Error(error.message);
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../store/useApp';
-import { useNiche } from '../core/business/hooks';
+import { useBusiness, useNiche } from '../core/business/hooks';
 import { getPublicLayoutPreset } from '../layouts/registry';
 import type { PublicSectionId } from '../layouts/types';
 import { HeroSection } from '../features/landing/components/HeroSection';
@@ -14,10 +14,16 @@ interface Props { onStartBooking: (selection?: { serviceId?: string; professiona
 
 export const LandingPage: React.FC<Props> = ({ onStartBooking, onOpenLogin, onOpenPrivacy }) => {
   const { config, professionals, services, galleryPhotos, scheduleBlocks } = useApp();
+  const { profile } = useBusiness();
   const niche = useNiche();
   const layout = getPublicLayoutPreset(niche.defaultLayoutId);
   const activeServices = services.filter(s => s.active !== false).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
-  const categories = [...new Set(activeServices.map(s => s.category).filter(Boolean))];
+  const categories = Array.from(new Map(
+    activeServices
+      .map(service => service.category?.trim())
+      .filter((category): category is string => typeof category === 'string' && category.length > 0 && category.toLocaleLowerCase('pt-BR') !== 'todos')
+      .map(category => [category.toLocaleLowerCase('pt-BR'), category]),
+  ).values());
   const activeProfessionals = professionals.filter(b => b.active).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
 
   const renderSection = (section: PublicSectionId) => {
@@ -35,7 +41,15 @@ export const LandingPage: React.FC<Props> = ({ onStartBooking, onOpenLogin, onOp
 
   return (
     <div className="core-public-page min-h-screen overflow-x-clip" data-public-layout={layout.id}>
-      <HeroSection variant={layout.heroVariant} config={config} onStartBooking={() => onStartBooking()} onOpenLogin={onOpenLogin} />
+      <HeroSection
+        variant={layout.heroVariant}
+        config={config}
+        imageUrl={profile.coverUrl || galleryPhotos[0]?.imageUrl}
+        serviceCount={activeServices.length}
+        professionalCount={activeProfessionals.length}
+        onStartBooking={() => onStartBooking()}
+        onOpenLogin={onOpenLogin}
+      />
       {layout.sectionOrder.map(renderSection)}
       <FooterSection config={config} professionals={activeProfessionals} scheduleBlocks={scheduleBlocks} onOpenPrivacy={onOpenPrivacy} />
     </div>

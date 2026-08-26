@@ -4,8 +4,7 @@ import { useApp } from '../store/useApp';
 import { UserRole } from '../types';
 import { getCompactDisplayName } from '../utils/displayName';
 import { getRoleLabel, isAdministratorRole, isCustomerRole, isProfessionalRole } from '../auth/authorization';
-import { useNiche } from '../core/business/hooks';
-import { NicheMark } from '../features/landing/NicheMark';
+import { BusinessBrand } from '../core/business/BusinessBrand';
 
 interface NavbarProps {
   onNavigate: (page: 'landing' | 'booking' | 'customer' | 'admin' | 'professional') => void;
@@ -14,8 +13,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenLogin }) => {
-  const { currentUser, logout, config } = useApp();
-  const niche = useNiche();
+  const { currentUser, logout } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     const closeAtDesktop = () => { if (window.innerWidth >= 768) setMobileMenuOpen(false); };
@@ -33,14 +31,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, onOpenL
   const navClass = (active: boolean) => `core-public-ring text-sm font-semibold transition-opacity ${active ? 'core-public-primary-text' : 'core-public-muted-text hover:opacity-75'}`;
 
   return (
-    <header className="core-public-surface core-public-border sticky top-0 z-40 border-b">
+    <header className="core-navbar core-public-surface core-public-border sticky top-0 z-40 border-b">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <button aria-label="Ir para o início" className="core-public-ring flex min-w-0 items-center gap-2 text-left" onClick={() => onNavigate('landing')}>
-            <div className="core-public-primary grid size-10 place-items-center rounded-xl">
-              <NicheMark nicheId={niche.id} size={20} aria-hidden="true" />
-            </div>
-            <span className="truncate text-xl font-black tracking-tight">{config?.name || 'Agenda'}</span>
+          <button aria-label="Ir para o início" className="core-navbar__brand core-public-ring min-w-0 text-left" onClick={() => onNavigate('landing')}>
+            <BusinessBrand size="md" nameClassName="truncate" />
           </button>
 
           <div className="hidden items-center gap-6 md:flex">

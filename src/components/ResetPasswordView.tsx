@@ -53,7 +53,7 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ onComplete
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
+    <div className="core-themed-workspace min-h-screen bg-slate-50 flex items-center justify-center px-6">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
         {done ? (
           <div className="text-center">

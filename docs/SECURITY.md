@@ -9,7 +9,12 @@
   de agendamentos; bloqueios públicos omitem justificativas internas.
 - Escritas administrativas verificam role no banco.
 - Guest booking usa RPC e não INSERT público direto.
-- Storage restringe escrita por bucket e identidade.
+- Storage restringe escrita por bucket e identidade. Logos ficam no bucket
+  público `branding`, mas somente o proprietário pode inserir/remover e apenas
+  no caminho gerado `logos/<uuid>.webp`; MIME e tamanho também são validados no
+  bucket, além da validação de UX no navegador.
+- A CSP permite `blob:` apenas em `img-src`, necessário para a prévia local do
+  arquivo antes do upload; scripts, frames e conexões continuam restritos.
 - O bundle recebe somente a chave publicável; `service_role` nunca usa o
   prefixo `VITE_` nem é enviado ao navegador. JWTs legados só são aceitos quando
   o payload informa a role `anon`; chaves secretas falham antes do bootstrap.

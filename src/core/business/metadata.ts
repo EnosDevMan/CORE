@@ -39,4 +39,15 @@ export function applyBusinessMetadata(
     document.head.append(canonical);
   }
   canonical.href = canonicalUrl;
+
+  const brandIcon = profile.faviconUrl || profile.logoUrl;
+  let icon = document.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!icon) {
+    icon = document.createElement('link');
+    icon.rel = 'icon';
+    document.head.append(icon);
+  }
+  icon.href = brandIcon || '/favicon.svg';
+  if (brandIcon) icon.removeAttribute('type');
+  else icon.type = 'image/svg+xml';
 }

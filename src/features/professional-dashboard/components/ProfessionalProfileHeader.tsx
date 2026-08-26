@@ -20,7 +20,7 @@ export const ProfessionalProfileHeader: React.FC<ProfessionalProfileHeaderProps>
   onEditProfile
 }) => {
   return (
-    <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-md mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
+    <div className="core-workspace-banner bg-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-md mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
       <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
         <div className="relative shrink-0">
           <img

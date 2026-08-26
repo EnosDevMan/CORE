@@ -45,7 +45,13 @@ export function BusinessProvider({
     <BusinessContext.Provider value={value}>
       <NicheContext.Provider value={niche}>
         <ThemeContext.Provider value={theme}>
-          <div data-theme={theme.id} data-theme-mode={theme.mode} style={themeStyle} className="core-theme-root">
+          <div
+            data-theme={theme.id}
+            data-theme-mode={theme.mode}
+            data-niche={niche.id}
+            style={themeStyle}
+            className="core-theme-root"
+          >
             {children}
           </div>
         </ThemeContext.Provider>

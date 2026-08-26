@@ -4,10 +4,11 @@ import { join } from 'node:path';
 const distDirectory = new URL('../dist/assets/', import.meta.url);
 const limits = {
   largestJavaScript: Number(process.env.BUNDLE_MAX_JS_KB ?? 230) * 1024,
-  // The 1.0 account-management and optional anti-bot flows add a small,
-  // measured amount while the largest executable chunk remains unchanged.
-  totalJavaScript: Number(process.env.BUNDLE_TOTAL_JS_KB ?? 710) * 1024,
-  totalCss: Number(process.env.BUNDLE_TOTAL_CSS_KB ?? 100) * 1024,
+  // The measured niche-specific landing compositions, owner logo editor and
+  // themed account workspaces intentionally add UI while executable chunks
+  // and the compressed stylesheet stay bounded.
+  totalJavaScript: Number(process.env.BUNDLE_TOTAL_JS_KB ?? 740) * 1024,
+  totalCss: Number(process.env.BUNDLE_TOTAL_CSS_KB ?? 108) * 1024,
 };
 
 const files = await readdir(distDirectory);

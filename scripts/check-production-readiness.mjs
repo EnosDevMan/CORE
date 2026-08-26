@@ -15,6 +15,8 @@ for (const file of [
   'supabase/schema.sql',
   'supabase/tests/standalone_bootstrap.sql',
   'supabase/tests/data_api_grants.sql',
+  'supabase/tests/branding_storage_security.sql',
+  'supabase/migrations/202608260001_branding_logo_storage.sql',
   'supabase/tests/booking_overlap.sql',
   'supabase/tests/booking_security.sql',
   'vercel.json',
@@ -46,6 +48,11 @@ if (existsSync(path.join(root, 'vercel.json'))) {
     if (!value?.includes('https://challenges.cloudflare.com')) {
       failures.push(`CSP incompatível com o Turnstile em ${directive}`);
     }
+  }
+
+  const imageSources = csp.split(';').map((part) => part.trim()).find((part) => part.startsWith('img-src '));
+  if (!imageSources?.split(/\s+/).includes('blob:')) {
+    failures.push('CSP incompatível com a prévia local do editor de logo em img-src');
   }
 }
 

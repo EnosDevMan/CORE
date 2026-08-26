@@ -32,6 +32,10 @@
 8. Para criar acessos da equipe, peça ao profissional que crie uma conta comum;
    depois, no painel proprietário, abra **Contas e acessos**, altere o papel
    para Profissional e vincule a conta no cadastro da equipe.
+9. Em **Aparência**, escolha uma identidade recomendada para o nicho e envie a
+   logo real da empresa. Ajuste zoom e foco no editor; a versão otimizada será
+   usada no site, no painel e no favicon. O bucket `branding` já é criado pelo
+   schema consolidado — não crie policy pública de escrita manualmente.
 
 Escolha `barbershop`, `beauty_salon`, `nail_studio` ou `pet_shop`. Os presets
 sugerem conteúdo; revise/remova tudo. Pet Shop habilita `pets`. Cada empresa

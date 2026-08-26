@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { BusinessProvider } from '../../../core/business/BusinessProvider';
 import type { BusinessConfig } from '../../../types';
@@ -31,7 +31,14 @@ describe('HeroSection', () => {
   it('uses the persisted niche defaults and the requested layout variant', () => {
     const { container } = render(
       <BusinessProvider profile={profile}>
-        <HeroSection variant="showcase" config={config} onStartBooking={vi.fn()} onOpenLogin={vi.fn()} />
+        <HeroSection
+          variant="showcase"
+          config={config}
+          serviceCount={4}
+          professionalCount={2}
+          onStartBooking={vi.fn()}
+          onOpenLogin={vi.fn()}
+        />
       </BusinessProvider>,
     );
 
@@ -48,6 +55,8 @@ describe('HeroSection', () => {
         <HeroSection
           variant="showcase"
           config={{ ...config, heroTitle: 'Minha mensagem', heroDescription: 'Minha descrição personalizada.' }}
+          serviceCount={4}
+          professionalCount={2}
           onStartBooking={vi.fn()}
           onOpenLogin={vi.fn()}
         />
@@ -56,5 +65,26 @@ describe('HeroSection', () => {
 
     expect(screen.getByRole('heading', { name: 'Minha mensagem' })).toBeInTheDocument();
     expect(screen.getByText('Minha descrição personalizada.')).toBeInTheDocument();
+  });
+
+  it('falls back to the niche artwork when the configured cover cannot load', () => {
+    const { container } = render(
+      <BusinessProvider profile={profile}>
+        <HeroSection
+          variant="showcase"
+          config={config}
+          imageUrl="https://cdn.example/cover.webp"
+          serviceCount={4}
+          professionalCount={2}
+          onStartBooking={vi.fn()}
+          onOpenLogin={vi.fn()}
+        />
+      </BusinessProvider>,
+    );
+
+    const image = container.querySelector<HTMLImageElement>('.core-hero-visual__media img');
+    expect(image).toBeInTheDocument();
+    fireEvent.error(image!);
+    expect(container.querySelector('.core-hero-visual__fallback')).toBeInTheDocument();
   });
 });

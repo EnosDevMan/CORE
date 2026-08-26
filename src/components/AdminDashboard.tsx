@@ -16,6 +16,7 @@ import { AdminAppearanceTab } from '../features/admin/components/AdminAppearance
 import { AdminSettingsTab } from '../features/admin/components/AdminSettingsTab';
 import { AdminBookingForm } from '../features/admin/components/agenda/AdminBookingForm';
 import { AdminPetsTab } from '../features/pets/components/AdminPetsTab';
+import { BusinessBrand } from '../core/business/BusinessBrand';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -24,7 +25,6 @@ interface AdminDashboardProps {
 
 const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNavigateHome }) => {
   const {
-    config,
     currentUser,
     activeTab,
     setActiveTab,
@@ -62,9 +62,9 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
                 : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
             }`}
           >
-            <item.icon size={18} className={activeTab === item.id ? 'text-brand-copper-light' : 'text-slate-500 group-hover:text-slate-300'} />
+            <item.icon size={18} className={`core-admin-nav-icon ${activeTab === item.id ? 'is-active' : ''}`} />
             <span>{item.label}</span>
-            {activeTab === item.id && <ChevronRight size={14} className="ml-auto text-brand-copper-light" />}
+            {activeTab === item.id && <ChevronRight size={14} className="core-admin-nav-icon is-active ml-auto" />}
           </button>
         ))}
       </div>
@@ -72,8 +72,8 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
   ));
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <nav className="hidden md:flex md:w-64 bg-brand-navy text-slate-300 flex-col border-r border-white/10">
+    <div className="core-admin-shell flex h-screen">
+      <nav className="core-admin-sidebar hidden md:flex md:w-64 flex-col border-r border-white/10">
         <div className="px-5 py-5 border-b border-white/10">
           <div className="flex items-center gap-3">
             <button 
@@ -84,9 +84,9 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
             >
               <ArrowLeft size={18} />
             </button>
-            <div>
-              <h1 className="text-sm font-bold text-white truncate max-w-40">{config.name}</h1>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">Administração</p>
+            <div className="min-w-0">
+              <BusinessBrand size="sm" nameClassName="max-w-32 text-white" />
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-white/50">Administração</p>
             </div>
           </div>
         </div>
@@ -95,7 +95,7 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
 
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-9 h-9 rounded-full bg-brand-copper text-brand-navy flex items-center justify-center font-extrabold flex-shrink-0">
+            <div className="core-admin-avatar w-9 h-9 rounded-full flex items-center justify-center font-extrabold flex-shrink-0">
               {currentUser?.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -114,7 +114,7 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
       </nav>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="md:hidden bg-brand-navy text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40 border-b border-white/10">
+        <div className="core-admin-sidebar md:hidden px-4 py-3 flex items-center justify-between sticky top-0 z-40 border-b border-white/10">
           <div className="flex items-center gap-3">
             <button 
               onClick={onNavigateHome} 
@@ -163,17 +163,17 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
           )}
         </div>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="core-admin-main flex-1 overflow-y-auto">
           <div className="px-4 py-5 sm:px-6 lg:px-10 lg:py-8">
             <div className="max-w-6xl mx-auto">
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold text-slate-400 mb-1">Administração / {activeNavItem.group}</p>
-                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">{activeNavItem.label}</h2>
-                  <p className="text-slate-500 text-sm mt-1">{activeNavItem.description}</p>
+                  <h2 className="core-admin-heading text-2xl md:text-3xl font-extrabold tracking-tight">{activeNavItem.label}</h2>
+                  <p className="core-admin-subheading text-sm mt-1">{activeNavItem.description}</p>
                 </div>
                 {hasTab('new-booking') && activeTab !== 'new-booking' && (
-                  <button onClick={() => setActiveTab('new-booking')} className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-navy-soft transition-colors shadow-sm">
+                  <button onClick={() => setActiveTab('new-booking')} className="core-button-primary hidden sm:inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors shadow-sm">
                     <CalendarPlus size={17} /> Novo agendamento
                   </button>
                 )}
@@ -250,17 +250,17 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
             onClick={() => setIsMobileMenuOpen(false)}
           />
           
-          <nav className="fixed left-0 top-0 h-screen w-72 bg-brand-navy text-slate-300 flex flex-col z-30 md:hidden shadow-2xl">
+          <nav className="core-admin-sidebar fixed left-0 top-0 h-screen w-72 flex flex-col z-30 md:hidden shadow-2xl">
             <div className="p-6 border-b border-white/10">
-              <h1 className="text-lg font-black text-white mb-1">{config.name}</h1>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Painel Administrativo</p>
+              <BusinessBrand size="md" nameClassName="max-w-44 text-white" />
+              <p className="mt-2 text-[10px] font-bold text-white/50 uppercase tracking-wider">Painel Administrativo</p>
             </div>
 
             <div className="flex-1 px-3 py-5 overflow-y-auto">{renderNavigation(() => setIsMobileMenuOpen(false))}</div>
 
             <div className="p-6 border-t border-slate-700/50 space-y-4">
               <div className="flex items-center gap-4 px-3 py-4 bg-slate-800/30 rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center font-bold text-white flex-shrink-0">
+                <div className="core-admin-avatar w-12 h-12 rounded-full flex items-center justify-center font-bold flex-shrink-0">
                   {currentUser?.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
