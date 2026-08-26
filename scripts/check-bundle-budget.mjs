@@ -4,11 +4,11 @@ import { join } from 'node:path';
 const distDirectory = new URL('../dist/assets/', import.meta.url);
 const limits = {
   largestJavaScript: Number(process.env.BUNDLE_MAX_JS_KB ?? 230) * 1024,
-  // The measured niche-specific landing compositions, owner logo editor and
-  // themed account workspaces intentionally add UI while executable chunks
-  // and the compressed stylesheet stay bounded.
-  totalJavaScript: Number(process.env.BUNDLE_TOTAL_JS_KB ?? 740) * 1024,
-  totalCss: Number(process.env.BUNDLE_TOTAL_CSS_KB ?? 108) * 1024,
+  // Recent universal UX work added owner-managed media, adaptive booking and
+  // richer administration. Keep a small aggregate allowance for those
+  // product features while preserving the strict per-chunk ceiling.
+  totalJavaScript: Number(process.env.BUNDLE_TOTAL_JS_KB ?? 748) * 1024,
+  totalCss: Number(process.env.BUNDLE_TOTAL_CSS_KB ?? 109) * 1024,
 };
 
 const files = await readdir(distDirectory);
