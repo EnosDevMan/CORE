@@ -23,6 +23,44 @@ interface AdminDashboardProps {
   onNavigateHome: () => void;
 }
 
+/**
+ * Backoffice visual contract: the business theme belongs to the public site.
+ * Administration stays predictable and neutral across every niche so an owner
+ * never has to relearn contrast, typography or interaction states when the
+ * public identity changes.
+ */
+const ADMIN_NEUTRAL_THEME = {
+  '--core-background': '#f8fafc',
+  '--core-canvas': '#f8fafc',
+  '--core-surface': '#ffffff',
+  '--core-surface-elevated': '#ffffff',
+  '--core-surface-gradient': 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+  '--core-input': '#ffffff',
+  '--core-foreground': '#0f172a',
+  '--core-muted': '#f1f5f9',
+  '--core-muted-foreground': '#64748b',
+  '--core-border': '#e2e8f0',
+  '--core-primary': '#0f172a',
+  '--core-primary-foreground': '#ffffff',
+  '--core-secondary': '#e2e8f0',
+  '--core-secondary-foreground': '#0f172a',
+  '--core-accent': '#38bdf8',
+  '--core-accent-foreground': '#082f49',
+  '--core-decorative': '#e2e8f0',
+  '--core-decorative-foreground': '#0f172a',
+  '--core-nav': '#0f172a',
+  '--core-nav-foreground': '#f8fafc',
+  '--core-ring': '#334155',
+  '--core-card-radius': '1rem',
+  '--core-button-radius': '.75rem',
+  '--core-font-body': 'Inter, ui-sans-serif, system-ui, sans-serif',
+  '--core-font-display': 'Inter, ui-sans-serif, system-ui, sans-serif',
+  '--core-heading-tracking': '-0.02em',
+  '--core-pattern': 'none',
+  '--core-shadow': '0 10px 28px rgba(15, 23, 42, 0.08)',
+  '--core-shadow-strong': '0 18px 45px rgba(15, 23, 42, 0.12)',
+} as React.CSSProperties;
+
 const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNavigateHome }) => {
   const {
     currentUser,
@@ -72,7 +110,7 @@ const AdminDashboardInner: React.FC<AdminDashboardProps> = ({ onLogout, onNaviga
   ));
 
   return (
-    <div className="core-admin-shell flex h-screen">
+    <div className="core-admin-shell flex h-screen" style={ADMIN_NEUTRAL_THEME}>
       <nav className="core-admin-sidebar hidden md:flex md:w-64 flex-col border-r border-white/10">
         <div className="px-5 py-5 border-b border-white/10">
           <div className="flex items-center gap-3">
