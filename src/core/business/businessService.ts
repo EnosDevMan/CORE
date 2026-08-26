@@ -26,6 +26,18 @@ async function getCurrentBrandUrls(): Promise<string[]> {
     .filter((value): value is string => typeof value === 'string' && value.length > 0))];
 }
 
+async function getCurrentCoverUrl(): Promise<string | undefined> {
+  const { data, error } = await supabase
+    .from('business_profile')
+    .select('cover_url')
+    .eq('id', true)
+    .single();
+  if (error) throw new Error(error.message);
+  return typeof data?.cover_url === 'string' && data.cover_url.length > 0
+    ? data.cover_url
+    : undefined;
+}
+
 async function removeStoredBrandingUrl(publicUrl: string | undefined): Promise<void> {
   if (!publicUrl) return;
   try {
@@ -110,5 +122,33 @@ export const businessService = {
       .eq('id', true);
     if (error) throw new Error(error.message);
     await Promise.all(previousUrls.map(removeStoredBrandingUrl));
+  },
+
+  async replaceCover(file: File): Promise<void> {
+    const previousUrl = await getCurrentCoverUrl();
+    const path = `covers/${crypto.randomUUID()}.webp`;
+    const uploadedUrl = await uploadImage(file, path, BRANDING_BUCKET);
+    const { error } = await supabase
+      .from('business_profile')
+      .update({ cover_url: uploadedUrl, updated_at: new Date().toISOString() })
+      .eq('id', true);
+
+    if (error) {
+      await removeStoredBrandingUrl(uploadedUrl);
+      throw new Error(error.message);
+    }
+    if (previousUrl && previousUrl !== uploadedUrl) {
+      await removeStoredBrandingUrl(previousUrl);
+    }
+  },
+
+  async removeCover(): Promise<void> {
+    const previousUrl = await getCurrentCoverUrl();
+    const { error } = await supabase
+      .from('business_profile')
+      .update({ cover_url: null, updated_at: new Date().toISOString() })
+      .eq('id', true);
+    if (error) throw new Error(error.message);
+    await removeStoredBrandingUrl(previousUrl);
   },
 };
