@@ -15,6 +15,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
   // tinha nenhum efeito aqui e ele continuava aparecendo para reserva.
   const services = useMemo(() => allServices.filter(s => s.active !== false), [allServices]);
   const professionals = useMemo(() => allProfessionals.filter(b => b.active !== false), [allProfessionals]);
+  const professionalStepRequired = professionals.length !== 1;
 
   const [step, setStep] = useState(1);
   const [selectedServices, setSelectedServices] = useState<Service[]>(() => allServices.filter(s => s.active !== false && s.id === initialServiceId));
@@ -65,6 +66,16 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setCustPhone(currentUser.phone || '');
     }
   }, [currentUser]);
+
+  // A loja com um único profissional não precisa pedir uma escolha óbvia.
+  // Mantemos a seleção sincronizada para que a disponibilidade já esteja
+  // pronta quando o cliente chegar à etapa de data e horário.
+  useEffect(() => {
+    if (professionals.length === 1 && selectedProfessional?.id !== professionals[0].id) {
+      setSelectedProfessional(professionals[0]);
+      setSelectedTime('');
+    }
+  }, [professionals, selectedProfessional?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +128,11 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setErrorMsg('Por favor, selecione pelo menos um serviço.');
       return;
     }
+    if (step === 1 && professionals.length === 1) {
+      setSelectedProfessional(professionals[0]);
+      setStep(3);
+      return;
+    }
     if (step === 2 && !selectedProfessional) {
       setErrorMsg('Por favor, selecione um profissional.');
       return;
@@ -130,6 +146,10 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
 
   const handleBack = () => {
     setErrorMsg('');
+    if (step === 3 && professionals.length === 1) {
+      setStep(1);
+      return;
+    }
     setStep(s => Math.max(1, s - 1));
   };
 
@@ -224,6 +244,7 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
     setStep,
     services,
     professionals,
+    professionalStepRequired,
     config,
     currentUser,
 

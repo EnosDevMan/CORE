@@ -5,8 +5,6 @@ import type { NicheId, RuntimeNicheId } from '../../../niches/types';
 interface NicheHeroVisualProps {
   nicheId: RuntimeNicheId;
   imageUrl?: string;
-  serviceCount: number;
-  professionalCount: number;
 }
 
 const CONTENT: Record<NicheId, { kicker: string; statement: string }> = {
@@ -24,7 +22,7 @@ function DecorativeIcon({ nicheId }: { nicheId: RuntimeNicheId }) {
   return <CalendarCheck2 />;
 }
 
-export function NicheHeroVisual({ nicheId, imageUrl, serviceCount, professionalCount }: NicheHeroVisualProps) {
+export function NicheHeroVisual({ nicheId, imageUrl }: NicheHeroVisualProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const content = nicheId === 'core_bootstrap'
     ? { kicker: 'Agenda online', statement: 'Seu atendimento, organizado.' }
@@ -51,11 +49,6 @@ export function NicheHeroVisual({ nicheId, imageUrl, serviceCount, professionalC
       <div className="core-hero-visual__availability">
         <CalendarCheck2 size={18} />
         <span><strong>Agenda online</strong><small>Escolha em poucos passos</small></span>
-      </div>
-      <div className="core-hero-visual__stats">
-        <span><strong>{serviceCount || '—'}</strong><small>serviços</small></span>
-        <span className="core-hero-visual__stats-divider" />
-        <span><strong>{professionalCount || '—'}</strong><small>profissionais</small></span>
       </div>
       {nicheId === 'pet_shop' && <Heart className="core-hero-visual__heart" />}
     </div>

@@ -19,6 +19,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ onSuccess, onNavigateT
     step,
     services,
     professionals,
+    professionalStepRequired,
     config,
     currentUser,
 
@@ -55,39 +56,55 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ onSuccess, onNavigateT
     handleConfirm
   } = useBookingFlow(onSuccess, initialServiceId, initialProfessionalId);
 
+  const visibleStepIds = professionalStepRequired ? [1, 2, 3, 4] : [1, 3, 4];
+  const currentProgressIndex = Math.max(0, visibleStepIds.indexOf(step));
+  const progressPercent = visibleStepIds.length > 1
+    ? (currentProgressIndex / (visibleStepIds.length - 1)) * 100
+    : 0;
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-8 sm:px-6">
       {/* Header with Title and Progress */}
       {step < 5 && (
         <div className="mb-8">
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-6">
-            {step === 1 && 'O que vamos fazer hoje?'}
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
+            {step === 1 && 'Escolha o que você precisa'}
             {step === 2 && 'Quem vai te atender?'}
             {step === 3 && 'Escolha a data e o horário'}
-            {step === 4 && 'Revise as informações'}
+            {step === 4 && 'Confira antes de confirmar'}
           </h2>
+          <p className="mb-6 text-sm text-slate-500">
+            {step === 1 && 'Você vê duração e valor antes de avançar.'}
+            {step === 2 && 'Selecione o profissional de sua preferência.'}
+            {step === 3 && 'Mostramos apenas horários realmente disponíveis.'}
+            {step === 4 && 'Revise serviço, profissional, horário e seus dados.'}
+          </p>
 
-          <div className="flex items-center justify-between relative">
+          <div className="flex items-center justify-between relative" aria-label={`Etapa ${currentProgressIndex + 1} de ${visibleStepIds.length}`}>
             <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-100 -z-10 rounded-full"></div>
             <div
               className="absolute left-0 top-1/2 h-0.5 bg-indigo-600 -z-10 rounded-full transition-all duration-500"
-              style={{ width: `${((step - 1) / 3) * 100}%` }}
+              style={{ width: `${progressPercent}%` }}
             ></div>
 
-            {[1, 2, 3, 4].map(s => (
-              <div
-                key={s}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
-                  step > s
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                    : step === s
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 ring-4 ring-white'
-                      : 'bg-white border-2 border-slate-200 text-slate-400'
-                }`}
-              >
-                {step > s ? <CheckCircle size={14} /> : s}
-              </div>
-            ))}
+            {visibleStepIds.map((stepId, index) => {
+              const completed = currentProgressIndex > index;
+              const active = currentProgressIndex === index;
+              return (
+                <div
+                  key={stepId}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
+                    completed
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                      : active
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 ring-4 ring-white'
+                        : 'bg-white border-2 border-slate-200 text-slate-400'
+                  }`}
+                >
+                  {completed ? <CheckCircle size={14} /> : index + 1}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -188,7 +205,7 @@ export const BookingFlow: React.FC<BookingFlowProps> = ({ onSuccess, onNavigateT
                 disabled={isProcessing}
                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-400 text-white py-3 px-6 rounded-xl font-bold transition-all shadow-lg shadow-slate-900/20"
               >
-                {isProcessing ? processingStatus : 'Confirmar Agendamento'}
+                {isProcessing ? processingStatus : 'Confirmar agendamento'}
               </button>
             )}
           </div>

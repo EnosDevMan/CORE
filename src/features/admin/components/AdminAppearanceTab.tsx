@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Check, Image as ImageIcon, Palette, Sparkles, Trash2, Upload } from 'lucide-react';
 import { BusinessBrand } from '../../../core/business/BusinessBrand';
 import { businessService } from '../../../core/business/businessService';
+import { prepareCoverImage } from '../../../core/business/coverImage';
 import { renderCroppedLogo, validateLogoFile, type LogoCropOptions } from '../../../core/business/logoCrop';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { THEME_REGISTRY } from '../../../themes/registry';
@@ -15,8 +16,10 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
   const [savingTheme, setSavingTheme] = useState(false);
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [savingLogo, setSavingLogo] = useState(false);
+  const [savingCover, setSavingCover] = useState(false);
   const [logoError, setLogoError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setSelected(profile.themeId), [profile.themeId]);
 
@@ -82,6 +85,38 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
     }
   };
 
+  const chooseCover = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || savingCover) return;
+    try {
+      setSavingCover(true);
+      const optimizedCover = await prepareCoverImage(file);
+      await businessService.replaceCover(optimizedCover);
+      await refreshRuntime();
+      showFeedback('Imagem de destaque atualizada no site!', false);
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : 'Não foi possível atualizar a imagem de destaque.', true);
+    } finally {
+      setSavingCover(false);
+    }
+  };
+
+  const removeCover = async () => {
+    if (!profile.coverUrl || savingCover) return;
+    if (!window.confirm('Remover a imagem de destaque personalizada?')) return;
+    try {
+      setSavingCover(true);
+      await businessService.removeCover();
+      await refreshRuntime();
+      showFeedback('Imagem de destaque removida. O site voltará a usar a galeria ou o visual padrão do tema.', false);
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : 'Não foi possível remover a imagem de destaque.', true);
+    } finally {
+      setSavingCover(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -89,8 +124,52 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
           <div className="flex items-start gap-3">
             <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><ImageIcon size={20} /></span>
             <div>
+              <h3 className="font-extrabold text-slate-900">Imagem de destaque</h3>
+              <p className="mt-1 text-sm text-slate-500">É a principal imagem visual do início da página e ajuda o cliente a entender o negócio antes de agendar.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(280px,.9fr)_minmax(320px,1.1fr)] sm:p-6">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+            {profile.coverUrl ? (
+              <img src={profile.coverUrl} alt="Imagem de destaque atual do negócio" className="aspect-[8/5] h-full w-full object-cover" />
+            ) : (
+              <div className="flex aspect-[8/5] min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-slate-400">
+                <ImageIcon size={34} />
+                <p className="text-sm font-bold text-slate-600">Nenhuma imagem personalizada</p>
+                <p className="max-w-xs text-xs leading-5">O CORE usa automaticamente a primeira foto da galeria e, se ela não existir, o visual padrão do tema.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col justify-center">
+            <p className="text-sm font-bold text-slate-800">{profile.coverUrl ? 'Imagem personalizada ativa' : 'Modo automático ativo'}</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+              Use uma foto real de trabalho, resultado, ambiente ou uma ilustração da própria marca. O arquivo é otimizado no navegador antes do envio para reduzir o peso da página. JPG, PNG ou WEBP, até 5 MB.
+            </p>
+            <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseCover} className="sr-only" aria-label="Selecionar imagem de destaque" />
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button type="button" onClick={() => coverInputRef.current?.click()} disabled={savingCover} className="core-button-primary min-h-11 px-4 text-sm font-bold disabled:opacity-50">
+                <Upload size={17} /> {savingCover ? 'Otimizando...' : profile.coverUrl ? 'Trocar imagem' : 'Enviar imagem'}
+              </button>
+              {profile.coverUrl && (
+                <button type="button" onClick={removeCover} disabled={savingCover} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 px-4 text-sm font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                  <Trash2 size={17} /> Remover
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><ImageIcon size={20} /></span>
+            <div>
               <h3 className="font-extrabold text-slate-900">Logo da empresa</h3>
-              <p className="mt-1 text-sm text-slate-500">Substitui o ícone genérico em todo o site, no painel e na aba do navegador.</p>
+              <p className="mt-1 text-sm text-slate-500">Substitui o ícone genérico no site, no painel e na aba do navegador.</p>
             </div>
           </div>
         </div>
@@ -104,9 +183,9 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
               Use uma imagem quadrada ou retangular. Você poderá ajustar zoom e posição antes de publicar. Aceitamos JPG, PNG ou WEBP de até 5 MB.
             </p>
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseLogo} className="sr-only" aria-label="Selecionar arquivo de logo" />
+            <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseLogo} className="sr-only" aria-label="Selecionar arquivo de logo" />
             <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={savingLogo} className="core-button-primary min-h-11 px-4 text-sm font-bold disabled:opacity-50">
+              <button type="button" onClick={() => logoInputRef.current?.click()} disabled={savingLogo} className="core-button-primary min-h-11 px-4 text-sm font-bold disabled:opacity-50">
                 <Upload size={17} /> {profile.logoUrl ? 'Trocar logo' : 'Enviar logo'}
               </button>
               {profile.logoUrl && (
@@ -124,8 +203,8 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
           <div className="flex items-start gap-3">
             <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Palette size={20} /></span>
             <div>
-              <h3 className="font-extrabold text-slate-900">Estilo visual</h3>
-              <p className="mt-1 text-sm text-slate-500">Identidades criadas especialmente para {niche.name}, também aplicadas ao painel administrativo.</p>
+              <h3 className="font-extrabold text-slate-900">Estilo visual do site</h3>
+              <p className="mt-1 text-sm text-slate-500">Identidades criadas para {niche.name}. Elas mudam a experiência pública; o painel administrativo permanece neutro e consistente.</p>
             </div>
           </div>
           <button type="button" onClick={saveTheme} disabled={savingTheme || selected === profile.themeId} className="core-button-primary min-h-11 shrink-0 justify-center px-5 text-sm font-bold disabled:opacity-40">
