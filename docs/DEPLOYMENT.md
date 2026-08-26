@@ -136,9 +136,10 @@ prefixadas por `VITE_`.
 ## Orçamento do frontend
 
 Depois do build, `npm run check:bundle` impede regressões acima de 230 kB por
-chunk JavaScript, 710 kB de JavaScript total ou 100 kB de CSS total. O aumento
-de 700 para 710 kB acompanha os fluxos versionados de contas e anti-bot da 1.0,
-sem aumentar o teto do maior chunk. A CI roda
-esse gate em todo pull request. Mudanças conscientes podem ajustar os limites
+chunk JavaScript, 740 kB de JavaScript total ou 108 kB de CSS total. Os limites
+medidos incluem contas/anti-bot, quatro composições públicas, 12 identidades,
+editor de logo e tematização dos workspaces, sem aumentar o teto do maior chunk;
+o CSS final continua abaixo de 19 kB comprimido. A CI roda esse gate em todo
+pull request. Mudanças conscientes podem ajustar os limites
 por `BUNDLE_MAX_JS_KB`, `BUNDLE_TOTAL_JS_KB` e `BUNDLE_TOTAL_CSS_KB`, mas a
 justificativa e a medição devem acompanhar a alteração.

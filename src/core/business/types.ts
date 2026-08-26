@@ -16,6 +16,7 @@ export interface BusinessProfile {
   name: string;
   description?: string;
   logoUrl?: string;
+  faviconUrl?: string;
   coverUrl?: string;
   phone?: string;
   whatsapp?: string;

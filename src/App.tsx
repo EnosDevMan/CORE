@@ -17,7 +17,7 @@ const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(mod
 const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage').then(module => ({ default: module.PrivacyPolicyPage })));
 import { LoginModal } from './components/LoginModal';
 import { ResetPasswordView } from './components/ResetPasswordView';
-import { Shield, Scissors } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { OnboardingWizard } from './features/onboarding/components/OnboardingWizard';
 import { InstallationPendingView } from './features/onboarding/components/InstallationPendingView';
@@ -25,6 +25,7 @@ import { onboardingService, type OnboardingState } from './features/onboarding/s
 import { BusinessRuntimeBoundary } from './core/business/BusinessRuntimeBoundary';
 import { useBusiness } from './core/business/hooks';
 import { canAccessProfessionalWorkspace, isAdministratorRole } from './auth/authorization';
+import { BusinessBrand } from './core/business/BusinessBrand';
 
 function CoreSchedulingApp() {
   const [currentView, setCurrentView] = useState<'landing' | 'booking' | 'customer' | 'professional' | 'admin' | 'privacy'>(() =>
@@ -305,7 +306,10 @@ function CoreSchedulingApp() {
         />
       )}
 
-      <main key={currentView} className="flex-1 animate-in fade-in slide-in-from-bottom-2.5 duration-300">
+      <main
+        key={currentView}
+        className={`flex-1 animate-in fade-in slide-in-from-bottom-2.5 duration-300 ${currentView === 'landing' ? '' : 'core-themed-workspace'}`}
+      >
         <Suspense fallback={<LoadingScreen />}>
           {renderView()}
         </Suspense>
@@ -317,12 +321,11 @@ function CoreSchedulingApp() {
         onOpenPrivacy={() => { setLoginOpen(false); navigateTo('privacy'); }}
       />
 
-      {/* Transitional Scissors Loader */}
       {isTransitioning && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center text-white animate-in fade-in duration-200">
+        <div className="core-transition-overlay fixed inset-0 z-50 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-200">
           <div className="flex flex-col items-center text-center max-w-sm px-6" role="status">
-            <Scissors size={36} className="text-amber-500" aria-hidden="true" />
-            <p className="text-sm font-bold text-white mt-5">{transitionMessage}</p>
+            <BusinessBrand showName={false} size="lg" />
+            <p className="mt-5 text-sm font-bold">{transitionMessage}</p>
           </div>
         </div>
       )}

@@ -22,7 +22,7 @@ export const ProfessionalStats: React.FC<ProfessionalStatsProps> = ({
 }) => {
   return (
     <>
-      <div className="bg-gradient-to-br from-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-sm space-y-6">
+      <div className="core-workspace-banner bg-gradient-to-br from-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-sm space-y-6">
         <h3 className="font-bold text-sm uppercase tracking-wider text-indigo-300">Resumo de Performance</h3>
         
         <div className="space-y-4">

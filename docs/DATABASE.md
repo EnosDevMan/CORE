@@ -52,3 +52,17 @@ A RPC final recebe identidade, capabilities, horários, serviços, equipe e regr
 de agenda na mesma transação. Serviços/profissionais iniciais são idempotentes
 por nome e somente entradas válidas são criadas. A assinatura anterior da RPC é
 removida para não manter um caminho incompleto de configuração.
+
+## Storage de identidade visual
+
+O bucket público `branding` armazena somente logos geradas pelo editor. O banco
+limita cada arquivo a 5 MB e aos MIME types JPG, PNG e WEBP; policies permitem
+leitura pública e mutação apenas ao `owner` autenticado em caminhos canônicos
+`logos/<uuid>.webp`. A aplicação sempre cria um nome novo, atualiza
+`business_profile.logo_url`/`favicon_url` e só então remove a versão anterior,
+evitando cache antigo e perda da marca em uma atualização incompleta.
+
+Projetos existentes aplicam
+`202608260001_branding_logo_storage.sql`. Projetos novos já recebem o estado
+final pelo schema consolidado. `supabase/tests/branding_storage_security.sql`
+confirma limites, formato do caminho e negação de upload para clientes.

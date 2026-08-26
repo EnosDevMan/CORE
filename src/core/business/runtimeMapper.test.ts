@@ -5,6 +5,7 @@ const validProfile = {
   business_name: 'Studio Demo',
   description: null,
   logo_url: null,
+  favicon_url: null,
   cover_url: null,
   phone: null,
   whatsapp: null,
@@ -24,6 +25,17 @@ describe('business runtime mapper', () => {
       nicheId: 'beauty_salon',
       themeId: 'rose_elegance',
       address: 'Rua Exemplo, 10',
+    });
+  });
+
+  it('maps the uploaded brand assets', () => {
+    expect(mapBusinessProfile({
+      ...validProfile,
+      logo_url: 'https://example.test/logo.webp',
+      favicon_url: 'https://example.test/favicon.webp',
+    })).toMatchObject({
+      logoUrl: 'https://example.test/logo.webp',
+      faviconUrl: 'https://example.test/favicon.webp',
     });
   });
 

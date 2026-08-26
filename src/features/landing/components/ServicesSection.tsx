@@ -1,47 +1,80 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
-import { Service } from '../../../types';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Clock3 } from 'lucide-react';
+import type { Service } from '../../../types';
 import { formatBRL } from '../../../utils/validation';
 import { useNiche } from '../../../core/business/hooks';
 import type { SectionStyle } from '../../../layouts/types';
 
-interface Props { categories: string[]; activeServices: Service[]; onSelectService: (id: string) => void; style: SectionStyle; }
+interface Props {
+  categories: string[];
+  activeServices: Service[];
+  onSelectService: (id: string) => void;
+  style: SectionStyle;
+}
 
-const cardStyle: Record<SectionStyle, string> = {
-  structured: '',
-  editorial: 'rounded-[var(--core-radius)] shadow-[var(--core-shadow)]',
-  showcase: 'rounded-[calc(var(--core-radius)*1.35)] shadow-[var(--core-shadow)]',
-  friendly: 'rounded-[calc(var(--core-radius)*1.7)] shadow-[var(--core-shadow)]',
-};
-
-export const ServicesSection: React.FC<Props> = ({ categories, activeServices, onSelectService, style }) => {
+export function ServicesSection({ categories, activeServices, onSelectService, style }: Props) {
   const niche = useNiche();
   const [category, setCategory] = useState('Todos');
   const rail = useRef<HTMLDivElement>(null);
-  const filtered = useMemo(() => category === 'Todos' ? activeServices : activeServices.filter(s => s.category === category), [activeServices, category]);
-  const move = (direction: number) => rail.current?.scrollBy({ left: direction * rail.current.clientWidth * .85, behavior: 'smooth' });
-  return <section id="services-section" className="core-public-page px-4 py-14 sm:py-16 lg:py-20" data-section-style={style}>
-    <div className="mx-auto max-w-6xl">
-      <div className={`flex gap-4 ${style === 'editorial' ? 'flex-col items-center justify-center text-center lg:flex-row lg:justify-between' : 'items-end justify-between'}`}>
-        <div><p className="core-public-primary-text text-xs font-bold uppercase tracking-[.16em]">Serviços</p><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{niche.landing.servicesTitle}</h2></div>
-        <div className="hidden gap-2 lg:flex">
-          <button aria-label="Serviços anteriores" onClick={() => move(-1)} className="core-public-border core-public-ring grid size-11 place-items-center border hover:opacity-75"><ArrowLeft size={19}/></button>
-          <button aria-label="Próximos serviços" onClick={() => move(1)} className="core-public-border core-public-ring grid size-11 place-items-center border hover:opacity-75"><ArrowRight size={19}/></button>
+  const filtered = useMemo(
+    () => category === 'Todos' ? activeServices : activeServices.filter(service => service.category === category),
+    [activeServices, category],
+  );
+  const move = (direction: number) => rail.current?.scrollBy({
+    left: direction * rail.current.clientWidth * .85,
+    behavior: 'smooth',
+  });
+
+  return (
+    <section id="services-section" className="core-section core-services-section" data-section-style={style}>
+      <div className="core-section__inner">
+        <div className="core-section-heading">
+          <div>
+            <p className="core-section-kicker">Serviços selecionados</p>
+            <h2>{niche.landing.servicesTitle}</h2>
+            <p className="core-section-intro">Escolha com calma. Duração, valor e disponibilidade aparecem antes da confirmação.</p>
+          </div>
+          <div className="core-section-controls" aria-label="Navegar pelos serviços">
+            <button type="button" aria-label="Serviços anteriores" onClick={() => move(-1)} className="core-icon-button core-public-ring"><ArrowLeft size={19} /></button>
+            <button type="button" aria-label="Próximos serviços" onClick={() => move(1)} className="core-icon-button core-public-ring"><ArrowRight size={19} /></button>
+          </div>
+        </div>
+
+        <div role="tablist" aria-label="Categorias de serviços" className="core-category-tabs no-scrollbar">
+          {['Todos', ...categories].map(item => (
+            <button
+              key={item}
+              type="button"
+              role="tab"
+              aria-selected={category === item}
+              onClick={() => setCategory(item)}
+              className="core-public-ring"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        <div ref={rail} className="services-rail core-service-rail" aria-live="polite">
+          {filtered.map((service, index) => (
+            <article key={service.id} className="service-card core-service-card">
+              <div className="core-service-card__topline">
+                <span className="core-service-card__number">{String(index + 1).padStart(2, '0')}</span>
+                <span className="core-service-card__category">{service.category || 'Serviço'}</span>
+              </div>
+              <h3>{service.name}</h3>
+              <p className="core-service-card__description">{service.description || 'Atendimento realizado com técnica, cuidado e atenção aos detalhes.'}</p>
+              <div className="core-service-card__meta">
+                <span><Clock3 size={16} /> {service.duration} min</span>
+                <strong>{formatBRL(service.price)}</strong>
+              </div>
+              <button type="button" onClick={() => onSelectService(service.id)} className="core-service-card__action core-public-ring">
+                Escolher <ArrowRight size={17} />
+              </button>
+            </article>
+          ))}
         </div>
       </div>
-      <div role="tablist" aria-label="Categorias de serviços" className={`no-scrollbar -mx-4 mt-7 flex overflow-x-auto px-4 pb-2 whitespace-nowrap ${style === 'editorial' ? 'sm:justify-center' : ''}`}>
-        {['Todos', ...categories].map(item => <button key={item} role="tab" aria-selected={category === item} onClick={() => setCategory(item)} className={`core-public-ring min-h-11 shrink-0 border-b-2 px-4 text-sm font-bold ${category === item ? 'border-[var(--core-primary)] core-public-primary-text' : 'core-public-border core-public-muted-text'}`}>{item}</button>)}
-      </div>
-      <div ref={rail} className="services-rail -mx-4 mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3" aria-live="polite">
-        {filtered.map(service => <article key={service.id} className={`service-card core-public-elevated core-public-border flex shrink-0 snap-start flex-col border p-5 ${cardStyle[style]}`}>
-          <span className="core-public-primary-text text-xs font-bold uppercase tracking-wider">{service.category}</span>
-          <h3 className="mt-2 break-words text-xl font-extrabold">{service.name}</h3>
-          <p className="core-public-muted-text mt-3 line-clamp-3 min-h-[4.5rem] text-sm leading-6">{service.description || 'Serviço realizado com atenção aos detalhes.'}</p>
-          <div className="core-public-border mt-5 flex items-center justify-between gap-3 border-t pt-4"><span className="core-public-muted-text flex items-center gap-1.5 text-sm"><Clock size={16}/>{service.duration} min</span><strong className="break-words text-lg">{formatBRL(service.price)}</strong></div>
-          <button onClick={() => onSelectService(service.id)} className="core-public-primary core-public-ring mt-5 min-h-12 w-full rounded-[var(--core-radius)] px-4 py-3 text-sm font-bold transition-opacity hover:opacity-90">Escolher serviço</button>
-        </article>)}
-      </div>
-      <a href="#services-section" onClick={() => setCategory('Todos')} className="core-public-primary-text core-public-ring mt-4 inline-flex min-h-11 items-center text-sm font-bold underline decoration-current decoration-2 underline-offset-4">Ver todos os serviços</a>
-    </div>
-  </section>;
-};
+    </section>
+  );
+}

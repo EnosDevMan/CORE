@@ -1,6 +1,6 @@
 # Auditoria de prontidão para produção
 
-Atualização: 25 de agosto de 2026.
+Atualização: 26 de agosto de 2026.
 
 ## Parecer executivo
 
@@ -27,15 +27,14 @@ do checklist de deploy.
 ## Evidência automatizada do checkpoint
 
 - validação local do candidato: lint e TypeScript sem erros;
-- 29 arquivos de teste e 139 testes aprovados, cobrindo grants reais,
-  promoção/exclusão de contas, CAPTCHA, política de senhas e atribuição
-  financeira histórica;
-- build de produção aprovado; maior chunk 213,3 kB, JavaScript total 703,8 kB
-  e CSS total 69,8 kB, todos dentro do orçamento versionado;
-- a execução do candidato no GitHub Actions confirmou instalação limpa com
-  Node.js 22, auditoria das dependências de produção e todos os checks acima;
-- o job `database` aprovou o PostgreSQL 17 **sem defaults legados**, incluindo
-  testes SQL de grants, roles, sobreposição e segurança de reservas.
+- 38 arquivos de teste e 181 testes aprovados localmente, cobrindo grants,
+  promoção/exclusão de contas, CAPTCHA, política de senhas, identidade visual,
+  contraste, fallback de imagens e persistência compensada da logo;
+- build de produção aprovado; maior chunk 213,3 kB, JavaScript total 734,3 kB
+  e CSS total 107,7 kB (18,5 kB comprimido), dentro do orçamento versionado;
+- auditoria das dependências de produção sem vulnerabilidades conhecidas;
+- o candidato só é considerado verificável em 100% quando os jobs `quality` e
+  `database` também aprovarem o SHA da pull request em Node.js 22/PostgreSQL 17.
 
 ## Escopo revisado
 
@@ -45,6 +44,7 @@ do checklist de deploy.
 - disponibilidade, fusos horários, horários semanais, pausas e bloqueios;
 - Supabase/PostgreSQL, RLS, grants, RPCs, triggers, constraints e Storage;
 - formulários, limites, erros, acessibilidade, concorrência e responsividade;
+- 12 temas, quatro composições de nicho, fluxos internos tematizados e marca;
 - relatórios, histórico, fotos, dados mortos, documentação, CI e artefatos de deploy.
 
 ## Problemas críticos corrigidos no repositório
@@ -67,6 +67,9 @@ do checklist de deploy.
 | Contas | Proprietário consegue promover clientes a profissionais e remover identidades/sessões pelo painel; owners permanecem protegidos e reservas históricas sobrevivem. |
 | Autenticação | Cadastro e reset compartilham mínimo de oito caracteres; Turnstile opcional protege login, cadastro e recuperação com validação pelo Supabase. |
 | Storage | MIME e tamanho são limitados no bucket; uploads usam nomes únicos; falhas compensam rascunhos; remoção respeita identidade e ordem segura banco→arquivo. |
+| Identidade visual | Logo própria tem recorte exato, zoom/foco, WEBP 512×512, favicon dinâmico e fallback de nicho; o bucket `branding` tem escrita exclusiva do owner e teste RLS. |
+| Temas e nichos | Barbearia, salão, nail studio e pet shop receberam composições próprias; os 12 temas variam paleta, tipografia, textura, geometria e navegação e alcançam landing, admin, login, reserva e dashboards. |
+| Robustez visual | Capa, logo e galeria possuem fallback; estados desabilitados preservam contraste; a CSP permite `blob:` somente para prévia local de imagens. |
 | Galeria | Reordenação é atômica; falha de banco não deixa foto pública quebrada. |
 | Privacidade | Versão do aceite foi centralizada; texto e comportamento do WhatsApp/taxa foram alinhados. |
 | UX/acessibilidade | Dialogs têm foco, Escape, retorno de foco, labels e bloqueio durante gravações; submissões duplicadas críticas foram impedidas e os termos abrem sem perder a reserva em preenchimento. |
@@ -95,8 +98,8 @@ do checklist de deploy.
 - nomes físicos `barbers`/`barber_id` permanecem somente na fronteira SQL/Storage.
 - manager e receptionist existem no enum, mas ficam intencionalmente sem acesso
   até uma matriz de permissões ser desenhada e testada.
-- o sistema universal ainda possui textos visuais específicos de salão/barbearia;
-  isso não impede uma barbearia, mas limita outros nichos.
+- o adapter temático mantém compatibilidade com componentes legados baseados em
+  utilities; novos componentes devem usar primitives/tokens semânticos direto.
 
 ## Critério objetivo de 100%
 

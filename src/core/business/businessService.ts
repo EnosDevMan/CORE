@@ -5,6 +5,7 @@ import { THEME_REGISTRY } from '../../themes/registry';
 import type { ThemeId } from '../../themes/types';
 import type { BusinessProfile, Capability } from './types';
 import { mapBusinessProfile, mapCapabilities } from './runtimeMapper';
+import { removePublicImage, uploadImage } from '../../services/storageService';
 
 export interface BusinessRuntime {
   profile: BusinessProfile;
@@ -12,6 +13,28 @@ export interface BusinessRuntime {
 }
 
 let inFlightRuntimeRequest: Promise<BusinessRuntime | null> | null = null;
+const BRANDING_BUCKET = 'branding';
+
+async function getCurrentBrandUrls(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('business_profile')
+    .select('logo_url, favicon_url')
+    .eq('id', true)
+    .single();
+  if (error) throw new Error(error.message);
+  return [...new Set([data?.logo_url, data?.favicon_url]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0))];
+}
+
+async function removeStoredBrandingUrl(publicUrl: string | undefined): Promise<void> {
+  if (!publicUrl) return;
+  try {
+    await removePublicImage(publicUrl, BRANDING_BUCKET);
+  } catch {
+    // External/legacy URLs and an already-removed object must not undo a
+    // successful profile update. New uploads are always unique and canonical.
+  }
+}
 
 async function fetchRuntime(): Promise<BusinessRuntime | null> {
   const [profileResult, featuresResult] = await Promise.all([
@@ -55,5 +78,37 @@ export const businessService = {
       .update({ theme_id: themeId, updated_at: new Date().toISOString() })
       .eq('id', true);
     if (error) throw new Error(error.message);
+  },
+
+  async replaceLogo(file: File): Promise<void> {
+    const previousUrls = await getCurrentBrandUrls();
+    const path = `logos/${crypto.randomUUID()}.webp`;
+    const uploadedUrl = await uploadImage(file, path, BRANDING_BUCKET);
+    const { error } = await supabase
+      .from('business_profile')
+      .update({
+        logo_url: uploadedUrl,
+        favicon_url: uploadedUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', true);
+
+    if (error) {
+      await removeStoredBrandingUrl(uploadedUrl);
+      throw new Error(error.message);
+    }
+    await Promise.all(previousUrls
+      .filter(previousUrl => previousUrl !== uploadedUrl)
+      .map(removeStoredBrandingUrl));
+  },
+
+  async removeLogo(): Promise<void> {
+    const previousUrls = await getCurrentBrandUrls();
+    const { error } = await supabase
+      .from('business_profile')
+      .update({ logo_url: null, favicon_url: null, updated_at: new Date().toISOString() })
+      .eq('id', true);
+    if (error) throw new Error(error.message);
+    await Promise.all(previousUrls.map(removeStoredBrandingUrl));
   },
 };

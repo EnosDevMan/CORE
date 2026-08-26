@@ -143,7 +143,7 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
               onChange={(e) => handleDateChange(e.target.value, booking)}
               min={nowDateStr}
               max={getBusinessMaxBookingDateStr(bookingWindowDays, profile.timezone)}
-              className="w-full px-3 py-1.5 border border-slate-250 bg-white rounded-lg text-xs font-semibold text-slate-800"
+              className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-800"
             />
             {errorMsg && <p className="text-[11px] text-red-600 font-bold">{errorMsg}</p>}
           </div>
@@ -160,7 +160,7 @@ export const BookingCard: React.FC<BookingCardProps> = React.memo(({
                       className={`py-1 px-0.5 text-center font-bold text-[10px] rounded border ${
                         newTime === time
                           ? 'bg-slate-900 border-slate-900 text-white'
-                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-350'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
                       }`}
                     >
                       {time}
