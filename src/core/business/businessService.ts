@@ -28,13 +28,28 @@ export interface AppearanceUpdate {
   customColors?: CustomPaletteColors;
 }
 
-let inFlightRuntimeRequest: Promise<BusinessRuntime | null> | null = null;
+type RuntimeRequest = {
+  revision: number;
+  promise: Promise<BusinessRuntime | null>;
+};
+
+let inFlightRuntimeRequest: RuntimeRequest | null = null;
 let recentRuntime: { value: BusinessRuntime | null; expiresAt: number } | null = null;
+let runtimeRevision = 0;
 const RUNTIME_BOOTSTRAP_CACHE_MS = 15_000;
 const BRANDING_BUCKET = 'branding';
 
 const invalidateRuntimeCache = () => {
   recentRuntime = null;
+  runtimeRevision += 1;
+};
+
+const cacheRuntime = (value: BusinessRuntime | null, revision: number) => {
+  if (revision !== runtimeRevision) return;
+  recentRuntime = {
+    value,
+    expiresAt: Date.now() + RUNTIME_BOOTSTRAP_CACHE_MS,
+  };
 };
 
 async function getCurrentBrandUrls(): Promise<string[]> {
@@ -100,20 +115,33 @@ export const businessService = {
       return Promise.resolve(recentRuntime.value);
     }
 
-    if (!inFlightRuntimeRequest) {
-      inFlightRuntimeRequest = fetchRuntime()
-        .then(value => {
-          recentRuntime = {
-            value,
-            expiresAt: Date.now() + RUNTIME_BOOTSTRAP_CACHE_MS,
-          };
-          return value;
-        })
-        .finally(() => {
-          inFlightRuntimeRequest = null;
-        });
+    const revision = runtimeRevision;
+    if (!inFlightRuntimeRequest || inFlightRuntimeRequest.revision !== revision) {
+      const promise = fetchRuntime().then(value => {
+        cacheRuntime(value, revision);
+        return value;
+      });
+      const request: RuntimeRequest = { revision, promise };
+      inFlightRuntimeRequest = request;
+      void promise.then(
+        () => { if (inFlightRuntimeRequest === request) inFlightRuntimeRequest = null; },
+        () => { if (inFlightRuntimeRequest === request) inFlightRuntimeRequest = null; },
+      );
     }
-    return inFlightRuntimeRequest;
+    return inFlightRuntimeRequest.promise;
+  },
+
+  /**
+   * Reads the canonical runtime again after an owner mutation. This deliberately
+   * bypasses the short bootstrap cache: a successful save must be visible in
+   * the same tab immediately, not up to 15 seconds later.
+   */
+  async refreshRuntime(): Promise<BusinessRuntime | null> {
+    invalidateRuntimeCache();
+    const revision = runtimeRevision;
+    const value = await fetchRuntime();
+    cacheRuntime(value, revision);
+    return value;
   },
 
   async updateAppearance(
