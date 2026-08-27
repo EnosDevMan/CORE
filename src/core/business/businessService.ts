@@ -1,8 +1,9 @@
 import { supabase } from '../../lib/supabaseClient';
-import { NICHE_REGISTRY } from '../../niches/registry';
-import type { NicheId } from '../../niches/types';
-import { THEME_REGISTRY } from '../../themes/registry';
-import type { ThemeId } from '../../themes/types';
+import type { ThemeStyleId } from '../../layouts/types';
+import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche, resolveAppearanceForNiche } from '../../themes/appearance';
+import { LEGACY_THEME_APPEARANCE } from '../../themes/compatibility';
+import type { LegacyThemeId, PaletteId } from '../../themes/types';
+import type { ResolvedTheme } from '../../themes/types';
 import type { BusinessProfile, Capability } from './types';
 import { mapBusinessProfile, mapCapabilities } from './runtimeMapper';
 import { removePublicImage, uploadImage } from '../../services/storageService';
@@ -10,6 +11,7 @@ import { removePublicImage, uploadImage } from '../../services/storageService';
 export interface BusinessRuntime {
   profile: BusinessProfile;
   capabilities: Capability[];
+  theme?: ResolvedTheme;
 }
 
 let inFlightRuntimeRequest: Promise<BusinessRuntime | null> | null = null;
@@ -62,9 +64,12 @@ async function fetchRuntime(): Promise<BusinessRuntime | null> {
   if (profileResult.error) throw new Error(profileResult.error.message);
   if (featuresResult.error) throw new Error(featuresResult.error.message);
   if (!profileResult.data?.onboarding_completed) return null;
+  const profile = mapBusinessProfile(profileResult.data);
+  const { resolveTheme } = await import('../../themes/registry');
   return {
-    profile: mapBusinessProfile(profileResult.data),
+    profile,
     capabilities: mapCapabilities(featuresResult.data ?? []),
+    theme: resolveTheme(profile.themeStyleId, profile.paletteId),
   };
 }
 
@@ -97,21 +102,36 @@ export const businessService = {
     return inFlightRuntimeRequest;
   },
 
-  async updateTheme(themeId: ThemeId, nicheId: BusinessProfile['nicheId']): Promise<void> {
-    if (!THEME_REGISTRY[themeId]) throw new Error('Tema visual desconhecido.');
+  async updateAppearance(
+    selection: { styleId: ThemeStyleId; paletteId: PaletteId },
+    nicheId: BusinessProfile['nicheId'],
+  ): Promise<void> {
     if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
-
-    const niche = NICHE_REGISTRY[nicheId as NicheId];
-    if (!niche.recommendedThemeIds.includes(themeId)) {
-      throw new Error('Este tema não está disponível para o nicho configurado.');
+    if (!isAppearanceAvailableForNiche(nicheId, selection.styleId, selection.paletteId)) {
+      throw new Error('Esta combinação visual não está disponível para o nicho configurado.');
     }
+
+    const themeId = getLegacyThemeIdForAppearance(nicheId, selection.styleId, selection.paletteId);
 
     const { error } = await supabase
       .from('business_profile')
-      .update({ theme_id: themeId, updated_at: new Date().toISOString() })
+      .update({
+        theme_id: themeId,
+        theme_style_id: selection.styleId,
+        palette_id: selection.paletteId,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', true);
     if (error) throw new Error(error.message);
     invalidateRuntimeCache();
+  },
+
+  /** @deprecated Compatibility path for consumers still sending a theme_id. */
+  async updateTheme(themeId: LegacyThemeId, nicheId: BusinessProfile['nicheId']): Promise<void> {
+    if (!(themeId in LEGACY_THEME_APPEARANCE)) throw new Error('Tema visual desconhecido.');
+    if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
+    const selection = resolveAppearanceForNiche(nicheId, { legacyThemeId: themeId });
+    await businessService.updateAppearance(selection, nicheId);
   },
 
   async replaceLogo(file: File): Promise<void> {

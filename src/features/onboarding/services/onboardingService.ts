@@ -1,12 +1,15 @@
 import { supabase } from '../../../lib/supabaseClient';
 import type { Capability } from '../../../core/business/types';
+import type { ThemeStyleId } from '../../../layouts/types';
 import type { NicheId } from '../../../niches/types';
-import type { ThemeId } from '../../../themes/types';
+import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche } from '../../../themes/appearance';
+import type { PaletteId } from '../../../themes/types';
 
 export interface OnboardingInput {
   businessName: string;
   nicheId: NicheId;
-  themeId: ThemeId;
+  themeStyleId: ThemeStyleId;
+  paletteId: PaletteId;
   phone?: string;
   address?: string;
   capabilities: readonly Capability[];
@@ -38,6 +41,9 @@ export const onboardingService = {
   },
 
   async complete(input: OnboardingInput, shouldClaimOwner: boolean): Promise<void> {
+    if (!isAppearanceAvailableForNiche(input.nicheId, input.themeStyleId, input.paletteId)) {
+      throw new Error('A aparência escolhida não está disponível para este nicho.');
+    }
     let setupCode: string | null = null;
     if (shouldClaimOwner) {
       setupCode = input.ownerSetupCode?.trim().toLowerCase() ?? null;
@@ -52,7 +58,9 @@ export const onboardingService = {
     const { error } = await supabase.rpc('complete_business_onboarding', {
       p_business_name: input.businessName.trim(),
       p_niche_id: input.nicheId,
-      p_theme_id: input.themeId,
+      p_theme_id: getLegacyThemeIdForAppearance(input.nicheId, input.themeStyleId, input.paletteId),
+      p_theme_style_id: input.themeStyleId,
+      p_palette_id: input.paletteId,
       p_phone: input.phone?.trim() || null,
       p_address: input.address?.trim() || null,
       p_capabilities: [...input.capabilities],

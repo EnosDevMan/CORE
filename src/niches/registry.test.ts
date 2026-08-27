@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PUBLIC_LAYOUT_REGISTRY } from '../layouts/registry';
-import { THEME_REGISTRY } from '../themes/registry';
-import type { ThemeId } from '../themes/types';
+import { THEME_STYLE_REGISTRY } from '../layouts/registry';
+import { PALETTE_REGISTRY } from '../themes/paletteRegistry';
 import { getNichePreset, NICHE_REGISTRY } from './registry';
 
 describe('niche registry', () => {
@@ -29,17 +28,13 @@ describe('niche registry', () => {
     expect(NICHE_REGISTRY.beauty_salon.landing.heroDescription).not.toMatch(/barba|pet/i);
   });
 
-  it('assigns a distinct default public layout to every persisted niche', () => {
-    const layouts = Object.values(NICHE_REGISTRY).map(niche => niche.defaultLayoutId);
-    expect(new Set(layouts).size).toBe(Object.keys(NICHE_REGISTRY).length);
-    for (const layoutId of layouts) expect(PUBLIC_LAYOUT_REGISTRY[layoutId]).toBeDefined();
-  });
-
-  it.each(Object.values(NICHE_REGISTRY))('$name exposes only registered theme recommendations', niche => {
-    expect(niche.recommendedThemeIds.length).toBeGreaterThanOrEqual(5);
-    for (const themeId of niche.recommendedThemeIds) {
-      expect(THEME_REGISTRY[themeId as ThemeId], `${niche.id}: ${themeId}`).toBeDefined();
-    }
+  it.each(Object.values(NICHE_REGISTRY))('$name exposes four styles and nine registered palettes', niche => {
+    expect(niche.availableStyleIds).toHaveLength(4);
+    expect(niche.availablePaletteIds.length).toBeGreaterThanOrEqual(9);
+    for (const styleId of niche.availableStyleIds) expect(THEME_STYLE_REGISTRY[styleId]).toBeDefined();
+    for (const paletteId of niche.availablePaletteIds) expect(PALETTE_REGISTRY[paletteId]).toBeDefined();
+    expect(niche.availableStyleIds).toContain(niche.defaultStyleId);
+    expect(niche.availablePaletteIds).toContain(niche.defaultPaletteId);
   });
 
   it.each(Object.values(NICHE_REGISTRY))('$name has complete onboarding and public defaults', niche => {

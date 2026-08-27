@@ -25,6 +25,8 @@ const profile = {
   locale: 'pt-BR',
   nicheId: 'nail_studio' as const,
   themeId: 'rose_elegance' as const,
+  themeStyleId: 'showcase' as const,
+  paletteId: 'rose' as const,
 };
 
 describe('HeroSection', () => {

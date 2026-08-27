@@ -80,3 +80,20 @@ describe('business logo persistence', () => {
     expect(mocks.removePublicImage).toHaveBeenCalledWith(faviconUrl, 'branding');
   });
 });
+
+describe('business appearance persistence', () => {
+  it('writes style, palette and the legacy alias together', async () => {
+    await businessService.updateAppearance({ styleId: 'heritage', paletteId: 'copper' }, 'barbershop');
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
+      theme_id: 'heritage_copper',
+      theme_style_id: 'heritage',
+      palette_id: 'copper',
+    }));
+  });
+
+  it('rejects an invalid niche combination before reaching Supabase', async () => {
+    await expect(businessService.updateAppearance({ styleId: 'heritage', paletteId: 'forest' }, 'pet_shop'))
+      .rejects.toThrow(/não está disponível/);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+});

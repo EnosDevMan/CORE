@@ -41,11 +41,35 @@ describe('business runtime mapper', () => {
 
   it.each([
     [{ ...validProfile, niche_id: 'clinic' }, /Nicho desconhecido/],
-    [{ ...validProfile, theme_id: 'removed_theme' }, /Tema desconhecido/],
     [{ ...validProfile, timezone: 'Mars/Olympus' }, /Fuso horário inválido/],
     [{ ...validProfile, business_name: '  ' }, /business_name/],
   ])('rejects an unsafe runtime profile', (profile, error) => {
     expect(() => mapBusinessProfile(profile)).toThrow(error);
+  });
+
+  it('maps a legacy theme and falls back safely from missing or unknown appearance IDs', () => {
+    expect(mapBusinessProfile(validProfile)).toMatchObject({
+      themeStyleId: 'editorial',
+      paletteId: 'rose',
+    });
+    expect(mapBusinessProfile({
+      ...validProfile,
+      theme_id: 'removed_theme',
+      theme_style_id: 'removed_style',
+      palette_id: 'removed_palette',
+    })).toMatchObject({
+      themeId: 'rose_elegance',
+      themeStyleId: 'editorial',
+      paletteId: 'rose',
+    });
+  });
+
+  it('preserves independent explicit style and palette choices after reload', () => {
+    expect(mapBusinessProfile({
+      ...validProfile,
+      theme_style_id: 'minimal',
+      palette_id: 'lavender',
+    })).toMatchObject({ themeStyleId: 'minimal', paletteId: 'lavender' });
   });
 
   it('deduplicates known capabilities and rejects unknown flags', () => {

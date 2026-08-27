@@ -4,6 +4,7 @@ import { BusinessProvider } from './BusinessProvider';
 import { businessService, type BusinessRuntime } from './businessService';
 import type { BusinessProfile } from './types';
 import { DEFAULT_BUSINESS_TIMEZONE } from '../../utils/validation';
+import { CORE_BOOTSTRAP_THEME } from '../../themes/bootstrapTheme';
 
 /**
  * A fresh installation has no published business profile yet, but auth and
@@ -17,6 +18,8 @@ const BOOTSTRAP_BUSINESS_PROFILE: BusinessProfile = {
   locale: 'pt-BR',
   nicheId: 'core_bootstrap',
   themeId: 'minimal_light',
+  themeStyleId: 'minimal',
+  paletteId: 'minimal_white',
 };
 
 export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
@@ -49,14 +52,14 @@ export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
   if (runtime === undefined) return <LoadingScreen />;
   if (runtime === null) {
     return (
-      <BusinessProvider profile={BOOTSTRAP_BUSINESS_PROFILE} capabilities={[]} configured={false} refreshRuntime={refreshRuntime}>
+      <BusinessProvider profile={BOOTSTRAP_BUSINESS_PROFILE} theme={CORE_BOOTSTRAP_THEME} capabilities={[]} configured={false} refreshRuntime={refreshRuntime}>
         {children}
       </BusinessProvider>
     );
   }
 
   return (
-    <BusinessProvider profile={runtime.profile} capabilities={runtime.capabilities} configured refreshRuntime={refreshRuntime}>
+    <BusinessProvider profile={runtime.profile} theme={runtime.theme} capabilities={runtime.capabilities} configured refreshRuntime={refreshRuntime}>
       {children}
     </BusinessProvider>
   );

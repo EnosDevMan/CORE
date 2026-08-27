@@ -1,6 +1,8 @@
 import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { getNichePreset } from '../../niches/registry';
-import { getThemePreset, toCssVariables } from '../../themes/registry';
+import { CORE_BOOTSTRAP_THEME } from '../../themes/bootstrapTheme';
+import { toCssVariables } from '../../themes/cssVariables';
+import type { ResolvedTheme } from '../../themes/types';
 import type { BusinessContextValue, BusinessProfile, Capability } from './types';
 import { BusinessContext, NicheContext, ThemeContext } from './contexts';
 import { applyBusinessMetadata } from './metadata';
@@ -10,6 +12,7 @@ interface BusinessProviderProps {
   capabilities?: readonly Capability[];
   configured?: boolean;
   refreshRuntime?: () => Promise<void>;
+  theme?: ResolvedTheme;
   children: ReactNode;
 }
 
@@ -20,10 +23,10 @@ export function BusinessProvider({
   capabilities,
   configured = true,
   refreshRuntime = noopRefresh,
+  theme = CORE_BOOTSTRAP_THEME,
   children,
 }: BusinessProviderProps) {
   const niche = getNichePreset(profile.nicheId);
-  const theme = getThemePreset(profile.themeId);
   const themeStyle = toCssVariables(theme) as CSSProperties;
   const value = useMemo<BusinessContextValue>(() => {
     const enabled = new Set(capabilities ?? niche.recommendedCapabilities);
@@ -46,7 +49,9 @@ export function BusinessProvider({
       <NicheContext.Provider value={niche}>
         <ThemeContext.Provider value={theme}>
           <div
-            data-theme={theme.id}
+            data-theme={profile.themeId}
+            data-theme-style={theme.styleId}
+            data-palette={theme.paletteId}
             data-theme-mode={theme.mode}
             data-niche={niche.id}
             style={themeStyle}

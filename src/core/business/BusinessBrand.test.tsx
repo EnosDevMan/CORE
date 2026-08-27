@@ -11,6 +11,8 @@ const profile = {
   locale: 'pt-BR',
   nicheId: 'pet_shop' as const,
   themeId: 'forest_clean' as const,
+  themeStyleId: 'clean' as const,
+  paletteId: 'forest' as const,
 };
 
 describe('BusinessBrand', () => {

@@ -15,7 +15,7 @@ const baseProps = {
 const renderStep = (props: Partial<React.ComponentProps<typeof DateTimeSelectionStep>> = {}) =>
   render(
     <BusinessProvider profile={{
-      name: 'Demo', nicheId: 'beauty_salon', themeId: 'minimal_light',
+      name: 'Demo', nicheId: 'beauty_salon', themeId: 'minimal_light', themeStyleId: 'minimal', paletteId: 'minimal_white',
       timezone: 'America/Sao_Paulo', currency: 'BRL', locale: 'pt-BR',
     }}>
       <DateTimeSelectionStep {...baseProps} {...props} />

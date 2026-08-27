@@ -6,7 +6,7 @@ import {
   useScheduleBlocks,
   useServices,
 } from '../store/useApp';
-import { useBusiness, useNiche } from '../core/business/hooks';
+import { useBusiness } from '../core/business/hooks';
 import { getPublicLayoutPreset } from '../layouts/registry';
 import type { PublicSectionId } from '../layouts/types';
 import { HeroSection } from '../features/landing/components/HeroSection';
@@ -25,8 +25,7 @@ export const LandingPage: React.FC<Props> = ({ onStartBooking, onOpenLogin, onOp
   const galleryPhotos = useGalleryPhotos();
   const scheduleBlocks = useScheduleBlocks();
   const { profile } = useBusiness();
-  const niche = useNiche();
-  const layout = getPublicLayoutPreset(niche.defaultLayoutId);
+  const layout = getPublicLayoutPreset(profile.themeStyleId);
 
   const activeServices = useMemo(
     () => services.filter(service => service.active !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -59,7 +58,11 @@ export const LandingPage: React.FC<Props> = ({ onStartBooking, onOpenLogin, onOp
   };
 
   return (
-    <div className="core-public-page min-h-screen overflow-x-clip" data-public-layout={layout.id}>
+    <div
+      className="core-public-page min-h-screen overflow-x-clip"
+      data-public-layout={layout.id}
+      data-hero-variant={layout.heroVariant}
+    >
       <HeroSection
         variant={layout.heroVariant}
         config={config}

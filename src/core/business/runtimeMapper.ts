@@ -1,7 +1,8 @@
 import { NICHE_REGISTRY } from '../../niches/registry';
 import type { NicheId } from '../../niches/types';
-import { THEME_REGISTRY } from '../../themes/registry';
-import type { ThemeId } from '../../themes/types';
+import { getLegacyThemeIdForAppearance, resolveAppearanceForNiche } from '../../themes/appearance';
+import { LEGACY_THEME_APPEARANCE } from '../../themes/compatibility';
+import type { LegacyThemeId } from '../../themes/types';
 import { getBusinessNow } from '../../utils/validation';
 import { CAPABILITIES, type BusinessProfile, type Capability } from './types';
 
@@ -23,11 +24,20 @@ export function mapBusinessProfile(value: unknown): BusinessProfile {
 
   const row = value as RuntimeRow;
   const nicheId = requiredString(row, 'niche_id');
-  const themeId = requiredString(row, 'theme_id');
+  const persistedThemeId = optionalString(row.theme_id);
   const timezone = requiredString(row, 'timezone');
   if (!(nicheId in NICHE_REGISTRY)) throw new Error(`Nicho desconhecido: ${nicheId}.`);
-  if (!(themeId in THEME_REGISTRY)) throw new Error(`Tema desconhecido: ${themeId}.`);
   getBusinessNow(timezone, new Date(0));
+
+  const typedNicheId = nicheId as NicheId;
+  const appearance = resolveAppearanceForNiche(typedNicheId, {
+    styleId: row.theme_style_id,
+    paletteId: row.palette_id,
+    legacyThemeId: persistedThemeId,
+  });
+  const themeId = persistedThemeId && persistedThemeId in LEGACY_THEME_APPEARANCE
+    ? persistedThemeId as LegacyThemeId
+    : getLegacyThemeIdForAppearance(typedNicheId, appearance.styleId, appearance.paletteId);
 
   const address = row.address;
   const formattedAddress = address && typeof address === 'object' && !Array.isArray(address)
@@ -47,8 +57,10 @@ export function mapBusinessProfile(value: unknown): BusinessProfile {
     timezone,
     currency: requiredString(row, 'currency'),
     locale: requiredString(row, 'locale'),
-    nicheId: nicheId as NicheId,
-    themeId: themeId as ThemeId,
+    nicheId: typedNicheId,
+    themeId,
+    themeStyleId: appearance.styleId,
+    paletteId: appearance.paletteId,
   };
 }
 
