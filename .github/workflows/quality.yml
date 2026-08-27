@@ -69,3 +69,8 @@ jobs:
           psql --set ON_ERROR_STOP=1
           --file supabase/migrations/20260827182247_schedule_blocks_update_grant.sql
           --file supabase/tests/schedule_blocks_update_grant.sql
+      - name: Validate surface mode and custom brand colours
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --file supabase/migrations/20260827190000_appearance_surface_and_custom_colors.sql
+          --file supabase/tests/appearance_surface_custom.sql
