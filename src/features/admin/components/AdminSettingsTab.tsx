@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, Save } from 'lucide-react';
-import { useNiche } from '../../../core/business/hooks';
+import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { useApp } from '../../../store/useApp';
 import type { DailyWorkingHours } from '../../../types';
 import { getErrorMessage } from '../../../utils/errors';
@@ -54,6 +54,7 @@ const FormSection: React.FC<{
 
 export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback }) => {
   const { config, updateConfig } = useApp();
+  const { refreshRuntime } = useBusiness();
   const niche = useNiche();
   const [confName, setConfName] = useState('');
   const [confAddress, setConfAddress] = useState('');
@@ -193,6 +194,11 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({ showFeedback
         aboutText: confAboutText.trim(),
         logo: config.logo,
       });
+      // Some public chrome (brand name, metadata, canonical contact identity)
+      // comes from business_profile rather than the legacy config store. The DB
+      // synchronizes both records atomically; force a canonical runtime read so
+      // the same open tab reflects the confirmed owner change immediately.
+      await refreshRuntime();
       showFeedback('Configurações salvas com sucesso!', false);
     } catch (error) {
       showFeedback(getErrorMessage(error, 'Erro ao salvar configurações.'), true);
