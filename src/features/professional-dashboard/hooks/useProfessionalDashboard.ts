@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useApp } from '../../../store/useApp';
+import { useBookings, useBusinessConfig, useCurrentUser, useProfessionals, useServices, useUpdateBookingStatus, useUpdateProfessional } from '../../../store/useApp';
 import { BookingStatus, Booking } from '../../../types';
 import { getBusinessTodayStr, formatBRL } from '../../../utils/validation';
 import { useBusiness } from '../../../core/business/hooks';
@@ -9,15 +9,13 @@ import { getErrorMessage } from '../../../utils/errors';
 
 export const useProfessionalDashboard = () => {
   const { profile } = useBusiness();
-  const {
-    bookings,
-    services,
-    professionals: professionals,
-    currentUser,
-    updateBookingStatus,
-    updateProfessional: updateProfessional,
-    config,
-  } = useApp();
+  const bookings = useBookings();
+  const services = useServices();
+  const professionals = useProfessionals();
+  const currentUser = useCurrentUser();
+  const updateBookingStatus = useUpdateBookingStatus();
+  const updateProfessional = useUpdateProfessional();
+  const config = useBusinessConfig();
 
   const [activeProfessionalId, setActiveProfessionalId] = useState<string>(currentUser?.profileId || '');
   const [statsPeriod, setStatsPeriod] = useState<'day' | 'week' | 'month'>('day');
@@ -66,8 +64,8 @@ export const useProfessionalDashboard = () => {
     setActiveProfessionalId(prev => (prev && professionals.some(b => b.id === prev) ? prev : professionals[0].id));
   }, [currentUser, professionals]);
 
-  const activeProfessional = professionals.find(b => b.id === activeProfessionalId);
-  const professionalBookings = bookings.filter(b => b.professionalId === activeProfessionalId);
+  const activeProfessional = useMemo(() => professionals.find(b => b.id === activeProfessionalId), [activeProfessionalId, professionals]);
+  const professionalBookings = useMemo(() => bookings.filter(b => b.professionalId === activeProfessionalId), [activeProfessionalId, bookings]);
 
   // Usa a data "de hoje" no fuso horário do negócio (não o fuso do
   // dispositivo do profissional). Antes, isto usava new Date() local, o que
@@ -84,13 +82,12 @@ export const useProfessionalDashboard = () => {
     });
   }, [professionalBookings]);
 
-  const todayBookings = sortedBookings.filter(b => b.date === todayStr);
-  // "Cancelado" fica de fora destas duas listas: não há nada a fazer numa
-  // reserva futura cancelada, e um cancelamento não é um "trabalho
-  // realizado" no histórico. Continua existindo na base de dados/relatórios
-  // do admin, só não polui a visão operacional do dia a dia do profissional.
-  const futureBookings = sortedBookings.filter(b => b.date > todayStr && b.status !== 'Cancelado');
-  const pastBookings = sortedBookings.filter(b => b.date < todayStr && b.status !== 'Cancelado');
+  const { todayBookings, futureBookings, pastBookings } = useMemo(() => ({
+    todayBookings: sortedBookings.filter(booking => booking.date === todayStr),
+    // Cancelados permanecem no banco/relatórios, mas não poluem a operação diária.
+    futureBookings: sortedBookings.filter(booking => booking.date > todayStr && booking.status !== 'Cancelado'),
+    pastBookings: sortedBookings.filter(booking => booking.date < todayStr && booking.status !== 'Cancelado'),
+  }), [sortedBookings, todayStr]);
 
   const completedToday = todayBookings.filter(b => b.status === 'Concluído').length;
   const pendingToday = todayBookings.filter(b => b.status === 'Confirmado' || b.status === 'Em atendimento' || b.status === 'Aguardando pagamento').length;
@@ -103,9 +100,9 @@ export const useProfessionalDashboard = () => {
   // Antes, se o preço de um serviço mudasse (ou o serviço fosse excluído),
   // todo o histórico de faturamento do profissional mudava retroativamente e
   // podia ficar diferente do relatório oficial do admin.
-  const totalEarnings = professionalBookings
-    .filter(b => b.status === 'Concluído')
-    .reduce((sum, b) => sum + b.value, 0);
+  const totalEarnings = useMemo(() => professionalBookings
+    .filter(booking => booking.status === 'Concluído')
+    .reduce((sum, booking) => sum + booking.value, 0), [professionalBookings]);
 
   const isSameDay = (dateStr: string) => dateStr === todayStr;
   const isThisWeek = (dateStr: string) => {

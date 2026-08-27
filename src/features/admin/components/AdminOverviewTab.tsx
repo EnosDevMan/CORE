@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { DollarSign, Clock, UserPlus, Calendar as CalendarIcon, CheckCircle, XCircle, ArrowRight, User, Scissors } from 'lucide-react';
 import { useBookings, useUsers } from '../../../store/useApp';
 import { BookingStatus } from '../../../types';
-import { getBusinessTodayStr } from '../../../utils/validation';
+import { getBusinessNow, getBusinessTodayStr } from '../../../utils/validation';
 import { Booking } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
@@ -52,8 +52,10 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   );
 
   const newCustomersToday = useMemo(
-    () => users.filter(user => isCustomerRole(user.role) && user.createdAt?.slice(0, 10) === todayStr).length,
-    [todayStr, users],
+    () => users.filter(user => isCustomerRole(user.role)
+      && Boolean(user.createdAt)
+      && getBusinessNow(profile.timezone, new Date(user.createdAt as string)).dateStr === todayStr).length,
+    [profile.timezone, todayStr, users],
   );
 
   const todayLabel = new Date(todayStr + 'T12:00:00').toLocaleDateString('pt-BR', {
@@ -164,7 +166,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                     <Scissors size={11} className="text-slate-400 shrink-0" />
                     <span className="truncate">{getServiceName(booking.serviceId)}</span>
                   </div>
-                  {renderActions(booking) && (
+                  {booking.status !== 'Concluído' && booking.status !== 'Cancelado' && booking.status !== 'Não compareceu' && (
                     <div className="pt-1.5 border-t border-slate-100 flex justify-end">{renderActions(booking)}</div>
                   )}
                 </div>

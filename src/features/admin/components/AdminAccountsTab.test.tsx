@@ -1,9 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminAccountsTab } from './AdminAccountsTab';
-import { useApp } from '../../../store/useApp';
+import { useCurrentUser, useDeleteUserAccount, useUpdateUserRole, useUsers } from '../../../store/useApp';
 
-vi.mock('../../../store/useApp', () => ({ useApp: vi.fn() }));
+vi.mock('../../../store/useApp', () => ({
+  useUsers: vi.fn(),
+  useCurrentUser: vi.fn(),
+  useUpdateUserRole: vi.fn(),
+  useDeleteUserAccount: vi.fn(),
+}));
 
 const updateUserRole = vi.fn();
 const deleteUserAccount = vi.fn();
@@ -13,16 +18,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   updateUserRole.mockResolvedValue(undefined);
   deleteUserAccount.mockResolvedValue(undefined);
-  vi.mocked(useApp).mockReturnValue({
-    currentUser: { id: 'owner', name: 'Proprietário', role: 'owner' },
-    users: [
-      { id: 'owner', name: 'Proprietário', email: 'owner@example.test', role: 'owner' },
-      { id: 'customer', name: 'Cliente Teste', email: 'customer@example.test', role: 'customer' },
-      { id: 'professional', name: 'Profissional Teste', email: 'staff@example.test', role: 'professional', profileId: 'agenda-1' },
-    ],
-    updateUserRole,
-    deleteUserAccount,
-  } as unknown as ReturnType<typeof useApp>);
+  vi.mocked(useCurrentUser).mockReturnValue({ id: 'owner', name: 'Proprietário', email: 'owner@example.test', role: 'owner' });
+  vi.mocked(useUsers).mockReturnValue([
+    { id: 'owner', name: 'Proprietário', email: 'owner@example.test', role: 'owner' },
+    { id: 'customer', name: 'Cliente Teste', email: 'customer@example.test', role: 'customer' },
+    { id: 'professional', name: 'Profissional Teste', email: 'staff@example.test', role: 'professional', profileId: 'agenda-1' },
+  ]);
+  vi.mocked(useUpdateUserRole).mockReturnValue(updateUserRole);
+  vi.mocked(useDeleteUserAccount).mockReturnValue(deleteUserAccount);
 });
 
 afterEach(() => vi.restoreAllMocks());

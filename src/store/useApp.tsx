@@ -22,6 +22,10 @@ export const useGalleryPhotos = () => useDataStore(state => state.galleryPhotos)
 export const useDataLoading = () => useDataStore(state => state.loading);
 export const useLoadError = () => useDataStore(state => state.loadError);
 export const useUpdateBookingStatus = () => useDataStore(state => state.updateBookingStatus);
+export const useUpdateUserRole = () => useDataStore(state => state.updateUserRole);
+export const useDeleteUserAccount = () => useDataStore(state => state.deleteUserAccount);
+export const useDeactivateService = () => useDataStore(state => state.deactivateService);
+export const useUpdateProfessional = () => useDataStore(state => state.updateProfessional);
 export const useBusinessConfig = () => useConfigStore(state => state.config);
 export const useCurrentUser = () => useAuthStore(state => state.currentUser);
 export const useLogout = () => useAuthStore(state => state.logout);
