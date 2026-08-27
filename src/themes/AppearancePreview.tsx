@@ -62,7 +62,7 @@ export function AppearancePreview({
   label = 'Prévia visual do site',
 }: AppearancePreviewProps) {
   const layout = getPublicLayoutPreset(styleId, nicheId);
-  const { tokens: t, mode } = resolveTheme(styleId, paletteId, surfaceMode, customColors);
+  const { tokens: t, mode } = resolveTheme(styleId, paletteId, surfaceMode, customColors, nicheId);
   const composition = COMPOSITIONS[layout.heroVariant] ?? FALLBACK_COMPOSITION;
   const small = compact;
   const border = `1px solid ${t.cardBorder}`;
