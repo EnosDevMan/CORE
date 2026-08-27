@@ -77,12 +77,7 @@ export const getBrandColors = (
       accent: '#c9975b',
     };
   }
-  const preset = getPalettePreset(paletteId as PaletteId);
-  return {
-    primary: preset.tokens.primary,
-    secondary: preset.tokens.decorative,
-    accent: preset.tokens.accent,
-  };
+  return getPalettePreset(paletteId as PaletteId).colors;
 };
 
 export const getBrandSwatches = (
