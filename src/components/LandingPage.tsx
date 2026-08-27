@@ -15,7 +15,6 @@ import { ServicesSection } from '../features/landing/components/ServicesSection'
 import { ProfessionalsSection } from '../features/landing/components/ProfessionalsSection';
 import { GallerySection } from '../features/landing/components/GallerySection';
 import { FooterSection } from '../features/landing/components/FooterSection';
-import '../styles/artDirections.css';
 
 interface Props { onStartBooking: (selection?: { serviceId?: string; professionalId?: string }) => void; onOpenLogin: () => void; onOpenPrivacy: () => void; }
 
