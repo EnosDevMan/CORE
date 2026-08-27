@@ -7,7 +7,11 @@ export type PublicLayoutId = ThemeStyleId;
 export type PublicSectionId = 'features' | 'services' | 'gallery' | 'professionals';
 export type HeroVariant =
   | 'modern_split' | 'premium_focus' | 'minimal_stack'
-  | 'heritage_frame' | 'editorial_center' | 'showcase' | 'clean_split' | 'friendly';
+  | 'heritage_frame' | 'editorial_center' | 'showcase' | 'clean_split' | 'friendly'
+  | 'barber_precision' | 'barber_executive' | 'barber_studio' | 'barber_heritage'
+  | 'beauty_studio_modern' | 'beauty_soft_luxury' | 'beauty_signature' | 'beauty_editorial'
+  | 'nail_clean_studio' | 'nail_boutique' | 'nail_editorial' | 'nail_showcase'
+  | 'pet_modern_service' | 'pet_care' | 'pet_organic' | 'pet_friendly';
 export type SectionStyle = ThemeStyleId;
 
 export interface ThemeStyleTokens {
