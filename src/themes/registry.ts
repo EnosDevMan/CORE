@@ -1,5 +1,6 @@
-import { THEME_STYLE_REGISTRY } from '../layouts/registry';
+import { getPublicLayoutPreset } from '../layouts/registry';
 import type { ThemeStyleId } from '../layouts/types';
+import type { NicheId } from '../niches/types';
 import { LEGACY_THEME_APPEARANCE } from './compatibility';
 import { resolvePaletteTokens } from './paletteMode';
 import { getPalettePreset } from './paletteRegistry';
@@ -41,8 +42,9 @@ export function resolveTheme(
   paletteId: PaletteSelectionId,
   mode?: SurfaceMode,
   customColors?: CustomPaletteColors,
+  nicheId?: NicheId,
 ): ResolvedTheme {
-  const style = THEME_STYLE_REGISTRY[styleId] ?? THEME_STYLE_REGISTRY.modern;
+  const style = getPublicLayoutPreset(styleId, nicheId);
   const resolvedMode = mode ?? (paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode);
   return {
     id: `${style.id}:${paletteId}:${resolvedMode}`,
