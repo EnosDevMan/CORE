@@ -2,8 +2,7 @@ import { NICHE_REGISTRY, getNichePreset } from '../../niches/registry';
 import type { NicheId } from '../../niches/types';
 import { getLegacyThemeIdForAppearance, resolveAppearanceForNiche } from '../../themes/appearance';
 import { LEGACY_THEME_APPEARANCE } from '../../themes/compatibility';
-import { normalizeCustomPalette } from '../../themes/paletteMode';
-import { getPalettePreset } from '../../themes/paletteRegistry';
+import { getDefaultSurfaceMode, normalizeCustomPalette } from '../../themes/paletteIdentity';
 import type { LegacyThemeId, PaletteSelectionId, SurfaceMode } from '../../themes/types';
 import { getBusinessNow } from '../../utils/validation';
 import { CAPABILITIES, type BusinessProfile, type Capability } from './types';
@@ -21,7 +20,7 @@ function requiredString(row: RuntimeRow, key: string): string {
 
 const surfaceMode = (value: unknown, paletteId: PaletteSelectionId): SurfaceMode => {
   if (value === 'light' || value === 'dark') return value;
-  return paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
+  return getDefaultSurfaceMode(paletteId);
 };
 
 export function mapBusinessProfile(value: unknown): BusinessProfile {
