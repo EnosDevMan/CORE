@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { NicheMark } from '../../features/landing/NicheMark';
 import { useBusiness, useNiche } from './hooks';
 
@@ -9,6 +9,7 @@ interface BusinessBrandProps {
   size?: BrandSize;
   className?: string;
   nameClassName?: string;
+  style?: CSSProperties;
 }
 
 const ICON_SIZE: Record<BrandSize, number> = { sm: 18, md: 22, lg: 30 };
@@ -19,6 +20,7 @@ export function BusinessBrand({
   size = 'md',
   className = '',
   nameClassName = '',
+  style,
 }: BusinessBrandProps) {
   const { profile } = useBusiness();
   const niche = useNiche();
@@ -27,7 +29,7 @@ export function BusinessBrand({
   useEffect(() => setImageFailed(false), [profile.logoUrl]);
 
   return (
-    <span className={`core-business-brand core-business-brand--${size} ${className}`.trim()}>
+    <span className={`core-business-brand core-business-brand--${size} ${className}`.trim()} style={style}>
       <span className="core-brand-mark" aria-hidden="true">
         {profile.logoUrl && !imageFailed ? (
           <img src={profile.logoUrl} alt="" decoding="async" onError={() => setImageFailed(true)} />
