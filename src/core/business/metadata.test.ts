@@ -5,7 +5,7 @@ import type { BusinessProfile } from './types';
 const profile: BusinessProfile = {
   name: 'Studio Demo', description: 'Atendimento personalizado.',
   timezone: 'America/Sao_Paulo', currency: 'BRL', locale: 'pt-BR',
-  nicheId: 'beauty_salon', themeId: 'minimal_light',
+  nicheId: 'beauty_salon', themeId: 'minimal_light', themeStyleId: 'minimal', paletteId: 'minimal_white',
 };
 
 describe('applyBusinessMetadata', () => {

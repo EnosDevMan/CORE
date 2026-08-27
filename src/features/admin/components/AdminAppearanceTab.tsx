@@ -5,15 +5,15 @@ import { businessService } from '../../../core/business/businessService';
 import { prepareCoverImage } from '../../../core/business/coverImage';
 import { renderCroppedLogo, validateLogoFile, type LogoCropOptions } from '../../../core/business/logoCrop';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
-import { THEME_REGISTRY } from '../../../themes/registry';
-import type { ThemeId } from '../../../themes/types';
+import { AppearancePicker } from '../../../themes/AppearancePicker';
 import { LogoCropDialog } from './LogoCropDialog';
 
 export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: string, isError: boolean) => void }) {
   const niche = useNiche();
   const { profile, refreshRuntime } = useBusiness();
-  const [selected, setSelected] = useState<ThemeId>(profile.themeId);
-  const [savingTheme, setSavingTheme] = useState(false);
+  const [selectedStyleId, setSelectedStyleId] = useState(profile.themeStyleId);
+  const [selectedPaletteId, setSelectedPaletteId] = useState(profile.paletteId);
+  const [savingAppearance, setSavingAppearance] = useState(false);
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [savingLogo, setSavingLogo] = useState(false);
   const [savingCover, setSavingCover] = useState(false);
@@ -21,20 +21,30 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setSelected(profile.themeId), [profile.themeId]);
+  useEffect(() => {
+    setSelectedStyleId(profile.themeStyleId);
+    setSelectedPaletteId(profile.paletteId);
+  }, [profile.paletteId, profile.themeStyleId]);
 
-  const saveTheme = async () => {
-    if (savingTheme || selected === profile.themeId) return;
+  const appearanceChanged = selectedStyleId !== profile.themeStyleId
+    || selectedPaletteId !== profile.paletteId;
+
+  const saveAppearance = async () => {
+    if (savingAppearance || !appearanceChanged || profile.nicheId === 'core_bootstrap') return;
     try {
-      setSavingTheme(true);
-      await businessService.updateTheme(selected, profile.nicheId);
+      setSavingAppearance(true);
+      await businessService.updateAppearance({
+        styleId: selectedStyleId,
+        paletteId: selectedPaletteId,
+      }, profile.nicheId);
       await refreshRuntime();
-      showFeedback('Tema do site atualizado com sucesso!', false);
+      showFeedback('Aparência do site atualizada com sucesso!', false);
     } catch (error) {
-      setSelected(profile.themeId);
-      showFeedback(error instanceof Error ? error.message : 'Não foi possível atualizar o tema do site.', true);
+      setSelectedStyleId(profile.themeStyleId);
+      setSelectedPaletteId(profile.paletteId);
+      showFeedback(error instanceof Error ? error.message : 'Não foi possível atualizar a aparência do site.', true);
     } finally {
-      setSavingTheme(false);
+      setSavingAppearance(false);
     }
   };
 
@@ -203,52 +213,26 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
           <div className="flex items-start gap-3">
             <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Palette size={20} /></span>
             <div>
-              <h3 className="font-extrabold text-slate-900">Estilo visual do site</h3>
-              <p className="mt-1 text-sm text-slate-500">Identidades criadas para {niche.name}. Elas mudam a experiência pública; o painel administrativo permanece neutro e consistente.</p>
+              <h3 className="font-extrabold text-slate-900">Aparência do site</h3>
+              <p className="mt-1 text-sm text-slate-500">Escolha estrutura e cores separadamente para {niche.name}. A mudança afeta o site público; o painel continua neutro.</p>
             </div>
           </div>
-          <button type="button" onClick={saveTheme} disabled={savingTheme || selected === profile.themeId} className="core-button-primary min-h-11 shrink-0 justify-center px-5 text-sm font-bold disabled:opacity-40">
-            {savingTheme ? <Sparkles className="animate-pulse" size={17} /> : <Check size={17} />}
-            {savingTheme ? 'Aplicando...' : selected === profile.themeId ? 'Tema em uso' : 'Aplicar tema'}
+          <button type="button" onClick={saveAppearance} disabled={savingAppearance || !appearanceChanged} className="core-button-primary min-h-11 shrink-0 justify-center px-5 text-sm font-bold disabled:opacity-40">
+            {savingAppearance ? <Sparkles className="animate-pulse" size={17} /> : <Check size={17} />}
+            {savingAppearance ? 'Aplicando...' : appearanceChanged ? 'Salvar aparência' : 'Aparência em uso'}
           </button>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {niche.recommendedThemeIds.map(themeId => {
-            const id = themeId as ThemeId;
-            const theme = THEME_REGISTRY[id];
-            const isSelected = selected === id;
-            const isActive = profile.themeId === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSelected(id)}
-                aria-pressed={isSelected}
-                className={`core-theme-choice overflow-hidden border-2 text-left transition-all ${isSelected ? 'is-selected -translate-y-0.5 shadow-lg' : 'border-transparent hover:-translate-y-0.5 hover:shadow-md'}`}
-                style={{ borderColor: isSelected ? theme.tokens.primary : theme.tokens.border, background: theme.tokens.surface }}
-              >
-                <span className="block h-28 p-3" style={{ background: theme.tokens.heroGradient, color: theme.tokens.foreground }}>
-                  <span className="flex h-6 items-center justify-between rounded-md px-2" style={{ background: theme.tokens.nav, color: theme.tokens.navForeground }}>
-                    <span className="h-1.5 w-12 rounded-full bg-current opacity-80" />
-                    <span className="h-3 w-8 rounded-full" style={{ background: theme.tokens.accent }} />
-                  </span>
-                  <span className="mt-4 block h-2 w-16 rounded-full" style={{ background: theme.tokens.primary }} />
-                  <span className="mt-2 block h-4 w-3/4 rounded-sm bg-current opacity-80" />
-                  <span className="mt-2 flex gap-1.5">
-                    {[theme.tokens.primary, theme.tokens.accent, theme.tokens.decorative].map(color => <span key={color} className="h-4 w-4 rounded-full border border-black/5" style={{ background: color }} />)}
-                  </span>
-                </span>
-                <span className="block p-4" style={{ color: theme.tokens.foreground }}>
-                  <span className="flex items-center justify-between gap-2">
-                    <strong className="text-sm">{theme.name}</strong>
-                    {isActive && <span className="rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider" style={{ background: theme.tokens.decorative, color: theme.tokens.decorativeForeground }}>Ativo</span>}
-                  </span>
-                  <span className="mt-1.5 block text-xs leading-5 opacity-70">{theme.description}</span>
-                </span>
-              </button>
-            );
-          })}
+        <div className="mt-6">
+          {profile.nicheId !== 'core_bootstrap' && (
+            <AppearancePicker
+              nicheId={profile.nicheId}
+              styleId={selectedStyleId}
+              paletteId={selectedPaletteId}
+              onStyleChange={setSelectedStyleId}
+              onPaletteChange={setSelectedPaletteId}
+            />
+          )}
         </div>
       </section>
 

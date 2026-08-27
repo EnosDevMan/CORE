@@ -80,14 +80,14 @@ button, a, input, textarea, select { touch-action: manipulation; }
 .core-business-brand--md .core-brand-name { font-size: 1.1rem; }
 .core-business-brand--lg .core-brand-name { font-size: 1.35rem; }
 
-/* Navigation intentionally feels like part of the selected template. */
+/* Navigation intentionally feels like part of the selected structural style. */
 .core-navbar { background: color-mix(in srgb, var(--core-surface) 88%, transparent); backdrop-filter: blur(18px); }
 .core-navbar__brand { display: inline-flex; align-items: center; }
-[data-niche="barbershop"] .core-navbar { border-bottom-width: 2px; }
-[data-niche="barbershop"] .core-brand-mark { border-radius: .2rem; }
-[data-niche="beauty_salon"] .core-navbar .core-brand-name { font-family: var(--core-font-display); font-weight: 600; }
-[data-niche="nail_studio"] .core-navbar { box-shadow: 0 10px 35px color-mix(in srgb, var(--core-primary) 8%, transparent); }
-[data-niche="pet_shop"] .core-navbar .core-brand-mark { transform: rotate(-3deg); border-radius: 42% 58% 48% 52%; }
+[data-theme-style="heritage"] .core-navbar { border-bottom-width: 2px; }
+[data-theme-style="heritage"] .core-brand-mark { border-radius: .2rem; }
+[data-theme-style="editorial"] .core-navbar .core-brand-name { font-weight: 600; }
+[data-theme-style="showcase"] .core-navbar { box-shadow: 0 10px 35px color-mix(in srgb, var(--core-primary) 8%, transparent); }
+[data-theme-style="friendly"] .core-navbar .core-brand-mark { transform: rotate(-3deg); border-radius: 42% 58% 48% 52%; }
 
 /* Hero foundation */
 .core-hero { position: relative; isolation: isolate; overflow: hidden; padding: 3.4rem 1rem 4.25rem; background: var(--core-hero-gradient); color: var(--core-foreground); }
@@ -103,7 +103,7 @@ button, a, input, textarea, select { touch-action: manipulation; }
 .core-hero__description { max-width: 38rem; margin: 1.1rem 0 0; color: var(--core-muted-foreground); font-size: 1rem; line-height: 1.75; }
 .core-hero__actions { display: flex; flex-direction: column; gap: .75rem; margin-top: 1.75rem; }
 .core-hero__primary, .core-hero__login { display: inline-flex; min-height: 3.25rem; align-items: center; justify-content: center; gap: .55rem; padding: .8rem 1.35rem; border-radius: var(--core-button-radius); font-weight: 800; transition: transform 180ms, box-shadow 180ms, opacity 180ms; }
-.core-hero__primary { background: var(--core-primary); color: var(--core-primary-foreground); box-shadow: 0 12px 28px color-mix(in srgb, var(--core-primary) 25%, transparent); }
+.core-hero__primary { background: var(--core-cta); color: var(--core-cta-foreground); box-shadow: 0 12px 28px color-mix(in srgb, var(--core-cta) 25%, transparent); }
 .core-hero__login { border: 1px solid var(--core-border); background: color-mix(in srgb, var(--core-surface) 65%, transparent); color: var(--core-foreground); backdrop-filter: blur(12px); }
 .core-hero__primary:hover, .core-hero__login:hover { transform: translateY(-2px); box-shadow: var(--core-shadow); }
 .core-hero__assurances { display: flex; flex-wrap: wrap; gap: .55rem 1.2rem; margin-top: 1.2rem; color: var(--core-muted-foreground); font-size: .76rem; font-weight: 650; }
@@ -137,47 +137,37 @@ button, a, input, textarea, select { touch-action: manipulation; }
 .core-hero-visual__orbit--two { width: 8rem; height: 8rem; left: -.25rem; bottom: 1rem; border-color: color-mix(in srgb, var(--core-accent) 52%, transparent); }
 .core-hero-visual__heart { display: none; }
 
-/* Four distinct niche compositions. */
-[data-niche="barbershop"] .core-hero { border-bottom: 4px solid var(--core-primary); }
-[data-niche="barbershop"] .core-hero__title { text-transform: uppercase; }
-[data-niche="barbershop"] .core-hero-visual__media { inset: 1rem 1.35rem 3.9rem 3rem; border-radius: .2rem; clip-path: polygon(7% 0, 100% 0, 100% 93%, 93% 100%, 0 100%, 0 7%); }
-[data-niche="barbershop"] .core-hero-visual__stamp,
-[data-niche="barbershop"] .core-hero-visual__note,
-[data-niche="barbershop"] .core-hero-visual__availability,
-[data-niche="barbershop"] .core-hero-visual__stats { border-radius: .15rem; }
-[data-niche="barbershop"] .core-hero-visual__stamp { transform: rotate(8deg); }
-[data-niche="barbershop"] .core-hero-visual__orbit { border-radius: 0; transform: rotate(12deg); }
+/* Structural hero families. Niche supplies content; style supplies composition. */
+[data-hero-variant="premium_focus"] .core-hero__title { font-weight: 600; }
+[data-hero-variant="premium_focus"] .core-hero-visual__media { inset: .5rem 3.5rem 2.5rem; border-radius: .2rem; }
+[data-hero-variant="premium_focus"] .core-hero-visual__stamp { right: auto; left: 1.5rem; border-radius: .2rem; }
 
-[data-niche="beauty_salon"] .core-hero { padding-top: 4.5rem; }
-[data-niche="beauty_salon"] .core-hero__copy { text-align: center; }
-[data-niche="beauty_salon"] .core-hero__brand,
-[data-niche="beauty_salon"] .core-hero__eyebrow,
-[data-niche="beauty_salon"] .core-hero__actions,
-[data-niche="beauty_salon"] .core-hero__assurances { justify-content: center; }
-[data-niche="beauty_salon"] .core-hero__brand { display: inline-flex; }
-[data-niche="beauty_salon"] .core-hero__description,
-[data-niche="beauty_salon"] .core-hero__title,
-[data-niche="beauty_salon"] .core-hero__subtitle { margin-inline: auto; }
-[data-niche="beauty_salon"] .core-hero-visual__media { inset: .7rem 4.5rem 2.2rem; border-radius: 12rem 12rem 1.5rem 1.5rem; }
-[data-niche="beauty_salon"] .core-hero-visual__note { left: .5rem; top: 4rem; }
-[data-niche="beauty_salon"] .core-hero-visual__availability { bottom: 5rem; }
-[data-niche="beauty_salon"] .core-hero-visual__stats { bottom: -.4rem; left: 50%; transform: translateX(-50%); }
-[data-niche="beauty_salon"] .core-hero-visual__stamp { right: 3rem; border-radius: 48% 52% 44% 56%; }
+[data-hero-variant="minimal_stack"].core-hero { background: var(--core-background); }
+[data-hero-variant="minimal_stack"] :is(.core-hero-visual__orbit, .core-hero-visual__stamp) { display: none; }
+[data-hero-variant="minimal_stack"] .core-hero__copy { margin-inline: auto; text-align: center; }
+[data-hero-variant="minimal_stack"] :is(.core-hero__brand, .core-hero__eyebrow, .core-hero__actions, .core-hero__assurances) { justify-content: center; }
+[data-hero-variant="minimal_stack"] .core-hero-visual { min-height: 18rem; max-width: 48rem; }
+[data-hero-variant="minimal_stack"] .core-hero-visual__media { inset: 1rem 0 2rem; border-radius: .1rem; box-shadow: none; }
 
-[data-niche="nail_studio"] .core-hero-visual { min-height: 28rem; }
-[data-niche="nail_studio"] .core-hero-visual__media { inset: 2.4rem 2.4rem 2.2rem; border-radius: 38% 62% 31% 69% / 47% 35% 65% 53%; transform: rotate(-2deg); }
-[data-niche="nail_studio"] .core-hero-visual__media img { transform: scale(1.05) rotate(2deg); }
-[data-niche="nail_studio"] .core-hero-visual__stamp { border-radius: 1.25rem; transform: rotate(8deg); }
-[data-niche="nail_studio"] .core-hero-visual__note { background: var(--core-surface-gradient); }
-[data-niche="nail_studio"] .core-hero-visual__orbit--one { border-width: 18px; opacity: .18; }
+[data-hero-variant="heritage_frame"].core-hero { border-bottom: 4px solid var(--core-primary); }
+[data-hero-variant="heritage_frame"] .core-hero__title { text-transform: uppercase; }
+[data-hero-variant="heritage_frame"] .core-hero-visual__media { inset: 1rem 1.35rem 3.9rem 3rem; border-radius: .2rem; clip-path: polygon(7% 0,100% 0,100% 93%,93% 100%,0 100%,0 7%); }
+[data-hero-variant="heritage_frame"] :is(.core-hero-visual__stamp, .core-hero-visual__note, .core-hero-visual__availability, .core-hero-visual__stats) { border-radius: .15rem; }
 
-[data-niche="pet_shop"] .core-hero-visual__media { inset: 2rem 2.8rem 3.1rem; border-radius: 48% 52% 45% 55% / 56% 43% 57% 44%; transform: rotate(2deg); }
-[data-niche="pet_shop"] .core-hero-visual__media img { transform: scale(1.04) rotate(-2deg); }
-[data-niche="pet_shop"] .core-hero-visual__stamp { right: 2rem; top: 1.25rem; border-radius: 45% 55% 44% 56%; transform: rotate(8deg); }
-[data-niche="pet_shop"] .core-hero-visual__heart { display: block; position: absolute; right: .5rem; top: 9.5rem; width: 2rem; height: 2rem; color: var(--core-primary); fill: var(--core-accent); transform: rotate(12deg); }
-[data-niche="pet_shop"] .core-hero-visual__note,
-[data-niche="pet_shop"] .core-hero-visual__availability,
-[data-niche="pet_shop"] .core-hero-visual__stats { border-radius: 999px; }
+[data-hero-variant="editorial_center"] .core-hero__copy { text-align: center; }
+[data-hero-variant="editorial_center"] :is(.core-hero__brand, .core-hero__eyebrow, .core-hero__actions, .core-hero__assurances) { justify-content: center; }
+[data-hero-variant="editorial_center"] .core-hero-visual__media { inset: .7rem 4.5rem 2.2rem; border-radius: 12rem 12rem 1.5rem 1.5rem; }
+[data-hero-variant="editorial_center"] .core-hero-visual__stats { bottom: -.4rem; left: 50%; transform: translateX(-50%); }
+
+[data-hero-variant="showcase"] .core-hero-visual__media { inset: 2.4rem; border-radius: 38% 62% 31% 69% / 47% 35% 65% 53%; transform: rotate(-2deg); }
+[data-hero-variant="showcase"] .core-hero-visual__stamp { border-radius: 1.25rem; transform: rotate(8deg); }
+[data-hero-variant="clean_split"].core-hero::before,
+[data-hero-variant="clean_split"] .core-hero-visual__orbit { display: none; }
+[data-hero-variant="clean_split"] .core-hero-visual__media { inset: 1.4rem 1.8rem 3.2rem; box-shadow: var(--core-shadow); }
+
+[data-hero-variant="friendly"] .core-hero-visual__media { inset: 2rem 2.8rem 3.1rem; border-radius: 48% 52% 45% 55% / 56% 43% 57% 44%; transform: rotate(2deg); }
+[data-hero-variant="friendly"] .core-hero-visual__heart { display: block; position: absolute; right: .5rem; top: 9.5rem; width: 2rem; height: 2rem; color: var(--core-primary); fill: var(--core-accent); transform: rotate(12deg); }
+[data-hero-variant="friendly"] :is(.core-hero-visual__note, .core-hero-visual__availability, .core-hero-visual__stats) { border-radius: 999px; }
 
 /* Trust strip */
 .core-trust-strip { position: relative; z-index: 3; padding: 0 1rem; background: var(--core-surface); border-block: 1px solid var(--core-border); }
@@ -211,7 +201,7 @@ button, a, input, textarea, select { touch-action: manipulation; }
 .core-category-tabs button[aria-selected="true"] { border-color: var(--core-primary); background: var(--core-primary); color: var(--core-primary-foreground); box-shadow: 0 8px 22px color-mix(in srgb, var(--core-primary) 20%, transparent); }
 .core-service-rail { display: flex; margin: 1rem -1rem 0; padding: .7rem 1rem 1.25rem; gap: 1rem; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-inline: contain; scroll-behavior: smooth; touch-action: pan-x pan-y; scrollbar-width: thin; }
 .service-card { width: 87%; }
-.core-service-card { position: relative; display: flex; flex: 0 0 auto; flex-direction: column; min-height: 22rem; padding: 1.35rem; border: 1px solid var(--core-border); border-radius: var(--core-card-radius); background: var(--core-surface-gradient); color: var(--core-foreground); box-shadow: var(--core-shadow); scroll-snap-align: start; transition: transform 180ms, box-shadow 180ms, border-color 180ms; }
+.core-service-card { position: relative; display: flex; flex: 0 0 auto; flex-direction: column; min-height: 22rem; padding: 1.35rem; border: 1px solid var(--core-card-border); border-radius: var(--core-card-radius); background: var(--core-card-background); color: var(--core-foreground); box-shadow: var(--core-shadow); scroll-snap-align: start; transition: transform 180ms, box-shadow 180ms, border-color 180ms; }
 .core-service-card:hover { transform: translateY(-5px); border-color: color-mix(in srgb, var(--core-primary) 48%, var(--core-border)); box-shadow: var(--core-shadow-strong); }
 .core-service-card__topline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .core-service-card__number { color: var(--core-border); font-family: var(--core-font-display); font-size: 1.65rem; font-weight: 900; }
@@ -226,7 +216,7 @@ button, a, input, textarea, select { touch-action: manipulation; }
 /* Team */
 .core-team-section { background: var(--core-canvas); color: var(--core-foreground); }
 .core-team-grid { display: grid; gap: 1.1rem; margin-top: 2rem; }
-.core-professional-card { position: relative; overflow: hidden; border: 1px solid var(--core-border); border-radius: var(--core-card-radius); background: var(--core-surface); box-shadow: var(--core-shadow); }
+.core-professional-card { position: relative; overflow: hidden; border: 1px solid var(--core-card-border); border-radius: var(--core-card-radius); background: var(--core-card-background); box-shadow: var(--core-shadow); }
 .core-professional-card__portrait { position: relative; aspect-ratio: 5 / 4; overflow: hidden; background: var(--core-muted); }
 .core-professional-card__portrait img { width: 100%; height: 100%; object-fit: cover; transition: transform 400ms; }
 .core-professional-card:hover .core-professional-card__portrait img { transform: scale(1.035); }
@@ -273,10 +263,20 @@ button, a, input, textarea, select { touch-action: manipulation; }
 .core-footer__bottom button { width: max-content; text-decoration: underline; text-underline-offset: 3px; }
 
 /* Layout-level differences go beyond section order. */
-[data-section-style="structured"] .core-service-card { border-radius: .2rem; border-top: 3px solid var(--core-primary); box-shadow: none; }
-[data-section-style="structured"] .core-professional-card { border-radius: .2rem; }
-[data-section-style="structured"] .core-professional-card__portrait { aspect-ratio: 16 / 10; filter: saturate(.8) contrast(1.06); }
-[data-section-style="structured"].core-gallery-section .core-gallery-grid figure { border-radius: .1rem; }
+[data-section-style="modern"] .core-service-card { border-top: 3px solid var(--core-primary); }
+[data-section-style="modern"] .core-professional-card__portrait { aspect-ratio: 16 / 11; }
+
+[data-section-style="premium"] .core-service-card { border-width: 0 0 1px; border-radius: 0; background: transparent; box-shadow: none; }
+[data-section-style="premium"] .core-professional-card__portrait { aspect-ratio: 3 / 4; }
+
+[data-section-style="minimal"] .core-section-heading { display: block; max-width: 46rem; }
+[data-section-style="minimal"] .core-service-card,
+[data-section-style="minimal"] .core-professional-card { border-width: 0 0 1px; border-radius: 0; background: transparent; box-shadow: none; }
+[data-section-style="minimal"] .core-service-card__number { display: none; }
+
+[data-section-style="heritage"] .core-service-card { border-radius: .2rem; border-top: 3px double var(--core-primary); box-shadow: none; }
+[data-section-style="heritage"] .core-professional-card__portrait { aspect-ratio: 16 / 10; filter: saturate(.8) contrast(1.06); }
+[data-section-style="heritage"].core-gallery-section .core-gallery-grid figure { border-radius: .1rem; }
 
 [data-section-style="editorial"] .core-section-heading { justify-content: center; text-align: center; }
 [data-section-style="editorial"] .core-section-intro { margin-inline: auto; }
@@ -301,6 +301,10 @@ button, a, input, textarea, select { touch-action: manipulation; }
 [data-section-style="showcase"].core-gallery-section .core-gallery-grid figure:nth-child(2),
 [data-section-style="showcase"].core-gallery-section .core-gallery-grid figure:nth-child(5) { grid-column: span 2; }
 
+[data-section-style="clean"] .core-service-card,
+[data-section-style="clean"] .core-professional-card { box-shadow: none; }
+[data-section-style="clean"] .core-professional-card__portrait { aspect-ratio: 4 / 3; }
+
 [data-section-style="friendly"] .core-service-card { border-width: 2px; }
 [data-section-style="friendly"] .core-service-card__number { display: grid; width: 2.7rem; height: 2.7rem; place-items: center; border-radius: 50%; background: var(--core-decorative); color: var(--core-primary); font-size: .9rem; }
 [data-section-style="friendly"] .core-professional-card { border-width: 2px; }
@@ -308,17 +312,17 @@ button, a, input, textarea, select { touch-action: manipulation; }
 [data-section-style="friendly"] .core-professional-card:nth-child(even) { transform: rotate(.5deg); }
 [data-section-style="friendly"].core-gallery-section { border-radius: 2.5rem 2.5rem 0 0; }
 
-/* Theme signatures */
-[data-theme="blush_glass"] .core-service-card,
-[data-theme="blush_glass"] .core-professional-card,
-[data-theme="blush_glass"] .core-hero-visual__note,
-[data-theme="blush_glass"] .core-hero-visual__availability,
-[data-theme="blush_glass"] .core-hero-visual__stats { backdrop-filter: blur(20px); }
-[data-theme="premium_dark"] .core-section-kicker,
-[data-theme="urban_steel"] .core-section-kicker { letter-spacing: .25em; }
-[data-theme="heritage_copper"] .core-service-card__number { font-style: italic; }
-[data-theme="rose_elegance"] .core-section-heading h2,
-[data-theme="champagne_blush"] .core-section-heading h2 { font-weight: 560; }
+/* Style signatures depend on structure, never on a palette ID. */
+[data-theme-style="showcase"] .core-service-card,
+[data-theme-style="showcase"] .core-professional-card,
+[data-theme-style="showcase"] .core-hero-visual__note,
+[data-theme-style="showcase"] .core-hero-visual__availability,
+[data-theme-style="showcase"] .core-hero-visual__stats { backdrop-filter: blur(20px); }
+[data-theme-style="premium"] .core-section-kicker,
+[data-theme-style="modern"] .core-section-kicker { letter-spacing: .25em; }
+[data-theme-style="heritage"] .core-service-card__number { font-style: italic; }
+[data-theme-style="editorial"] .core-section-heading h2,
+[data-theme-style="premium"] .core-section-heading h2 { font-weight: 560; }
 
 /* Shared controls */
 .ui-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: .5rem; padding: .75rem 1rem; border-radius: var(--core-button-radius, .75rem); font-weight: 700; transition: background-color 150ms, color 150ms, border-color 150ms, opacity 150ms; }
@@ -458,15 +462,13 @@ button, a, input, textarea, select { touch-action: manipulation; }
 
 @media (min-width: 900px) {
   .core-hero__inner { grid-template-columns: minmax(0, 1.08fr) minmax(22rem, .92fr); gap: 3.5rem; }
-  [data-niche="beauty_salon"] .core-hero__inner { grid-template-columns: minmax(0, .95fr) minmax(24rem, 1.05fr); }
-  [data-niche="beauty_salon"] .core-hero__copy { text-align: left; }
-  [data-niche="beauty_salon"] .core-hero__brand,
-  [data-niche="beauty_salon"] .core-hero__eyebrow,
-  [data-niche="beauty_salon"] .core-hero__actions,
-  [data-niche="beauty_salon"] .core-hero__assurances { justify-content: flex-start; }
-  [data-niche="beauty_salon"] .core-hero__description,
-  [data-niche="beauty_salon"] .core-hero__title,
-  [data-niche="beauty_salon"] .core-hero__subtitle { margin-left: 0; }
+  [data-hero-variant="premium_focus"] .core-hero__inner { grid-template-columns: minmax(0, .88fr) minmax(24rem, 1.12fr); }
+  [data-hero-variant="minimal_stack"] .core-hero__inner { grid-template-columns: 1fr; max-width: 64rem; }
+  [data-hero-variant="minimal_stack"] .core-hero-visual { width: 100%; }
+  [data-hero-variant="editorial_center"] .core-hero__inner { grid-template-columns: minmax(0, .95fr) minmax(24rem, 1.05fr); }
+  [data-hero-variant="editorial_center"] .core-hero__copy { text-align: left; }
+  [data-hero-variant="editorial_center"] :is(.core-hero__brand, .core-hero__eyebrow, .core-hero__actions, .core-hero__assurances) { justify-content: flex-start; }
+  [data-hero-variant="editorial_center"] :is(.core-hero__description, .core-hero__title, .core-hero__subtitle) { margin-left: 0; }
   .core-section-controls, .core-gallery-instagram { display: flex; }
   .core-team-grid { grid-template-columns: repeat(3, 1fr); }
   .core-footer__inner { grid-template-columns: 1.3fr 1fr 1fr; }
@@ -476,7 +478,9 @@ button, a, input, textarea, select { touch-action: manipulation; }
 @media (min-width: 1024px) {
   .core-hero { min-height: 42rem; display: grid; align-items: center; padding-block: 5.8rem 6.5rem; }
   .core-hero__title { font-size: clamp(4.2rem, 6vw, 6.2rem); }
-  [data-niche="beauty_salon"] .core-hero__title { font-size: clamp(3.9rem, 5.5vw, 5.7rem); font-weight: 560; }
+  [data-hero-variant="editorial_center"] .core-hero__title,
+  [data-hero-variant="premium_focus"] .core-hero__title { font-size: clamp(3.9rem, 5.5vw, 5.7rem); font-weight: 560; }
+  [data-hero-variant="minimal_stack"] .core-hero__title { font-size: clamp(3.5rem, 5vw, 5rem); }
   .core-hero-visual { min-height: 33rem; }
   .core-service-rail { margin-inline: 0; padding-inline: .2rem; }
   .service-card { width: calc(33.333% - .667rem); }

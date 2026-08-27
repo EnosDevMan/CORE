@@ -1,5 +1,6 @@
 import type { RuntimeNicheId } from '../../niches/types';
-import type { ThemeId } from '../../themes/types';
+import type { ThemeStyleId } from '../../layouts/types';
+import type { LegacyThemeId, PaletteId } from '../../themes/types';
 
 export type Capability =
   | 'online_booking' | 'customers' | 'professionals' | 'services'
@@ -26,7 +27,10 @@ export interface BusinessProfile {
   currency: string;
   locale: string;
   nicheId: RuntimeNicheId;
-  themeId: ThemeId;
+  /** Stable alias retained for older clients and database compatibility. */
+  themeId: LegacyThemeId;
+  themeStyleId: ThemeStyleId;
+  paletteId: PaletteId;
 }
 
 export interface BusinessContextValue {

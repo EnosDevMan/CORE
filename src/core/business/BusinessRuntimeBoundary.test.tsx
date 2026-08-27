@@ -38,6 +38,8 @@ describe('BusinessRuntimeBoundary', () => {
         locale: 'pt-BR',
         nicheId: 'pet_shop',
         themeId: 'minimal_light',
+        themeStyleId: 'minimal',
+        paletteId: 'minimal_white',
       },
       capabilities: ['online_booking'],
     });

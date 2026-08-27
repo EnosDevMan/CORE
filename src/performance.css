@@ -73,11 +73,11 @@
 .core-hero-visual__availability,
 .core-hero-visual__stats { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 [data-section-style="showcase"] .core-service-card { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-[data-theme="blush_glass"] .core-service-card,
-[data-theme="blush_glass"] .core-professional-card,
-[data-theme="blush_glass"] .core-hero-visual__note,
-[data-theme="blush_glass"] .core-hero-visual__availability,
-[data-theme="blush_glass"] .core-hero-visual__stats { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+[data-theme-style="showcase"] .core-service-card,
+[data-theme-style="showcase"] .core-professional-card,
+[data-theme-style="showcase"] .core-hero-visual__note,
+[data-theme-style="showcase"] .core-hero-visual__availability,
+[data-theme-style="showcase"] .core-hero-visual__stats { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 
 .core-hero__primary,
 .core-hero__login,
@@ -98,8 +98,8 @@
   .core-hero-visual__availability,
   .core-hero-visual__stats,
   [data-section-style="showcase"] .core-service-card,
-  [data-theme="blush_glass"] .core-service-card,
-  [data-theme="blush_glass"] .core-professional-card {
+  [data-theme-style="showcase"] .core-service-card,
+  [data-theme-style="showcase"] .core-professional-card {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }

@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast';
-import { THEME_REGISTRY } from './registry';
+import { PALETTE_REGISTRY } from './paletteRegistry';
 
-describe('theme contrast', () => {
-  it.each(Object.values(THEME_REGISTRY))('$name keeps text pairs at WCAG AA', theme => {
-    expect(contrastRatio(theme.tokens.foreground, theme.tokens.background)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.foreground, theme.tokens.canvas)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.foreground, theme.tokens.surface)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.primaryForeground, theme.tokens.primary)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.secondaryForeground, theme.tokens.secondary)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.accentForeground, theme.tokens.accent)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.mutedForeground, theme.tokens.muted)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.navForeground, theme.tokens.nav)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(theme.tokens.decorativeForeground, theme.tokens.decorative)).toBeGreaterThanOrEqual(4.5);
+describe('palette contrast', () => {
+  it.each(Object.values(PALETTE_REGISTRY))('$name keeps every text pair at WCAG AA', palette => {
+    const { tokens } = palette;
+    expect(contrastRatio(tokens.foreground, tokens.background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.foreground, tokens.canvas)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.foreground, tokens.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.foreground, tokens.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.foreground, tokens.cardBackground)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.primaryForeground, tokens.primary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.secondaryForeground, tokens.secondary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.accentForeground, tokens.accent)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.mutedForeground, tokens.muted)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.navForeground, tokens.nav)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.decorativeForeground, tokens.decorative)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.ctaForeground, tokens.cta)).toBeGreaterThanOrEqual(4.5);
   });
 });
