@@ -47,12 +47,23 @@ const contrast = (a: string, b: string) => {
   return (high + 0.05) / (low + 0.05);
 };
 
+const DARK_TEXT = '#0b0d10';
 const readableForeground = (background: string) =>
-  contrast(background, '#ffffff') >= contrast(background, '#111318') ? '#ffffff' : '#111318';
+  contrast(background, '#ffffff') >= contrast(background, DARK_TEXT) ? '#ffffff' : DARK_TEXT;
+
+const ensureReadableText = (color: string, background: string, minimum = 4.5) => {
+  if (contrast(color, background) >= minimum) return color;
+  const destination = readableForeground(background);
+  for (let step = 1; step <= 10; step += 1) {
+    const candidate = mix(color, destination, step * 0.08);
+    if (contrast(candidate, background) >= minimum) return candidate;
+  }
+  return destination;
+};
 
 const ensureVisibleBrand = (color: string, background: string, mode: SurfaceMode, minimum = 3) => {
   if (contrast(color, background) >= minimum) return color;
-  const destination = mode === 'dark' ? '#ffffff' : '#111318';
+  const destination = mode === 'dark' ? '#ffffff' : DARK_TEXT;
   for (let step = 1; step <= 8; step += 1) {
     const candidate = mix(color, destination, step * 0.08);
     if (contrast(candidate, background) >= minimum) return candidate;
@@ -105,9 +116,11 @@ export function resolvePaletteTokens(
   const canvas = light ? mix(brand.secondary, '#f3f5f7', 0.78) : mix(brand.secondary, '#10141b', 0.82);
   const surface = light ? mix(brand.secondary, '#ffffff', 0.975) : mix(brand.primary, '#171b22', 0.84);
   const surfaceElevated = light ? '#ffffff' : mix(brand.secondary, '#232932', 0.82);
-  const foreground = light ? mix(brand.primary, '#141820', 0.84) : mix(brand.secondary, '#f7f8fa', 0.88);
+  const foregroundCandidate = light ? mix(brand.primary, '#141820', 0.84) : mix(brand.secondary, '#f7f8fa', 0.88);
+  const foreground = ensureReadableText(foregroundCandidate, background);
   const muted = light ? mix(brand.secondary, '#f1f3f5', 0.78) : mix(brand.secondary, '#292f38', 0.77);
-  const mutedForeground = light ? mix(brand.primary, '#647080', 0.7) : mix(brand.secondary, '#c4cad2', 0.77);
+  const mutedCandidate = light ? mix(brand.primary, '#647080', 0.7) : mix(brand.secondary, '#c4cad2', 0.77);
+  const mutedForeground = ensureReadableText(mutedCandidate, muted);
   const border = light ? mix(brand.secondary, '#cbd1d8', 0.73) : mix(brand.secondary, '#4a525e', 0.72);
 
   const primary = ensureVisibleBrand(brand.primary, background, mode);
