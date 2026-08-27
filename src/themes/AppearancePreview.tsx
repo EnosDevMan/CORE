@@ -29,10 +29,10 @@ const FALLBACK_COMPOSITION: PreviewComposition = {
 };
 
 const COMPOSITIONS: Partial<Record<HeroVariant, PreviewComposition>> = {
-  barber_precision: { columns: '1.05fr .95fr', art: { borderRadius: '.08rem', boxShadow: 'none', borderTopWidth: '.25rem' } },
+  barber_precision: { columns: '1.05fr .95fr', art: { borderRadius: '.08rem', boxShadow: 'inset 0 .22rem 0 currentColor' } },
   barber_executive: { columns: '.9fr 1.1fr', art: { borderRadius: '0', marginLeft: '.5rem' }, frame: { borderRadius: '.08rem' } },
   barber_studio: { columns: '.72fr 1.28fr', art: { borderRadius: '0', boxShadow: 'none', height: '115%' }, frame: { boxShadow: 'none' } },
-  barber_heritage: { columns: '1fr 1fr', art: { borderRadius: '0', outline: '3px double currentColor', outlineOffset: '-.3rem' }, frame: { borderRadius: '0', borderWidth: '3px' } },
+  barber_heritage: { columns: '1fr 1fr', art: { borderRadius: '0', outline: '3px double currentColor', outlineOffset: '-.3rem' }, frame: { borderRadius: '0' } },
   beauty_studio_modern: { columns: '1fr .9fr', art: { borderRadius: '2rem .5rem 2rem .5rem' } },
   beauty_soft_luxury: { columns: '1fr', align: 'center', art: { borderRadius: '4rem 4rem .45rem .45rem', width: '82%', marginInline: 'auto' }, frame: { boxShadow: 'none' } },
   beauty_signature: { columns: '1.15fr .7fr', art: { borderRadius: '0', height: '118%', boxShadow: 'none' } },
