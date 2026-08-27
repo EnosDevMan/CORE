@@ -55,6 +55,10 @@ jobs:
           psql --set ON_ERROR_STOP=1
           --file supabase/tests/standalone_bootstrap.sql
           --file supabase/schema.sql
+          --file supabase/tests/schema_parity.sql
+          --file supabase/tests/appearance_surface_custom.sql
+          --file supabase/tests/schedule_blocks_update_grant.sql
+          --file supabase/tests/admin_business_identity_sync.sql
           --file supabase/tests/data_api_grants.sql
           --file supabase/tests/extensions_security.sql
           --file supabase/tests/branding_storage_security.sql
@@ -74,3 +78,8 @@ jobs:
           psql --set ON_ERROR_STOP=1
           --file supabase/migrations/20260827190000_appearance_surface_and_custom_colors.sql
           --file supabase/tests/appearance_surface_custom.sql
+      - name: Validate admin business identity synchronization
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --file supabase/migrations/20260827213000_sync_admin_business_identity.sql
+          --file supabase/tests/admin_business_identity_sync.sql
