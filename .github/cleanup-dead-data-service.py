@@ -7,7 +7,7 @@ text = p.read_text()
 text = text.replace(
     "import { Professional, Service, BusinessConfig, Booking, BookingServiceItem, User, ScheduleBlock, GalleryPhoto, WorkingHours, UserRole } from '../types';\n"
     "import { isAdministratorRole, isProfessionalRole, parseUserRole } from '../auth/authorization';\n",
-    "import { Professional, Service, BusinessConfig, Booking, ScheduleBlock, GalleryPhoto, WorkingHours } from '../types';\n",
+    "import { Professional, Service, BusinessConfig, Booking, ScheduleBlock, GalleryPhoto } from '../types';\n",
     1,
 )
 
@@ -22,6 +22,17 @@ for fn_name in ('mapProfile', 'mapProfessional', 'mapConfig'):
     text, count = pattern.subn('', text, count=1)
     if count != 1:
         raise SystemExit(f'{fn_name}: expected one function, got {count}')
+
+text = text.replace(
+    'function mapBooking(row: BookingRow, serviceItems?: BookingServiceItem[]): Booking {',
+    'function mapBooking(row: BookingRow): Booking {',
+    1,
+)
+text = text.replace(
+    '    durationMinutes: row.duration_minutes ?? undefined,\n    serviceItems: serviceItems?.length ? serviceItems : undefined,\n',
+    '    durationMinutes: row.duration_minutes ?? undefined,\n',
+    1,
+)
 
 # The active initial-data path is bootstrapDataService. Keeping the old full-load
 # implementation here duplicated mapping/query code and forced it into production JS.
