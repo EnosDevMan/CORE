@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   selectEq: vi.fn(),
   single: vi.fn(),
+  maybeSingle: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
   uploadImage: vi.fn(),
@@ -25,16 +26,58 @@ import { businessService } from './businessService';
 const oldUrl = 'https://project.supabase.co/storage/v1/object/public/branding/logos/00000000-0000-4000-8000-000000000001.webp';
 const newUrl = 'https://project.supabase.co/storage/v1/object/public/branding/logos/00000000-0000-4000-8000-000000000002.webp';
 
+const runtimeRow = (businessName: string) => ({
+  id: true,
+  business_name: businessName,
+  description: null,
+  logo_url: null,
+  cover_url: null,
+  phone: '83996822057',
+  whatsapp: '83996822057',
+  address: { formatted: 'Rua Teste 123' },
+  timezone: 'America/Sao_Paulo',
+  currency: 'BRL',
+  locale: 'pt-BR',
+  niche_id: 'barbershop',
+  theme_id: 'minimal_light',
+  theme_style_id: 'minimal',
+  palette_id: 'minimal_white',
+  surface_mode: 'light',
+  custom_primary_color: null,
+  custom_secondary_color: null,
+  custom_accent_color: null,
+  onboarding_completed: true,
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.from.mockReturnValue({ select: mocks.select, update: mocks.update });
   mocks.select.mockReturnValue({ eq: mocks.selectEq });
-  mocks.selectEq.mockReturnValue({ single: mocks.single });
+  mocks.selectEq.mockReturnValue({ single: mocks.single, maybeSingle: mocks.maybeSingle });
   mocks.single.mockResolvedValue({ data: { logo_url: oldUrl, favicon_url: oldUrl }, error: null });
+  mocks.maybeSingle.mockResolvedValue({ data: runtimeRow('Negócio Inicial'), error: null });
   mocks.update.mockReturnValue({ eq: mocks.updateEq });
   mocks.updateEq.mockResolvedValue({ error: null });
   mocks.uploadImage.mockResolvedValue(newUrl);
   mocks.removePublicImage.mockResolvedValue(undefined);
+});
+
+describe('business runtime refresh', () => {
+  it('bypasses the bootstrap cache after a confirmed owner mutation', async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: runtimeRow('Nome Antes'), error: null });
+    const initial = await businessService.refreshRuntime();
+    expect(initial?.profile.name).toBe('Nome Antes');
+
+    const cached = await businessService.getRuntime();
+    expect(cached?.profile.name).toBe('Nome Antes');
+    expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
+
+    mocks.maybeSingle.mockResolvedValueOnce({ data: runtimeRow('Nome Depois'), error: null });
+    const refreshed = await businessService.refreshRuntime();
+
+    expect(refreshed?.profile.name).toBe('Nome Depois');
+    expect(mocks.maybeSingle).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('business logo persistence', () => {
