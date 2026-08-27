@@ -1,4 +1,5 @@
 import { getPalettePreset } from './paletteRegistry';
+import { isHexColor, normalizeCustomPalette } from './paletteIdentity';
 import type {
   CustomPaletteColors,
   PaletteId,
@@ -7,19 +8,7 @@ import type {
   SurfaceMode,
 } from './types';
 
-const HEX = /^#[0-9a-f]{6}$/i;
-
-export const isHexColor = (value: unknown): value is string =>
-  typeof value === 'string' && HEX.test(value);
-
-export const normalizeCustomPalette = (value: Partial<CustomPaletteColors> | undefined): CustomPaletteColors | undefined => {
-  if (!value || !isHexColor(value.primary) || !isHexColor(value.secondary) || !isHexColor(value.accent)) return undefined;
-  return {
-    primary: value.primary.toLowerCase(),
-    secondary: value.secondary.toLowerCase(),
-    accent: value.accent.toLowerCase(),
-  };
-};
+export { isHexColor, normalizeCustomPalette } from './paletteIdentity';
 
 const rgb = (hex: string) => {
   const value = Number.parseInt(hex.slice(1), 16);
