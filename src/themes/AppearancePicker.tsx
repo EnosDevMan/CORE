@@ -32,6 +32,11 @@ const DEFAULT_CUSTOM_COLORS: CustomPaletteColors = {
   accent: '#c9975b',
 };
 
+const swatchStyle = (color: string) => ({
+  background: color,
+  border: '1px solid rgb(0 0 0 / .15)',
+});
+
 export function AppearancePicker({
   nicheId,
   styleId,
@@ -118,7 +123,7 @@ export function AppearancePicker({
                 />
                 <span className="flex -space-x-1" aria-hidden="true">
                   {getBrandSwatches(id).map((color, index) => (
-                    <span key={`${color}-${index}`} className="h-5 w-5 rounded-full border border-black/15" style={{ background: color }} />
+                    <span key={`${color}-${index}`} className="h-5 w-5 rounded-full" style={swatchStyle(color)} />
                   ))}
                 </span>
                 <span className={`min-w-0 flex-1 truncate text-xs font-bold ${dark ? 'text-slate-100' : 'text-slate-800'}`}>{palette.name}</span>
@@ -134,7 +139,7 @@ export function AppearancePicker({
           >
             <span className="flex -space-x-1" aria-hidden="true">
               {getBrandSwatches('custom', custom).map((color, index) => (
-                <span key={`${color}-${index}`} className="h-5 w-5 rounded-full border border-black/15" style={{ background: color }} />
+                <span key={`${color}-${index}`} className="h-5 w-5 rounded-full" style={swatchStyle(color)} />
               ))}
             </span>
             <span className={`min-w-0 flex-1 text-xs font-bold ${dark ? 'text-slate-100' : 'text-slate-800'}`}>Personalizada</span>
@@ -143,7 +148,7 @@ export function AppearancePicker({
         </div>
 
         {paletteId === 'custom' && (
-          <div className={`mt-4 rounded-2xl border p-4 ${dark ? 'border-slate-700 bg-slate-950/35' : 'border-slate-200 bg-slate-50'}`}>
+          <div className={`mt-4 rounded-2xl border p-4 ${dark ? 'border-slate-700' : 'border-slate-200 bg-slate-50'}`} style={dark ? { background: 'rgb(2 6 23 / .35)' } : undefined}>
             <p className={`text-xs font-bold ${dark ? 'text-slate-200' : 'text-slate-800'}`}>Paleta personalizada</p>
             <p className={`mt-1 text-xs leading-5 ${dark ? 'text-slate-500' : 'text-slate-500'}`}>Use as cores do manual da marca. O seletor aceita hexadecimal e mantém a mesma identidade nos fundos claro e escuro.</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -159,7 +164,8 @@ export function AppearancePicker({
                       type="color"
                       value={/^#[0-9a-f]{6}$/i.test(custom[key]) ? custom[key] : DEFAULT_CUSTOM_COLORS[key]}
                       onChange={event => updateCustomColor(key, event.target.value)}
-                      className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                      className="cursor-pointer"
+                      style={{ width: '2.5rem', height: '2rem', border: 0, padding: 0, background: 'transparent' }}
                       aria-label={`${label}: seletor de cor`}
                     />
                     <input
