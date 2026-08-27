@@ -2,8 +2,15 @@ import { supabase } from '../../lib/supabaseClient';
 import type { ThemeStyleId } from '../../layouts/types';
 import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche, resolveAppearanceForNiche } from '../../themes/appearance';
 import { LEGACY_THEME_APPEARANCE } from '../../themes/compatibility';
-import type { LegacyThemeId, PaletteId } from '../../themes/types';
-import type { ResolvedTheme } from '../../themes/types';
+import { normalizeCustomPalette } from '../../themes/paletteMode';
+import { getPalettePreset } from '../../themes/paletteRegistry';
+import type {
+  CustomPaletteColors,
+  LegacyThemeId,
+  PaletteSelectionId,
+  ResolvedTheme,
+  SurfaceMode,
+} from '../../themes/types';
 import type { BusinessProfile, Capability } from './types';
 import { mapBusinessProfile, mapCapabilities } from './runtimeMapper';
 import { removePublicImage, uploadImage } from '../../services/storageService';
@@ -12,6 +19,13 @@ export interface BusinessRuntime {
   profile: BusinessProfile;
   capabilities: Capability[];
   theme?: ResolvedTheme;
+}
+
+export interface AppearanceUpdate {
+  styleId: ThemeStyleId;
+  paletteId: PaletteSelectionId;
+  surfaceMode: SurfaceMode;
+  customColors?: CustomPaletteColors;
 }
 
 let inFlightRuntimeRequest: Promise<BusinessRuntime | null> | null = null;
@@ -69,18 +83,12 @@ async function fetchRuntime(): Promise<BusinessRuntime | null> {
   return {
     profile,
     capabilities: mapCapabilities(featuresResult.data ?? []),
-    theme: resolveTheme(profile.themeStyleId, profile.paletteId),
+    theme: resolveTheme(profile.themeStyleId, profile.paletteId, profile.surfaceMode, profile.customPalette),
   };
 }
 
 export const businessService = {
-  /**
-   * Deduplica leituras concorrentes e mantém apenas um cache curtíssimo de
-   * bootstrap. BusinessRuntimeBoundary e AppDataLoader podem iniciar em
-   * momentos ligeiramente diferentes; sem essa janela, a mesma instalação
-   * podia consultar business_profile/feature_settings duas vezes no primeiro
-   * carregamento. Toda mutação feita por este serviço invalida o cache.
-   */
+  /** Deduplicates the runtime bootstrap between the public boundary and data loader. */
   getRuntime(): Promise<BusinessRuntime | null> {
     if (recentRuntime && recentRuntime.expiresAt > Date.now()) {
       return Promise.resolve(recentRuntime.value);
@@ -103,12 +111,22 @@ export const businessService = {
   },
 
   async updateAppearance(
-    selection: { styleId: ThemeStyleId; paletteId: PaletteId },
+    selection: AppearanceUpdate,
     nicheId: BusinessProfile['nicheId'],
   ): Promise<void> {
     if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
     if (!isAppearanceAvailableForNiche(nicheId, selection.styleId, selection.paletteId)) {
       throw new Error('Esta combinação visual não está disponível para o nicho configurado.');
+    }
+    if (selection.surfaceMode !== 'light' && selection.surfaceMode !== 'dark') {
+      throw new Error('Escolha um fundo claro ou escuro.');
+    }
+
+    const customColors = selection.paletteId === 'custom'
+      ? normalizeCustomPalette(selection.customColors)
+      : undefined;
+    if (selection.paletteId === 'custom' && !customColors) {
+      throw new Error('A paleta personalizada precisa de três cores hexadecimais válidas.');
     }
 
     const themeId = getLegacyThemeIdForAppearance(nicheId, selection.styleId, selection.paletteId);
@@ -119,6 +137,10 @@ export const businessService = {
         theme_id: themeId,
         theme_style_id: selection.styleId,
         palette_id: selection.paletteId,
+        surface_mode: selection.surfaceMode,
+        custom_primary_color: customColors?.primary ?? null,
+        custom_secondary_color: customColors?.secondary ?? null,
+        custom_accent_color: customColors?.accent ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', true);
@@ -131,7 +153,11 @@ export const businessService = {
     if (!(themeId in LEGACY_THEME_APPEARANCE)) throw new Error('Tema visual desconhecido.');
     if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
     const selection = resolveAppearanceForNiche(nicheId, { legacyThemeId: themeId });
-    await businessService.updateAppearance(selection, nicheId);
+    const paletteId = selection.paletteId === 'custom' ? 'minimal_white' : selection.paletteId;
+    await businessService.updateAppearance({
+      ...selection,
+      surfaceMode: getPalettePreset(paletteId).mode,
+    }, nicheId);
   },
 
   async replaceLogo(file: File): Promise<void> {
