@@ -3,8 +3,7 @@ import type { Capability } from '../../../core/business/types';
 import type { ThemeStyleId } from '../../../layouts/types';
 import type { NicheId } from '../../../niches/types';
 import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche } from '../../../themes/appearance';
-import { normalizeCustomPalette } from '../../../themes/paletteMode';
-import { getPalettePreset } from '../../../themes/paletteRegistry';
+import { getDefaultSurfaceMode, normalizeCustomPalette } from '../../../themes/paletteIdentity';
 import type {
   CustomPaletteColors,
   PaletteSelectionId,
@@ -38,9 +37,6 @@ const throwError = (error: { message: string } | null) => {
   if (error) throw new Error(error.message);
 };
 
-const defaultSurfaceMode = (paletteId: PaletteSelectionId): SurfaceMode =>
-  paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
-
 export const onboardingService = {
   async getState(): Promise<OnboardingState> {
     const { data, error } = await supabase.rpc('get_onboarding_state');
@@ -55,7 +51,7 @@ export const onboardingService = {
     if (!isAppearanceAvailableForNiche(input.nicheId, input.themeStyleId, input.paletteId)) {
       throw new Error('A aparência escolhida não está disponível para este nicho.');
     }
-    const surfaceMode = input.surfaceMode ?? defaultSurfaceMode(input.paletteId);
+    const surfaceMode = input.surfaceMode ?? getDefaultSurfaceMode(input.paletteId);
     if (surfaceMode !== 'light' && surfaceMode !== 'dark') {
       throw new Error('Escolha um fundo claro ou escuro.');
     }
