@@ -1,0 +1,145 @@
+name: Slim runtime refresh
+
+on:
+  push:
+    branches: [fix/admin-state-sync-and-schema-parity]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/admin-state-sync-and-schema-parity
+      - name: Compact cache invalidation implementation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/core/business/businessService.ts')
+          text = path.read_text()
+          old = '''type RuntimeRequest = {
+            revision: number;
+            promise: Promise<BusinessRuntime | null>;
+          };
+
+          let inFlightRuntimeRequest: RuntimeRequest | null = null;
+          let recentRuntime: { value: BusinessRuntime | null; expiresAt: number } | null = null;
+          let runtimeRevision = 0;
+          const RUNTIME_BOOTSTRAP_CACHE_MS = 15_000;
+          const BRANDING_BUCKET = 'branding';
+
+          const invalidateRuntimeCache = () => {
+            recentRuntime = null;
+            runtimeRevision += 1;
+          };
+
+          const cacheRuntime = (value: BusinessRuntime | null, revision: number) => {
+            if (revision !== runtimeRevision) return;
+            recentRuntime = {
+              value,
+              expiresAt: Date.now() + RUNTIME_BOOTSTRAP_CACHE_MS,
+            };
+          };
+          '''
+          new = '''let inFlightRuntimeRequest: Promise<BusinessRuntime | null> | null = null;
+          let recentRuntime: { value: BusinessRuntime | null; expiresAt: number } | null = null;
+          let runtimeRevision = 0;
+          const RUNTIME_BOOTSTRAP_CACHE_MS = 15_000;
+          const BRANDING_BUCKET = 'branding';
+
+          const invalidateRuntimeCache = () => {
+            recentRuntime = null;
+            inFlightRuntimeRequest = null;
+            runtimeRevision += 1;
+          };
+          '''
+          if old not in text:
+              raise SystemExit('cache declarations block not found')
+          text = text.replace(old, new)
+
+          old = '''  /** Deduplicates the runtime bootstrap between the public boundary and data loader. */
+            getRuntime(): Promise<BusinessRuntime | null> {
+              if (recentRuntime && recentRuntime.expiresAt > Date.now()) {
+                return Promise.resolve(recentRuntime.value);
+              }
+
+              const revision = runtimeRevision;
+              if (!inFlightRuntimeRequest || inFlightRuntimeRequest.revision !== revision) {
+                const promise = fetchRuntime().then(value => {
+                  cacheRuntime(value, revision);
+                  return value;
+                });
+                const request: RuntimeRequest = { revision, promise };
+                inFlightRuntimeRequest = request;
+                void promise.then(
+                  () => { if (inFlightRuntimeRequest === request) inFlightRuntimeRequest = null; },
+                  () => { if (inFlightRuntimeRequest === request) inFlightRuntimeRequest = null; },
+                );
+              }
+              return inFlightRuntimeRequest.promise;
+            },
+
+            /**
+             * Reads the canonical runtime again after an owner mutation. This deliberately
+             * bypasses the short bootstrap cache: a successful save must be visible in
+             * the same tab immediately, not up to 15 seconds later.
+             */
+            async refreshRuntime(): Promise<BusinessRuntime | null> {
+              invalidateRuntimeCache();
+              const revision = runtimeRevision;
+              const value = await fetchRuntime();
+              cacheRuntime(value, revision);
+              return value;
+            },
+          '''
+          new = '''  /** Deduplicates bootstrap reads; force=true bypasses stale owner-state cache. */
+            getRuntime(force = false): Promise<BusinessRuntime | null> {
+              if (force) invalidateRuntimeCache();
+              if (recentRuntime && recentRuntime.expiresAt > Date.now()) return Promise.resolve(recentRuntime.value);
+
+              if (!inFlightRuntimeRequest) {
+                const revision = runtimeRevision;
+                inFlightRuntimeRequest = fetchRuntime()
+                  .then(value => {
+                    if (revision === runtimeRevision) recentRuntime = {
+                      value,
+                      expiresAt: Date.now() + RUNTIME_BOOTSTRAP_CACHE_MS,
+                    };
+                    return value;
+                  })
+                  .finally(() => {
+                    if (revision === runtimeRevision) inFlightRuntimeRequest = null;
+                  });
+              }
+              return inFlightRuntimeRequest;
+            },
+          '''
+          if old not in text:
+              raise SystemExit('getRuntime/refreshRuntime block not found')
+          path.write_text(text.replace(old, new))
+
+          boundary = Path('src/core/business/BusinessRuntimeBoundary.tsx')
+          text = boundary.read_text()
+          old = 'const result = await businessService.refreshRuntime();'
+          if old not in text:
+              raise SystemExit('boundary refresh call not found')
+          boundary.write_text(text.replace(old, 'const result = await businessService.getRuntime(true);'))
+
+          test = Path('src/core/business/businessService.test.ts')
+          text = test.read_text()
+          if text.count('businessService.refreshRuntime()') != 2:
+              raise SystemExit('unexpected refreshRuntime test call count')
+          test.write_text(text.replace('businessService.refreshRuntime()', 'businessService.getRuntime(true)'))
+          PY
+          rm .github/workflows/runtime-cache-slim.yml
+      - name: Commit compact implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/business/businessService.ts src/core/business/BusinessRuntimeBoundary.tsx src/core/business/businessService.test.ts .github/workflows/runtime-cache-slim.yml
+          git commit -m "Keep runtime refresh inside bundle budget [skip ci]"
+          git push origin HEAD:fix/admin-state-sync-and-schema-parity
