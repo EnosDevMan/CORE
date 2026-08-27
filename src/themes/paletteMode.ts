@@ -1,5 +1,5 @@
 import { getPalettePreset } from './paletteRegistry';
-import { isHexColor, normalizeCustomPalette } from './paletteIdentity';
+import { normalizeCustomPalette } from './paletteIdentity';
 import type {
   CustomPaletteColors,
   PaletteId,
