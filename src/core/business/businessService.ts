@@ -83,7 +83,13 @@ async function fetchRuntime(): Promise<BusinessRuntime | null> {
   return {
     profile,
     capabilities: mapCapabilities(featuresResult.data ?? []),
-    theme: resolveTheme(profile.themeStyleId, profile.paletteId, profile.surfaceMode, profile.customPalette),
+    theme: resolveTheme(
+      profile.themeStyleId,
+      profile.paletteId,
+      profile.surfaceMode,
+      profile.customPalette,
+      profile.nicheId,
+    ),
   };
 }
 
