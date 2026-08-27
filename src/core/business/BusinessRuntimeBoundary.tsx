@@ -29,7 +29,7 @@ export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
 
   const refreshRuntime = useCallback(async () => {
     try {
-      const result = await businessService.refreshRuntime();
+      const result = await businessService.getRuntime(true);
       setRuntime(result);
       setError(null);
     } catch (cause) {

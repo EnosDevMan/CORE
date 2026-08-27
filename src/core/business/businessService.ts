@@ -28,12 +28,7 @@ export interface AppearanceUpdate {
   customColors?: CustomPaletteColors;
 }
 
-type RuntimeRequest = {
-  revision: number;
-  promise: Promise<BusinessRuntime | null>;
-};
-
-let inFlightRuntimeRequest: RuntimeRequest | null = null;
+let inFlightRuntimeRequest: Promise<BusinessRuntime | null> | null = null;
 let recentRuntime: { value: BusinessRuntime | null; expiresAt: number } | null = null;
 let runtimeRevision = 0;
 const RUNTIME_BOOTSTRAP_CACHE_MS = 15_000;
@@ -41,15 +36,8 @@ const BRANDING_BUCKET = 'branding';
 
 const invalidateRuntimeCache = () => {
   recentRuntime = null;
+  inFlightRuntimeRequest = null;
   runtimeRevision += 1;
-};
-
-const cacheRuntime = (value: BusinessRuntime | null, revision: number) => {
-  if (revision !== runtimeRevision) return;
-  recentRuntime = {
-    value,
-    expiresAt: Date.now() + RUNTIME_BOOTSTRAP_CACHE_MS,
-  };
 };
 
 async function getCurrentBrandUrls(): Promise<string[]> {
@@ -109,32 +97,26 @@ async function fetchRuntime(): Promise<BusinessRuntime | null> {
 }
 
 export const businessService = {
-  /** Deduplicates the runtime bootstrap between the public boundary and data loader. */
-  getRuntime(): Promise<BusinessRuntime | null> {
-    if (recentRuntime && recentRuntime.expiresAt > Date.now()) {
-      return Promise.resolve(recentRuntime.value);
-    }
+  /** Deduplicates bootstrap reads; force=true bypasses stale owner-state cache. */
+  getRuntime(force = false): Promise<BusinessRuntime | null> {
+    if (force) invalidateRuntimeCache();
+    if (recentRuntime && recentRuntime.expiresAt > Date.now()) return Promise.resolve(recentRuntime.value);
 
-    const revision = runtimeRevision;
-    if (!inFlightRuntimeRequest || inFlightRuntimeRequest.revision !== revision) {
-      const promise = fetchRuntime().then(value => {
-        cacheRuntime(value, revision);
-        return value;
-      });
-      const request: RuntimeRequest = { revision, promise };
-      inFlightRuntimeRequest = request;
-      void promise.then(
-        () => { if (inFlightRuntimeRequest === request) inFlightRuntimeRequest = null; },
-        () => { if (inFlightRuntimeRequest === request) inFlightRuntimeRequest = null; },
-      );
+    if (!inFlightRuntimeRequest) {
+      const revision = runtimeRevision;
+      inFlightRuntimeRequest = fetchRuntime()
+        .then(value => {
+          if (revision === runtimeRevision) recentRuntime = {
+            value,
+            expiresAt: Date.now() + RUNTIME_BOOTSTRAP_CACHE_MS,
+          };
+          return value;
+        })
+        .finally(() => {
+          if (revision === runtimeRevision) inFlightRuntimeRequest = null;
+        });
     }
-    return inFlightRuntimeRequest.promise;
-  },
-
-  /** Force a canonical read while retaining the stale-request race guard. */
-  refreshRuntime(): Promise<BusinessRuntime | null> {
-    invalidateRuntimeCache();
-    return businessService.getRuntime();
+    return inFlightRuntimeRequest;
   },
 
   async updateAppearance(

@@ -65,7 +65,7 @@ beforeEach(() => {
 describe('business runtime refresh', () => {
   it('bypasses the bootstrap cache after a confirmed owner mutation', async () => {
     mocks.maybeSingle.mockResolvedValueOnce({ data: runtimeRow('Nome Antes'), error: null });
-    const initial = await businessService.refreshRuntime();
+    const initial = await businessService.getRuntime(true);
     expect(initial?.profile.name).toBe('Nome Antes');
 
     const cached = await businessService.getRuntime();
@@ -73,7 +73,7 @@ describe('business runtime refresh', () => {
     expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
 
     mocks.maybeSingle.mockResolvedValueOnce({ data: runtimeRow('Nome Depois'), error: null });
-    const refreshed = await businessService.refreshRuntime();
+    const refreshed = await businessService.getRuntime(true);
 
     expect(refreshed?.profile.name).toBe('Nome Depois');
     expect(mocks.maybeSingle).toHaveBeenCalledTimes(2);
