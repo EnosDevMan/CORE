@@ -94,7 +94,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
   },
 };
 
-type ArtDirectionOverride = Pick<PublicLayoutPreset, 'name' | 'description' | 'heroVariant' | 'sectionOrder'> & {
+type ArtDirectionOverride = Pick<PublicLayoutPreset, 'name' | 'heroVariant' | 'sectionOrder'> & {
   tokens?: Partial<ThemeStyleTokens>;
 };
 
@@ -107,28 +107,24 @@ const NICHE_ART_DIRECTIONS: Readonly<Record<NicheId, Partial<Record<ThemeStyleId
   barbershop: {
     modern: {
       name: 'Precision',
-      description: 'Grade precisa e fotografia firme.',
       heroVariant: 'barber_precision',
       sectionOrder: ['services', 'features', 'professionals', 'gallery'],
       tokens: { cardRadius: '.55rem', buttonRadius: '.32rem', headingTracking: '-.052em' },
     },
     premium: {
       name: 'Executive',
-      description: 'Confiança e serviço premium.',
       heroVariant: 'barber_executive',
       sectionOrder: ['features', 'services', 'gallery', 'professionals'],
       tokens: { cardRadius: '.35rem', buttonRadius: '.18rem', headingTracking: '-.018em' },
     },
     minimal: {
       name: 'Studio',
-      description: 'Fotografia urbana em primeiro plano.',
       heroVariant: 'barber_studio',
       sectionOrder: ['gallery', 'services', 'professionals', 'features'],
       tokens: { radius: '.15rem', cardRadius: '.15rem', buttonRadius: '.1rem', shadow: 'none' },
     },
     heritage: {
       name: 'Heritage',
-      description: 'Tradição editorial sem caricatura.',
       heroVariant: 'barber_heritage',
       sectionOrder: ['features', 'services', 'gallery', 'professionals'],
     },
@@ -136,28 +132,24 @@ const NICHE_ART_DIRECTIONS: Readonly<Record<NicheId, Partial<Record<ThemeStyleId
   beauty_salon: {
     modern: {
       name: 'Studio Modern',
-      description: 'Serviços claros e agendamento evidente.',
       heroVariant: 'beauty_studio_modern',
       sectionOrder: ['services', 'professionals', 'gallery', 'features'],
       tokens: { cardRadius: '1rem', buttonRadius: '999px', shadow: '0 10px 30px rgb(42 25 32 / .08)' },
     },
     premium: {
       name: 'Soft Luxury',
-      description: 'Luxo silencioso e imagem refinada.',
       heroVariant: 'beauty_soft_luxury',
       sectionOrder: ['gallery', 'services', 'features', 'professionals'],
       tokens: { cardRadius: '.7rem', buttonRadius: '999px', headingTracking: '-.02em' },
     },
     minimal: {
       name: 'Signature',
-      description: 'Marca e profissionais em destaque.',
       heroVariant: 'beauty_signature',
       sectionOrder: ['professionals', 'services', 'gallery', 'features'],
       tokens: { cardRadius: '.2rem', buttonRadius: '.2rem', shadow: '0 1px 0 rgb(15 23 42 / .08)' },
     },
     editorial: {
       name: 'Editorial',
-      description: 'Revista, fotografia vertical e boutique.',
       heroVariant: 'beauty_editorial',
       sectionOrder: ['gallery', 'services', 'professionals', 'features'],
     },
@@ -165,28 +157,24 @@ const NICHE_ART_DIRECTIONS: Readonly<Record<NicheId, Partial<Record<ThemeStyleId
   nail_studio: {
     modern: {
       name: 'Clean Studio',
-      description: 'Técnica, confiança e escolha rápida.',
       heroVariant: 'nail_clean_studio',
       sectionOrder: ['services', 'features', 'gallery', 'professionals'],
       tokens: { cardRadius: '.85rem', buttonRadius: '.55rem', shadow: '0 8px 24px rgb(58 35 90 / .08)' },
     },
     premium: {
       name: 'Boutique',
-      description: 'Detalhe sofisticado sem excesso.',
       heroVariant: 'nail_boutique',
       sectionOrder: ['gallery', 'services', 'professionals', 'features'],
       tokens: { cardRadius: '1.15rem', buttonRadius: '999px', headingTracking: '-.022em' },
     },
     minimal: {
       name: 'Editorial',
-      description: 'Contraste fashion e portfólio forte.',
       heroVariant: 'nail_editorial',
       sectionOrder: ['gallery', 'professionals', 'services', 'features'],
       tokens: { cardRadius: '.1rem', buttonRadius: '.1rem', shadow: 'none' },
     },
     showcase: {
       name: 'Showcase',
-      description: 'Galeria e trabalhos em primeiro plano.',
       heroVariant: 'nail_showcase',
       sectionOrder: ['gallery', 'services', 'professionals', 'features'],
     },
@@ -194,28 +182,24 @@ const NICHE_ART_DIRECTIONS: Readonly<Record<NicheId, Partial<Record<ThemeStyleId
   pet_shop: {
     modern: {
       name: 'Modern Service',
-      description: 'Cuidado e agendamento sem ruído.',
       heroVariant: 'pet_modern_service',
       sectionOrder: ['services', 'features', 'professionals', 'gallery'],
       tokens: { cardRadius: '.8rem', buttonRadius: '.55rem', shadow: '0 8px 26px rgb(20 60 70 / .08)' },
     },
     clean: {
       name: 'Care',
-      description: 'Higiene, segurança e transparência.',
       heroVariant: 'pet_care',
       sectionOrder: ['features', 'services', 'professionals', 'gallery'],
       tokens: { cardRadius: '1rem', buttonRadius: '.75rem', pattern: 'none' },
     },
     minimal: {
       name: 'Organic',
-      description: 'Bem-estar, respiro e formas naturais.',
       heroVariant: 'pet_organic',
       sectionOrder: ['gallery', 'features', 'services', 'professionals'],
       tokens: { cardRadius: '1.4rem', buttonRadius: '999px', shadow: '0 6px 20px rgb(20 60 50 / .07)' },
     },
     friendly: {
       name: 'Friendly',
-      description: 'Acolhedor sem infantilizar.',
       heroVariant: 'pet_friendly',
       sectionOrder: ['features', 'services', 'gallery', 'professionals'],
     },
