@@ -2,7 +2,7 @@ import type { ResolvedTheme } from './types';
 
 /** Single neutral fallback used only while a fresh installation is unpublished. */
 export const CORE_BOOTSTRAP_THEME: ResolvedTheme = {
-  id: 'minimal:minimal_white', styleId: 'minimal', paletteId: 'minimal_white', mode: 'light',
+  id: 'minimal:minimal_white:light', styleId: 'minimal', paletteId: 'minimal_white', mode: 'light',
   tokens: {
     background: '#f8fafc', canvas: '#eef2f6', foreground: '#111827', surface: '#ffffff', surfaceElevated: '#ffffff',
     primary: '#234b70', primaryForeground: '#ffffff', secondary: '#eef2f6', secondaryForeground: '#111827',
