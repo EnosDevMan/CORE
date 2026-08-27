@@ -19,7 +19,7 @@ text = text.replace(
     1,
 )
 pattern = re.compile(r"  vi\.mocked\(useApp\)\.mockReturnValue\(\{.*?\n  \} as unknown as ReturnType<typeof useApp>\);", re.S)
-replacement = '''  vi.mocked(useCurrentUser).mockReturnValue({ id: 'owner', name: 'Proprietário', role: 'owner' });
+replacement = '''  vi.mocked(useCurrentUser).mockReturnValue({ id: 'owner', name: 'Proprietário', email: 'owner@example.test', role: 'owner' });
   vi.mocked(useUsers).mockReturnValue([
     { id: 'owner', name: 'Proprietário', email: 'owner@example.test', role: 'owner' },
     { id: 'customer', name: 'Cliente Teste', email: 'customer@example.test', role: 'customer' },
