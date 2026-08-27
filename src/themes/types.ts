@@ -68,16 +68,20 @@ export interface SemanticTokens {
 
 export interface ThemeTokens extends PaletteTokens, ThemeStyleTokens, SemanticTokens {}
 
+/**
+ * A curated palette is intentionally just brand identity. Surface/background
+ * tokens are generated later from this identity + light/dark mode.
+ */
 export interface PalettePreset {
   id: PaletteId;
   name: string;
   description: string;
-  /** Original authored surface used only as a compatibility/default hint. */
+  /** Historical surface used only as a compatibility/default hint. */
   mode: SurfaceMode;
-  swatches: readonly [string, string, string, string];
+  colors: CustomPaletteColors;
+  swatches: readonly [string, string, string];
   /** Closest original preset for clients that still read only theme_id. */
   legacyThemeId: LegacyThemeId;
-  tokens: PaletteTokens;
 }
 
 export interface ResolvedTheme {
