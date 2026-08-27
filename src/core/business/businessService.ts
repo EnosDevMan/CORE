@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabaseClient';
 import type { ThemeStyleId } from '../../layouts/types';
+import type { NicheId } from '../../niches/types';
 import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche, resolveAppearanceForNiche } from '../../themes/appearance';
 import { LEGACY_THEME_APPEARANCE } from '../../themes/compatibility';
 import { normalizeCustomPalette } from '../../themes/paletteMode';
@@ -24,7 +25,7 @@ export interface BusinessRuntime {
 export interface AppearanceUpdate {
   styleId: ThemeStyleId;
   paletteId: PaletteSelectionId;
-  surfaceMode: SurfaceMode;
+  surfaceMode?: SurfaceMode;
   customColors?: CustomPaletteColors;
 }
 
@@ -36,6 +37,9 @@ const BRANDING_BUCKET = 'branding';
 const invalidateRuntimeCache = () => {
   recentRuntime = null;
 };
+
+const defaultSurfaceMode = (paletteId: PaletteSelectionId): SurfaceMode =>
+  paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
 
 async function getCurrentBrandUrls(): Promise<string[]> {
   const { data, error } = await supabase
@@ -88,7 +92,7 @@ async function fetchRuntime(): Promise<BusinessRuntime | null> {
       profile.paletteId,
       profile.surfaceMode,
       profile.customPalette,
-      profile.nicheId,
+      profile.nicheId as NicheId,
     ),
   };
 }
@@ -121,10 +125,13 @@ export const businessService = {
     nicheId: BusinessProfile['nicheId'],
   ): Promise<void> {
     if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
-    if (!isAppearanceAvailableForNiche(nicheId, selection.styleId, selection.paletteId)) {
+    const persistedNicheId = nicheId as NicheId;
+    if (!isAppearanceAvailableForNiche(persistedNicheId, selection.styleId, selection.paletteId)) {
       throw new Error('Esta combinação visual não está disponível para o nicho configurado.');
     }
-    if (selection.surfaceMode !== 'light' && selection.surfaceMode !== 'dark') {
+
+    const surfaceMode = selection.surfaceMode ?? defaultSurfaceMode(selection.paletteId);
+    if (surfaceMode !== 'light' && surfaceMode !== 'dark') {
       throw new Error('Escolha um fundo claro ou escuro.');
     }
 
@@ -135,7 +142,7 @@ export const businessService = {
       throw new Error('A paleta personalizada precisa de três cores hexadecimais válidas.');
     }
 
-    const themeId = getLegacyThemeIdForAppearance(nicheId, selection.styleId, selection.paletteId);
+    const themeId = getLegacyThemeIdForAppearance(persistedNicheId, selection.styleId, selection.paletteId);
 
     const { error } = await supabase
       .from('business_profile')
@@ -143,7 +150,7 @@ export const businessService = {
         theme_id: themeId,
         theme_style_id: selection.styleId,
         palette_id: selection.paletteId,
-        surface_mode: selection.surfaceMode,
+        surface_mode: surfaceMode,
         custom_primary_color: customColors?.primary ?? null,
         custom_secondary_color: customColors?.secondary ?? null,
         custom_accent_color: customColors?.accent ?? null,
@@ -158,12 +165,12 @@ export const businessService = {
   async updateTheme(themeId: LegacyThemeId, nicheId: BusinessProfile['nicheId']): Promise<void> {
     if (!(themeId in LEGACY_THEME_APPEARANCE)) throw new Error('Tema visual desconhecido.');
     if (nicheId === 'core_bootstrap') throw new Error('O negócio ainda não foi configurado.');
-    const selection = resolveAppearanceForNiche(nicheId, { legacyThemeId: themeId });
-    const paletteId = selection.paletteId === 'custom' ? 'minimal_white' : selection.paletteId;
+    const persistedNicheId = nicheId as NicheId;
+    const selection = resolveAppearanceForNiche(persistedNicheId, { legacyThemeId: themeId });
     await businessService.updateAppearance({
       ...selection,
-      surfaceMode: getPalettePreset(paletteId).mode,
-    }, nicheId);
+      surfaceMode: defaultSurfaceMode(selection.paletteId),
+    }, persistedNicheId);
   },
 
   async replaceLogo(file: File): Promise<void> {
