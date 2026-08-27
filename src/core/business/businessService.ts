@@ -131,17 +131,10 @@ export const businessService = {
     return inFlightRuntimeRequest.promise;
   },
 
-  /**
-   * Reads the canonical runtime again after an owner mutation. This deliberately
-   * bypasses the short bootstrap cache: a successful save must be visible in
-   * the same tab immediately, not up to 15 seconds later.
-   */
-  async refreshRuntime(): Promise<BusinessRuntime | null> {
+  /** Force a canonical read while retaining the stale-request race guard. */
+  refreshRuntime(): Promise<BusinessRuntime | null> {
     invalidateRuntimeCache();
-    const revision = runtimeRevision;
-    const value = await fetchRuntime();
-    cacheRuntime(value, revision);
-    return value;
+    return businessService.getRuntime();
   },
 
   async updateAppearance(
