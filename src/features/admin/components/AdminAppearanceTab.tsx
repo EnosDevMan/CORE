@@ -6,13 +6,24 @@ import { prepareCoverImage } from '../../../core/business/coverImage';
 import { renderCroppedLogo, validateLogoFile, type LogoCropOptions } from '../../../core/business/logoCrop';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { AppearancePicker } from '../../../themes/AppearancePicker';
+import { getPalettePreset } from '../../../themes/paletteRegistry';
+import type { CustomPaletteColors, SurfaceMode } from '../../../themes/types';
 import { LogoCropDialog } from './LogoCropDialog';
+
+const sameCustomPalette = (a?: CustomPaletteColors, b?: CustomPaletteColors) =>
+  a?.primary === b?.primary && a?.secondary === b?.secondary && a?.accent === b?.accent;
+
+const fallbackSurfaceMode = (paletteId: string): SurfaceMode =>
+  paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
 
 export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: string, isError: boolean) => void }) {
   const niche = useNiche();
   const { profile, refreshRuntime } = useBusiness();
+  const persistedSurfaceMode = profile.surfaceMode ?? fallbackSurfaceMode(profile.paletteId);
   const [selectedStyleId, setSelectedStyleId] = useState(profile.themeStyleId);
   const [selectedPaletteId, setSelectedPaletteId] = useState(profile.paletteId);
+  const [selectedSurfaceMode, setSelectedSurfaceMode] = useState<SurfaceMode>(persistedSurfaceMode);
+  const [selectedCustomColors, setSelectedCustomColors] = useState<CustomPaletteColors | undefined>(profile.customPalette);
   const [savingAppearance, setSavingAppearance] = useState(false);
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [savingLogo, setSavingLogo] = useState(false);
@@ -24,10 +35,21 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
   useEffect(() => {
     setSelectedStyleId(profile.themeStyleId);
     setSelectedPaletteId(profile.paletteId);
-  }, [profile.paletteId, profile.themeStyleId]);
+    setSelectedSurfaceMode(profile.surfaceMode ?? fallbackSurfaceMode(profile.paletteId));
+    setSelectedCustomColors(profile.customPalette);
+  }, [profile.customPalette, profile.paletteId, profile.surfaceMode, profile.themeStyleId]);
 
   const appearanceChanged = selectedStyleId !== profile.themeStyleId
-    || selectedPaletteId !== profile.paletteId;
+    || selectedPaletteId !== profile.paletteId
+    || selectedSurfaceMode !== persistedSurfaceMode
+    || (selectedPaletteId === 'custom' && !sameCustomPalette(selectedCustomColors, profile.customPalette));
+
+  const resetAppearance = () => {
+    setSelectedStyleId(profile.themeStyleId);
+    setSelectedPaletteId(profile.paletteId);
+    setSelectedSurfaceMode(profile.surfaceMode ?? fallbackSurfaceMode(profile.paletteId));
+    setSelectedCustomColors(profile.customPalette);
+  };
 
   const saveAppearance = async () => {
     if (savingAppearance || !appearanceChanged || profile.nicheId === 'core_bootstrap') return;
@@ -36,12 +58,13 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
       await businessService.updateAppearance({
         styleId: selectedStyleId,
         paletteId: selectedPaletteId,
+        surfaceMode: selectedSurfaceMode,
+        customColors: selectedPaletteId === 'custom' ? selectedCustomColors : undefined,
       }, profile.nicheId);
       await refreshRuntime();
       showFeedback('Aparência do site atualizada com sucesso!', false);
     } catch (error) {
-      setSelectedStyleId(profile.themeStyleId);
-      setSelectedPaletteId(profile.paletteId);
+      resetAppearance();
       showFeedback(error instanceof Error ? error.message : 'Não foi possível atualizar a aparência do site.', true);
     } finally {
       setSavingAppearance(false);
@@ -214,7 +237,7 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
             <span className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Palette size={20} /></span>
             <div>
               <h3 className="font-extrabold text-slate-900">Aparência do site</h3>
-              <p className="mt-1 text-sm text-slate-500">Escolha estrutura e cores separadamente para {niche.name}. A mudança afeta o site público; o painel continua neutro.</p>
+              <p className="mt-1 text-sm text-slate-500">Escolha o desenho, as cores da marca e o fundo separadamente. O painel administrativo continua neutro.</p>
             </div>
           </div>
           <button type="button" onClick={saveAppearance} disabled={savingAppearance || !appearanceChanged} className="core-button-primary min-h-11 shrink-0 justify-center px-5 text-sm font-bold disabled:opacity-40">
@@ -229,8 +252,12 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
               nicheId={profile.nicheId}
               styleId={selectedStyleId}
               paletteId={selectedPaletteId}
+              surfaceMode={selectedSurfaceMode}
+              customColors={selectedCustomColors}
               onStyleChange={setSelectedStyleId}
               onPaletteChange={setSelectedPaletteId}
+              onSurfaceModeChange={setSelectedSurfaceMode}
+              onCustomColorsChange={setSelectedCustomColors}
             />
           )}
         </div>

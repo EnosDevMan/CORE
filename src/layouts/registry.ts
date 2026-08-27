@@ -1,4 +1,5 @@
-import type { LegacyPublicLayoutId, PublicLayoutPreset, ThemeStyleId } from './types';
+import type { NicheId } from '../niches/types';
+import type { LegacyPublicLayoutId, PublicLayoutPreset, ThemeStyleId, ThemeStyleTokens } from './types';
 
 const systemSans = 'Inter, ui-sans-serif, system-ui, sans-serif';
 const roundedSans = 'ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", sans-serif';
@@ -6,7 +7,7 @@ const editorialSerif = '"Palatino Linotype", Palatino, Georgia, serif';
 
 export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPreset>> = {
   modern: {
-    id: 'modern', name: 'Moderno', description: 'Direto, atual e comercial, com hierarquia forte e leitura rápida.',
+    id: 'modern', name: 'Moderno', description: 'Direto, atual e comercial.',
     heroVariant: 'modern_split', sectionStyle: 'modern',
     sectionOrder: ['features', 'services', 'professionals', 'gallery'],
     tokens: {
@@ -17,7 +18,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   premium: {
-    id: 'premium', name: 'Premium', description: 'Composição sofisticada, contraste marcante e percepção de alto valor.',
+    id: 'premium', name: 'Premium', description: 'Sofisticado e de alto valor.',
     heroVariant: 'premium_focus', sectionStyle: 'premium',
     sectionOrder: ['gallery', 'services', 'professionals', 'features'],
     tokens: {
@@ -28,7 +29,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   minimal: {
-    id: 'minimal', name: 'Minimalista', description: 'Muito respiro, poucos adornos e foco absoluto em conteúdo e ação.',
+    id: 'minimal', name: 'Minimalista', description: 'Respiro e foco no essencial.',
     heroVariant: 'minimal_stack', sectionStyle: 'minimal',
     sectionOrder: ['services', 'professionals', 'gallery', 'features'],
     tokens: {
@@ -38,7 +39,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   heritage: {
-    id: 'heritage', name: 'Heritage', description: 'Tradição artesanal, molduras fortes e ritmo clássico de barbearia.',
+    id: 'heritage', name: 'Heritage', description: 'Artesanal, clássico e estruturado.',
     heroVariant: 'heritage_frame', sectionStyle: 'heritage',
     sectionOrder: ['features', 'services', 'gallery', 'professionals'],
     tokens: {
@@ -49,7 +50,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   editorial: {
-    id: 'editorial', name: 'Editorial', description: 'Ritmo de revista, imagens verticais e tipografia de boutique.',
+    id: 'editorial', name: 'Editorial', description: 'Ritmo de revista e boutique.',
     heroVariant: 'editorial_center', sectionStyle: 'editorial',
     sectionOrder: ['gallery', 'services', 'professionals', 'features'],
     tokens: {
@@ -60,7 +61,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   showcase: {
-    id: 'showcase', name: 'Showcase', description: 'Vitrine autoral, formas expressivas e portfólio em primeiro plano.',
+    id: 'showcase', name: 'Showcase', description: 'Portfólio e formas em destaque.',
     heroVariant: 'showcase', sectionStyle: 'showcase',
     sectionOrder: ['services', 'gallery', 'professionals', 'features'],
     tokens: {
@@ -71,7 +72,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   clean: {
-    id: 'clean', name: 'Clean', description: 'Leve, organizado e acolhedor, com superfícies claras e objetivas.',
+    id: 'clean', name: 'Clean', description: 'Leve, organizado e acolhedor.',
     heroVariant: 'clean_split', sectionStyle: 'clean',
     sectionOrder: ['features', 'services', 'professionals', 'gallery'],
     tokens: {
@@ -81,7 +82,7 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
     },
   },
   friendly: {
-    id: 'friendly', name: 'Friendly', description: 'Orgânico, simpático e memorável, sem perder clareza comercial.',
+    id: 'friendly', name: 'Friendly', description: 'Orgânico, próximo e memorável.',
     heroVariant: 'friendly', sectionStyle: 'friendly',
     sectionOrder: ['features', 'services', 'professionals', 'gallery'],
     tokens: {
@@ -89,6 +90,118 @@ export const THEME_STYLE_REGISTRY: Readonly<Record<ThemeStyleId, PublicLayoutPre
       radius: '1.2rem', cardRadius: '1.75rem', buttonRadius: '999px',
       shadow: '0 13px 34px rgb(20 60 70 / .11)', shadowStrong: '0 28px 72px rgb(20 60 70 / .20)',
       pattern: 'radial-gradient(circle, color-mix(in srgb, var(--core-primary) 10%, transparent) 0 2px, transparent 2.5px)',
+    },
+  },
+};
+
+type ArtDirectionOverride = Pick<PublicLayoutPreset, 'name' | 'heroVariant' | 'sectionOrder'> & {
+  tokens?: Partial<ThemeStyleTokens>;
+};
+
+/**
+ * Persisted style IDs stay compact and compatible. Art direction is resolved
+ * with the niche so the same structural family does not become a generic skin
+ * copied across unrelated businesses.
+ */
+const NICHE_ART_DIRECTIONS: Readonly<Record<NicheId, Partial<Record<ThemeStyleId, ArtDirectionOverride>>>> = {
+  barbershop: {
+    modern: {
+      name: 'Precision',
+      heroVariant: 'barber_precision',
+      sectionOrder: ['services', 'features', 'professionals', 'gallery'],
+      tokens: { cardRadius: '.55rem', buttonRadius: '.32rem', headingTracking: '-.052em' },
+    },
+    premium: {
+      name: 'Executive',
+      heroVariant: 'barber_executive',
+      sectionOrder: ['features', 'services', 'gallery', 'professionals'],
+      tokens: { cardRadius: '.35rem', buttonRadius: '.18rem', headingTracking: '-.018em' },
+    },
+    minimal: {
+      name: 'Studio',
+      heroVariant: 'barber_studio',
+      sectionOrder: ['gallery', 'services', 'professionals', 'features'],
+      tokens: { radius: '.15rem', cardRadius: '.15rem', buttonRadius: '.1rem', shadow: 'none' },
+    },
+    heritage: {
+      name: 'Heritage',
+      heroVariant: 'barber_heritage',
+      sectionOrder: ['features', 'services', 'gallery', 'professionals'],
+    },
+  },
+  beauty_salon: {
+    modern: {
+      name: 'Studio Modern',
+      heroVariant: 'beauty_studio_modern',
+      sectionOrder: ['services', 'professionals', 'gallery', 'features'],
+      tokens: { cardRadius: '1rem', buttonRadius: '999px', shadow: '0 10px 30px rgb(42 25 32 / .08)' },
+    },
+    premium: {
+      name: 'Soft Luxury',
+      heroVariant: 'beauty_soft_luxury',
+      sectionOrder: ['gallery', 'services', 'features', 'professionals'],
+      tokens: { cardRadius: '.7rem', buttonRadius: '999px', headingTracking: '-.02em' },
+    },
+    minimal: {
+      name: 'Signature',
+      heroVariant: 'beauty_signature',
+      sectionOrder: ['professionals', 'services', 'gallery', 'features'],
+      tokens: { cardRadius: '.2rem', buttonRadius: '.2rem', shadow: '0 1px 0 rgb(15 23 42 / .08)' },
+    },
+    editorial: {
+      name: 'Editorial',
+      heroVariant: 'beauty_editorial',
+      sectionOrder: ['gallery', 'services', 'professionals', 'features'],
+    },
+  },
+  nail_studio: {
+    modern: {
+      name: 'Clean Studio',
+      heroVariant: 'nail_clean_studio',
+      sectionOrder: ['services', 'features', 'gallery', 'professionals'],
+      tokens: { cardRadius: '.85rem', buttonRadius: '.55rem', shadow: '0 8px 24px rgb(58 35 90 / .08)' },
+    },
+    premium: {
+      name: 'Boutique',
+      heroVariant: 'nail_boutique',
+      sectionOrder: ['gallery', 'services', 'professionals', 'features'],
+      tokens: { cardRadius: '1.15rem', buttonRadius: '999px', headingTracking: '-.022em' },
+    },
+    minimal: {
+      name: 'Editorial',
+      heroVariant: 'nail_editorial',
+      sectionOrder: ['gallery', 'professionals', 'services', 'features'],
+      tokens: { cardRadius: '.1rem', buttonRadius: '.1rem', shadow: 'none' },
+    },
+    showcase: {
+      name: 'Showcase',
+      heroVariant: 'nail_showcase',
+      sectionOrder: ['gallery', 'services', 'professionals', 'features'],
+    },
+  },
+  pet_shop: {
+    modern: {
+      name: 'Modern Service',
+      heroVariant: 'pet_modern_service',
+      sectionOrder: ['services', 'features', 'professionals', 'gallery'],
+      tokens: { cardRadius: '.8rem', buttonRadius: '.55rem', shadow: '0 8px 26px rgb(20 60 70 / .08)' },
+    },
+    clean: {
+      name: 'Care',
+      heroVariant: 'pet_care',
+      sectionOrder: ['features', 'services', 'professionals', 'gallery'],
+      tokens: { cardRadius: '1rem', buttonRadius: '.75rem', pattern: 'none' },
+    },
+    minimal: {
+      name: 'Organic',
+      heroVariant: 'pet_organic',
+      sectionOrder: ['gallery', 'features', 'services', 'professionals'],
+      tokens: { cardRadius: '1.4rem', buttonRadius: '999px', shadow: '0 6px 20px rgb(20 60 50 / .07)' },
+    },
+    friendly: {
+      name: 'Friendly',
+      heroVariant: 'pet_friendly',
+      sectionOrder: ['features', 'services', 'gallery', 'professionals'],
     },
   },
 };
@@ -103,9 +216,21 @@ export const LEGACY_PUBLIC_LAYOUT_MAP: Readonly<Record<LegacyPublicLayoutId, The
 
 export const PUBLIC_LAYOUT_REGISTRY = THEME_STYLE_REGISTRY;
 
-export const getPublicLayoutPreset = (id: ThemeStyleId | LegacyPublicLayoutId | string): PublicLayoutPreset => {
+export const getPublicLayoutPreset = (
+  id: ThemeStyleId | LegacyPublicLayoutId | string,
+  nicheId?: NicheId,
+): PublicLayoutPreset => {
   const resolvedId = id in LEGACY_PUBLIC_LAYOUT_MAP
     ? LEGACY_PUBLIC_LAYOUT_MAP[id as LegacyPublicLayoutId]
     : id as ThemeStyleId;
-  return THEME_STYLE_REGISTRY[resolvedId] ?? THEME_STYLE_REGISTRY.modern;
+  const base = THEME_STYLE_REGISTRY[resolvedId] ?? THEME_STYLE_REGISTRY.modern;
+  const override = nicheId ? NICHE_ART_DIRECTIONS[nicheId]?.[base.id] : undefined;
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    id: base.id,
+    sectionStyle: base.id,
+    tokens: { ...base.tokens, ...(override.tokens ?? {}) },
+  };
 };

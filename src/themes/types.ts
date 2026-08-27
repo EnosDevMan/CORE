@@ -10,6 +10,7 @@ export type LegacyThemeId =
 /** @deprecated Use LegacyThemeId. Kept while external consumers migrate. */
 export type ThemeId = LegacyThemeId;
 
+/** Curated brand families. `custom` is persisted separately as a user selection. */
 export type PaletteId =
   | 'graphite' | 'navy' | 'copper' | 'forest' | 'burgundy' | 'steel'
   | 'cream' | 'minimal_white' | 'contemporary_blue'
@@ -17,9 +18,18 @@ export type PaletteId =
   | 'terracotta' | 'slate' | 'blush' | 'vibrant'
   | 'ocean' | 'turquoise' | 'soft_yellow' | 'coral' | 'aqua' | 'playful';
 
-export type ThemeMode = 'light' | 'dark';
+export type PaletteSelectionId = PaletteId | 'custom';
+export type SurfaceMode = 'light' | 'dark';
+/** @deprecated Use SurfaceMode. */
+export type ThemeMode = SurfaceMode;
 
-/** Brand colours. Functional states intentionally live outside palettes. */
+export interface CustomPaletteColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
+/** Brand colours + generated interface surfaces. Functional states stay separate. */
 export interface PaletteTokens {
   background: string;
   canvas: string;
@@ -58,22 +68,28 @@ export interface SemanticTokens {
 
 export interface ThemeTokens extends PaletteTokens, ThemeStyleTokens, SemanticTokens {}
 
+/**
+ * A curated palette is intentionally just brand identity. Surface/background
+ * tokens are generated later from this identity + light/dark mode.
+ */
 export interface PalettePreset {
   id: PaletteId;
   name: string;
   description: string;
-  mode: ThemeMode;
-  swatches: readonly [string, string, string, string];
+  /** Historical surface used only as a compatibility/default hint. */
+  mode: SurfaceMode;
+  colors: CustomPaletteColors;
+  swatches: readonly [string, string, string];
   /** Closest original preset for clients that still read only theme_id. */
   legacyThemeId: LegacyThemeId;
-  tokens: PaletteTokens;
 }
 
 export interface ResolvedTheme {
-  id: `${ThemeStyleId}:${PaletteId}`;
+  id: `${ThemeStyleId}:${PaletteSelectionId}:${SurfaceMode}`;
   styleId: ThemeStyleId;
-  paletteId: PaletteId;
-  mode: ThemeMode;
+  paletteId: PaletteSelectionId;
+  mode: SurfaceMode;
+  customColors?: CustomPaletteColors;
   tokens: ThemeTokens;
 }
 

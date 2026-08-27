@@ -53,6 +53,7 @@ export function BusinessProvider({
             data-theme-style={theme.styleId}
             data-palette={theme.paletteId}
             data-theme-mode={theme.mode}
+            data-surface-mode={theme.mode}
             data-niche={niche.id}
             style={themeStyle}
             className="core-theme-root"

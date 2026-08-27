@@ -1,6 +1,11 @@
 import type { RuntimeNicheId } from '../../niches/types';
 import type { ThemeStyleId } from '../../layouts/types';
-import type { LegacyThemeId, PaletteId } from '../../themes/types';
+import type {
+  CustomPaletteColors,
+  LegacyThemeId,
+  PaletteSelectionId,
+  SurfaceMode,
+} from '../../themes/types';
 
 export type Capability =
   | 'online_booking' | 'customers' | 'professionals' | 'services'
@@ -29,8 +34,13 @@ export interface BusinessProfile {
   nicheId: RuntimeNicheId;
   /** Stable alias retained for older clients and database compatibility. */
   themeId: LegacyThemeId;
+  /** High-level composition / art-direction family. */
   themeStyleId: ThemeStyleId;
-  paletteId: PaletteId;
+  /** Curated brand family or owner-defined custom colours. */
+  paletteId: PaletteSelectionId;
+  /** Surface luminosity is independent from the brand palette. Runtime rows always resolve it; optional keeps old in-memory consumers compatible. */
+  surfaceMode?: SurfaceMode;
+  customPalette?: CustomPaletteColors;
 }
 
 export interface BusinessContextValue {
