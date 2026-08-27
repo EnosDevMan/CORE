@@ -1,13 +1,16 @@
 import { THEME_STYLE_REGISTRY } from '../layouts/registry';
 import type { ThemeStyleId } from '../layouts/types';
 import { LEGACY_THEME_APPEARANCE } from './compatibility';
+import { resolvePaletteTokens } from './paletteMode';
 import { getPalettePreset } from './paletteRegistry';
 import type {
+  CustomPaletteColors,
   LegacyThemeId,
   LegacyThemePreset,
-  PaletteId,
+  PaletteSelectionId,
   ResolvedTheme,
   SemanticTokens,
+  SurfaceMode,
 } from './types';
 
 /** Functional states stay stable regardless of the establishment brand. */
@@ -33,22 +36,33 @@ const LEGACY_METADATA: Readonly<Record<LegacyThemeId, { name: string; descriptio
   sunshine_pet: { name: 'Sunshine Pet', description: 'Quente, alegre e acolhedor.' },
 };
 
-export function resolveTheme(styleId: ThemeStyleId, paletteId: PaletteId): ResolvedTheme {
+export function resolveTheme(
+  styleId: ThemeStyleId,
+  paletteId: PaletteSelectionId,
+  mode?: SurfaceMode,
+  customColors?: CustomPaletteColors,
+): ResolvedTheme {
   const style = THEME_STYLE_REGISTRY[styleId] ?? THEME_STYLE_REGISTRY.modern;
-  const palette = getPalettePreset(paletteId);
+  const resolvedMode = mode ?? (paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode);
   return {
-    id: `${style.id}:${palette.id}`,
+    id: `${style.id}:${paletteId}:${resolvedMode}`,
     styleId: style.id,
-    paletteId: palette.id,
-    mode: palette.mode,
-    tokens: { ...palette.tokens, ...style.tokens, ...SEMANTIC_TOKENS },
+    paletteId,
+    mode: resolvedMode,
+    customColors: paletteId === 'custom' ? customColors : undefined,
+    tokens: {
+      ...resolvePaletteTokens(paletteId, resolvedMode, customColors),
+      ...style.tokens,
+      ...SEMANTIC_TOKENS,
+    },
   };
 }
 
 const legacyPreset = (legacyId: LegacyThemeId): LegacyThemePreset => {
   const appearance = LEGACY_THEME_APPEARANCE[legacyId];
+  const palette = getPalettePreset(appearance.paletteId);
   return {
-    ...resolveTheme(appearance.styleId, appearance.paletteId),
+    ...resolveTheme(appearance.styleId, appearance.paletteId, palette.mode),
     legacyId,
     ...LEGACY_METADATA[legacyId],
   };
