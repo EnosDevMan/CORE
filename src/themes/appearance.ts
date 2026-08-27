@@ -2,11 +2,11 @@ import type { ThemeStyleId } from '../layouts/types';
 import { getNichePreset } from '../niches/registry';
 import type { NicheId, RuntimeNicheId } from '../niches/types';
 import { LEGACY_THEME_APPEARANCE, LEGACY_THEME_ID_BY_PALETTE, PALETTE_IDS } from './compatibility';
-import type { LegacyThemeId, PaletteId } from './types';
+import type { LegacyThemeId, PaletteId, PaletteSelectionId } from './types';
 
 export interface AppearanceSelection {
   styleId: ThemeStyleId;
-  paletteId: PaletteId;
+  paletteId: PaletteSelectionId;
 }
 
 const isStyleId = (value: unknown): value is ThemeStyleId =>
@@ -14,6 +14,9 @@ const isStyleId = (value: unknown): value is ThemeStyleId =>
 
 const isPaletteId = (value: unknown): value is PaletteId =>
   typeof value === 'string' && PALETTE_IDS.includes(value as PaletteId);
+
+export const isPaletteSelectionId = (value: unknown): value is PaletteSelectionId =>
+  value === 'custom' || isPaletteId(value);
 
 const isLegacyThemeId = (value: unknown): value is LegacyThemeId =>
   typeof value === 'string' && value in LEGACY_THEME_APPEARANCE;
@@ -57,9 +60,9 @@ export function isAppearanceAvailableForNiche(
 ): styleId is ThemeStyleId {
   const niche = getNichePreset(nicheId);
   return isStyleId(styleId)
-    && isPaletteId(paletteId)
+    && isPaletteSelectionId(paletteId)
     && niche.availableStyleIds.includes(styleId)
-    && niche.availablePaletteIds.includes(paletteId);
+    && (paletteId === 'custom' || niche.availablePaletteIds.includes(paletteId));
 }
 
 /** Explicit valid columns win; legacy fills missing values; niche defaults handle invalid IDs. */
@@ -72,13 +75,13 @@ export function resolveAppearanceForNiche(
     ? legacyAppearanceForNiche(nicheId, input.legacyThemeId)
     : undefined;
   const styleCandidate = isStyleId(input.styleId) ? input.styleId : legacy?.styleId;
-  const paletteCandidate = isPaletteId(input.paletteId) ? input.paletteId : legacy?.paletteId;
+  const paletteCandidate = isPaletteSelectionId(input.paletteId) ? input.paletteId : legacy?.paletteId;
 
   return {
     styleId: styleCandidate && niche.availableStyleIds.includes(styleCandidate)
       ? styleCandidate
       : niche.defaultStyleId,
-    paletteId: paletteCandidate && niche.availablePaletteIds.includes(paletteCandidate)
+    paletteId: paletteCandidate === 'custom' || (paletteCandidate && niche.availablePaletteIds.includes(paletteCandidate))
       ? paletteCandidate
       : niche.defaultPaletteId,
   };
@@ -87,12 +90,17 @@ export function resolveAppearanceForNiche(
 export function getLegacyThemeIdForAppearance(
   nicheId: NicheId,
   styleId: ThemeStyleId,
-  paletteId: PaletteId,
+  paletteId: PaletteSelectionId,
 ): LegacyThemeId {
-  const exact = (Object.entries(LEGACY_THEME_APPEARANCE) as Array<[LegacyThemeId, AppearanceSelection]>)
+  if (paletteId === 'custom') {
+    return LEGACY_THEME_ID_BY_PALETTE[getNichePreset(nicheId).defaultPaletteId];
+  }
+
+  const exact = (Object.entries(LEGACY_THEME_APPEARANCE) as Array<[LegacyThemeId, { styleId: ThemeStyleId; paletteId: PaletteId }]>)
     .find(([, value]) => value.styleId === styleId && value.paletteId === paletteId);
   if (exact) return exact[0];
 
   const resolved = resolveAppearanceForNiche(nicheId, { styleId, paletteId });
-  return LEGACY_THEME_ID_BY_PALETTE[resolved.paletteId];
+  const resolvedPalette = resolved.paletteId === 'custom' ? getNichePreset(nicheId).defaultPaletteId : resolved.paletteId;
+  return LEGACY_THEME_ID_BY_PALETTE[resolvedPalette];
 }
