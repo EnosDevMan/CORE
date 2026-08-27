@@ -15,6 +15,7 @@ import { ServicesSection } from '../features/landing/components/ServicesSection'
 import { ProfessionalsSection } from '../features/landing/components/ProfessionalsSection';
 import { GallerySection } from '../features/landing/components/GallerySection';
 import { FooterSection } from '../features/landing/components/FooterSection';
+import '../styles/artDirections.css';
 
 interface Props { onStartBooking: (selection?: { serviceId?: string; professionalId?: string }) => void; onOpenLogin: () => void; onOpenPrivacy: () => void; }
 
@@ -25,7 +26,10 @@ export const LandingPage: React.FC<Props> = ({ onStartBooking, onOpenLogin, onOp
   const galleryPhotos = useGalleryPhotos();
   const scheduleBlocks = useScheduleBlocks();
   const { profile } = useBusiness();
-  const layout = getPublicLayoutPreset(profile.themeStyleId);
+  const layout = getPublicLayoutPreset(
+    profile.themeStyleId,
+    profile.nicheId === 'core_bootstrap' ? undefined : profile.nicheId,
+  );
 
   const activeServices = useMemo(
     () => services.filter(service => service.active !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
