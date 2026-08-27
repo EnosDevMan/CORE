@@ -32,14 +32,14 @@ export default defineConfig(() => {
       sourcemap: false,
       rollupOptions: {
         output: {
-          // Separa dependências grandes e estáveis (mudam raramente) em
-          // chunks próprios, isolados do código da aplicação (que muda a
-          // cada deploy). Resultado: quem já visitou o site antes reusa o
-          // cache do navegador para essas libs em vez de rebaixar tudo de
-          // novo a cada novo deploy.
+          // Separa dependências grandes e estáveis e também a direção visual
+          // pública, que cresceu sem precisar inflar o shell de navegação.
+          // O layout continua sendo carregado em paralelo na home; não criamos
+          // um atraso artificial para obter esse isolamento.
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
             'supabase-vendor': ['@supabase/supabase-js'],
+            'public-layout': [path.resolve(projectRoot, 'src/layouts/registry.ts')],
           },
         },
       },
