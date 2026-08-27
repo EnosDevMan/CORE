@@ -6,18 +6,23 @@ import { prepareCoverImage } from '../../../core/business/coverImage';
 import { renderCroppedLogo, validateLogoFile, type LogoCropOptions } from '../../../core/business/logoCrop';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { AppearancePicker } from '../../../themes/AppearancePicker';
-import type { CustomPaletteColors } from '../../../themes/types';
+import { getPalettePreset } from '../../../themes/paletteRegistry';
+import type { CustomPaletteColors, SurfaceMode } from '../../../themes/types';
 import { LogoCropDialog } from './LogoCropDialog';
 
 const sameCustomPalette = (a?: CustomPaletteColors, b?: CustomPaletteColors) =>
   a?.primary === b?.primary && a?.secondary === b?.secondary && a?.accent === b?.accent;
 
+const fallbackSurfaceMode = (paletteId: string): SurfaceMode =>
+  paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
+
 export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: string, isError: boolean) => void }) {
   const niche = useNiche();
   const { profile, refreshRuntime } = useBusiness();
+  const persistedSurfaceMode = profile.surfaceMode ?? fallbackSurfaceMode(profile.paletteId);
   const [selectedStyleId, setSelectedStyleId] = useState(profile.themeStyleId);
   const [selectedPaletteId, setSelectedPaletteId] = useState(profile.paletteId);
-  const [selectedSurfaceMode, setSelectedSurfaceMode] = useState(profile.surfaceMode);
+  const [selectedSurfaceMode, setSelectedSurfaceMode] = useState<SurfaceMode>(persistedSurfaceMode);
   const [selectedCustomColors, setSelectedCustomColors] = useState<CustomPaletteColors | undefined>(profile.customPalette);
   const [savingAppearance, setSavingAppearance] = useState(false);
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
@@ -30,19 +35,19 @@ export function AdminAppearanceTab({ showFeedback }: { showFeedback: (msg: strin
   useEffect(() => {
     setSelectedStyleId(profile.themeStyleId);
     setSelectedPaletteId(profile.paletteId);
-    setSelectedSurfaceMode(profile.surfaceMode);
+    setSelectedSurfaceMode(profile.surfaceMode ?? fallbackSurfaceMode(profile.paletteId));
     setSelectedCustomColors(profile.customPalette);
   }, [profile.customPalette, profile.paletteId, profile.surfaceMode, profile.themeStyleId]);
 
   const appearanceChanged = selectedStyleId !== profile.themeStyleId
     || selectedPaletteId !== profile.paletteId
-    || selectedSurfaceMode !== profile.surfaceMode
+    || selectedSurfaceMode !== persistedSurfaceMode
     || (selectedPaletteId === 'custom' && !sameCustomPalette(selectedCustomColors, profile.customPalette));
 
   const resetAppearance = () => {
     setSelectedStyleId(profile.themeStyleId);
     setSelectedPaletteId(profile.paletteId);
-    setSelectedSurfaceMode(profile.surfaceMode);
+    setSelectedSurfaceMode(profile.surfaceMode ?? fallbackSurfaceMode(profile.paletteId));
     setSelectedCustomColors(profile.customPalette);
   };
 
