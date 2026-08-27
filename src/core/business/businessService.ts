@@ -3,8 +3,7 @@ import type { ThemeStyleId } from '../../layouts/types';
 import type { NicheId } from '../../niches/types';
 import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche, resolveAppearanceForNiche } from '../../themes/appearance';
 import { LEGACY_THEME_APPEARANCE } from '../../themes/compatibility';
-import { normalizeCustomPalette } from '../../themes/paletteMode';
-import { getPalettePreset } from '../../themes/paletteRegistry';
+import { getDefaultSurfaceMode, normalizeCustomPalette } from '../../themes/paletteIdentity';
 import type {
   CustomPaletteColors,
   LegacyThemeId,
@@ -37,9 +36,6 @@ const BRANDING_BUCKET = 'branding';
 const invalidateRuntimeCache = () => {
   recentRuntime = null;
 };
-
-const defaultSurfaceMode = (paletteId: PaletteSelectionId): SurfaceMode =>
-  paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
 
 async function getCurrentBrandUrls(): Promise<string[]> {
   const { data, error } = await supabase
@@ -130,7 +126,7 @@ export const businessService = {
       throw new Error('Esta combinação visual não está disponível para o nicho configurado.');
     }
 
-    const surfaceMode = selection.surfaceMode ?? defaultSurfaceMode(selection.paletteId);
+    const surfaceMode = selection.surfaceMode ?? getDefaultSurfaceMode(selection.paletteId);
     if (surfaceMode !== 'light' && surfaceMode !== 'dark') {
       throw new Error('Escolha um fundo claro ou escuro.');
     }
@@ -169,7 +165,7 @@ export const businessService = {
     const selection = resolveAppearanceForNiche(persistedNicheId, { legacyThemeId: themeId });
     await businessService.updateAppearance({
       ...selection,
-      surfaceMode: defaultSurfaceMode(selection.paletteId),
+      surfaceMode: getDefaultSurfaceMode(selection.paletteId),
     }, persistedNicheId);
   },
 
