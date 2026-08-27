@@ -64,3 +64,8 @@ jobs:
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql
           --file supabase/tests/pet_notes_authorization.sql
+      - name: Validate schedule block update grant migration
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --file supabase/migrations/20260827182247_schedule_blocks_update_grant.sql
+          --file supabase/tests/schedule_blocks_update_grant.sql
