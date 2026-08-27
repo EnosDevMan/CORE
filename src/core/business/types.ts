@@ -38,8 +38,8 @@ export interface BusinessProfile {
   themeStyleId: ThemeStyleId;
   /** Curated brand family or owner-defined custom colours. */
   paletteId: PaletteSelectionId;
-  /** Surface luminosity is independent from the brand palette. */
-  surfaceMode: SurfaceMode;
+  /** Surface luminosity is independent from the brand palette. Runtime rows always resolve it; optional keeps old in-memory consumers compatible. */
+  surfaceMode?: SurfaceMode;
   customPalette?: CustomPaletteColors;
 }
 
