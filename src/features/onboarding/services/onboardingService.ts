@@ -4,6 +4,7 @@ import type { ThemeStyleId } from '../../../layouts/types';
 import type { NicheId } from '../../../niches/types';
 import { getLegacyThemeIdForAppearance, isAppearanceAvailableForNiche } from '../../../themes/appearance';
 import { normalizeCustomPalette } from '../../../themes/paletteMode';
+import { getPalettePreset } from '../../../themes/paletteRegistry';
 import type {
   CustomPaletteColors,
   PaletteSelectionId,
@@ -15,7 +16,7 @@ export interface OnboardingInput {
   nicheId: NicheId;
   themeStyleId: ThemeStyleId;
   paletteId: PaletteSelectionId;
-  surfaceMode: SurfaceMode;
+  surfaceMode?: SurfaceMode;
   customColors?: CustomPaletteColors;
   phone?: string;
   address?: string;
@@ -37,6 +38,9 @@ const throwError = (error: { message: string } | null) => {
   if (error) throw new Error(error.message);
 };
 
+const defaultSurfaceMode = (paletteId: PaletteSelectionId): SurfaceMode =>
+  paletteId === 'custom' ? 'light' : getPalettePreset(paletteId).mode;
+
 export const onboardingService = {
   async getState(): Promise<OnboardingState> {
     const { data, error } = await supabase.rpc('get_onboarding_state');
@@ -51,7 +55,8 @@ export const onboardingService = {
     if (!isAppearanceAvailableForNiche(input.nicheId, input.themeStyleId, input.paletteId)) {
       throw new Error('A aparência escolhida não está disponível para este nicho.');
     }
-    if (input.surfaceMode !== 'light' && input.surfaceMode !== 'dark') {
+    const surfaceMode = input.surfaceMode ?? defaultSurfaceMode(input.paletteId);
+    if (surfaceMode !== 'light' && surfaceMode !== 'dark') {
       throw new Error('Escolha um fundo claro ou escuro.');
     }
     const customColors = input.paletteId === 'custom'
@@ -76,7 +81,7 @@ export const onboardingService = {
       p_theme_id: getLegacyThemeIdForAppearance(input.nicheId, input.themeStyleId, input.paletteId),
       p_theme_style_id: input.themeStyleId,
       p_palette_id: input.paletteId,
-      p_surface_mode: input.surfaceMode,
+      p_surface_mode: surfaceMode,
       p_custom_primary_color: customColors?.primary ?? null,
       p_custom_secondary_color: customColors?.secondary ?? null,
       p_custom_accent_color: customColors?.accent ?? null,
