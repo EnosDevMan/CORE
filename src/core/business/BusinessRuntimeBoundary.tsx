@@ -20,6 +20,7 @@ const BOOTSTRAP_BUSINESS_PROFILE: BusinessProfile = {
   themeId: 'minimal_light',
   themeStyleId: 'minimal',
   paletteId: 'minimal_white',
+  surfaceMode: 'light',
 };
 
 export function BusinessRuntimeBoundary({ children }: { children: ReactNode }) {
