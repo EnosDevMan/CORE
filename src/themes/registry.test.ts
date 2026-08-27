@@ -22,7 +22,7 @@ describe('theme registry', () => {
     for (const niche of Object.values(NICHE_REGISTRY)) {
       expect(niche.availableStyleIds).toHaveLength(4);
       expect(niche.availablePaletteIds.length).toBeGreaterThanOrEqual(9);
-      const primaryColors = niche.availablePaletteIds.map(id => PALETTE_REGISTRY[id].tokens.primary);
+      const primaryColors = niche.availablePaletteIds.map(id => PALETTE_REGISTRY[id].colors.primary);
       expect(new Set(primaryColors).size).toBe(niche.availablePaletteIds.length);
     }
   });
