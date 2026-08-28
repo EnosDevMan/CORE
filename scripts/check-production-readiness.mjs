@@ -12,6 +12,7 @@ const requireFile = (file) => {
 
 for (const file of [
   'dist/index.html',
+  'dist/privacy-policy-content.json',
   'public/privacy-policy-content.json',
   'supabase/schema.sql',
   'supabase/tests/standalone_bootstrap.sql',
@@ -24,28 +25,25 @@ for (const file of [
   'supabase/tests/admin_history_on_demand.sql',
   'vercel.json',
   '.env.example',
-]) {
-  requireFile(file);
-}
+]) requireFile(file);
 
-const policyPath = path.join(root, 'public/privacy-policy-content.json');
-if (existsSync(policyPath)) {
+for (const relative of ['public/privacy-policy-content.json', 'dist/privacy-policy-content.json']) {
+  const policyPath = path.join(root, relative);
+  if (!existsSync(policyPath)) continue;
   try {
     const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
     if (typeof policy.notice !== 'string' || !Array.isArray(policy.sections) || policy.sections.length < 1) {
-      failures.push('conteúdo da política de privacidade está incompleto');
+      failures.push(`conteúdo da política de privacidade está incompleto em ${relative}`);
     }
   } catch {
-    failures.push('privacy-policy-content.json não contém JSON válido');
+    failures.push(`${relative} não contém JSON válido`);
   }
 }
 
 const nodeMajor = Number(process.versions.node.split('.')[0]);
 if (nodeMajor !== 22) failures.push(`Node 22 é obrigatório; versão atual: ${process.versions.node}`);
 
-const trackedFiles = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
-  .trim()
-  .split('\n');
+const trackedFiles = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).trim().split('\n');
 const trackedSecrets = trackedFiles.filter((file) => /(^|\/)\.env($|\.)/.test(file) && file !== '.env.example');
 if (trackedSecrets.length) failures.push(`arquivo(s) de ambiente versionado(s): ${trackedSecrets.join(', ')}`);
 
@@ -60,15 +58,11 @@ if (existsSync(path.join(root, 'vercel.json'))) {
   const csp = configuredHeaders.find((header) => header.key.toLowerCase() === 'content-security-policy')?.value ?? '';
   for (const directive of ['script-src', 'frame-src']) {
     const value = csp.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${directive} `));
-    if (!value?.includes('https://challenges.cloudflare.com')) {
-      failures.push(`CSP incompatível com o Turnstile em ${directive}`);
-    }
+    if (!value?.includes('https://challenges.cloudflare.com')) failures.push(`CSP incompatível com o Turnstile em ${directive}`);
   }
 
   const imageSources = csp.split(';').map((part) => part.trim()).find((part) => part.startsWith('img-src '));
-  if (!imageSources?.split(/\s+/).includes('blob:')) {
-    failures.push('CSP incompatível com a prévia local do editor de logo em img-src');
-  }
+  if (!imageSources?.split(/\s+/).includes('blob:')) failures.push('CSP incompatível com a prévia local do editor de logo em img-src');
 }
 
 if (existsSync(path.join(root, '.env.example'))) {
@@ -101,9 +95,7 @@ if (existsSync(path.join(root, 'supabase/tests/standalone_bootstrap.sql'))) {
 
 const manifest = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 for (const dependency of Object.keys(manifest.dependencies ?? {})) {
-  if (Object.hasOwn(manifest.devDependencies ?? {}, dependency)) {
-    failures.push(`dependência duplicada entre produção e desenvolvimento: ${dependency}`);
-  }
+  if (Object.hasOwn(manifest.devDependencies ?? {}, dependency)) failures.push(`dependência duplicada entre produção e desenvolvimento: ${dependency}`);
 }
 
 const assetsDirectory = path.join(root, 'dist', 'assets');
@@ -111,17 +103,12 @@ if (existsSync(assetsDirectory)) {
   for (const asset of readdirSync(assetsDirectory)) {
     if (!asset.endsWith('.js')) continue;
     const content = readFileSync(path.join(assetsDirectory, asset), 'utf8');
-
-    if (/sb_secret_[A-Za-z0-9_-]{20,}/.test(content)) {
-      failures.push(`chave secreta do Supabase encontrada no bundle público: ${asset}`);
-    }
+    if (/sb_secret_[A-Za-z0-9_-]{20,}/.test(content)) failures.push(`chave secreta do Supabase encontrada no bundle público: ${asset}`);
 
     for (const candidate of content.matchAll(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g)) {
       try {
         const payload = JSON.parse(Buffer.from(candidate[0].split('.')[1], 'base64url').toString('utf8'));
-        if (payload.role === 'service_role' || payload.role === 'supabase_admin') {
-          failures.push(`JWT administrativo encontrado no bundle público: ${asset}`);
-        }
+        if (payload.role === 'service_role' || payload.role === 'supabase_admin') failures.push(`JWT administrativo encontrado no bundle público: ${asset}`);
       } catch {
         // Unrelated minified strings are not JWT credentials.
       }
