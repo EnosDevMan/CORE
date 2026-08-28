@@ -37,6 +37,7 @@ jobs:
           done
           git show origin/perf/admin-history-on-demand:supabase/migrations/20260828002000_admin_history_on_demand.sql > supabase/migrations/20260828013701_admin_history_on_demand.sql
           python .github/production-readiness-fix.py
+          python .github/fix-admin-history-service.py
       - run: npm ci
       - name: Validate application
         run: npm run verify
