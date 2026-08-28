@@ -1,0 +1,40 @@
+name: Run PR 36 review fixes
+
+on:
+  push:
+    branches:
+      - perf/admin-history-on-demand
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply review fixes
+        run: |
+          if [ -f .github/pr36-review-fixes.py ]; then
+            python .github/pr36-review-fixes.py
+          fi
+      - run: npm ci
+      - name: Validate project
+        run: npm run verify
+      - name: Commit validated fixes when needed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/store/AppDataLoader.tsx src/store/dataStore.ts src/store/dataStore.test.ts src/features/admin/hooks/useAdminReports.ts
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Resolve admin history review findings"
+          git push origin HEAD:perf/admin-history-on-demand
