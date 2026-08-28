@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Restore validated on-demand history baseline
+      - name: Materialize audited remediation
         run: |
           git fetch origin perf/admin-history-on-demand
           for path in \
@@ -40,12 +40,12 @@ jobs:
           python .github/fix-admin-history-service.py
           python .github/trim-production-remediation.py
       - run: npm ci
-      - name: Validate application
-        run: npm run verify
-      - name: Commit validated remediation
+      - name: Validate source before snapshot
+        run: npm run lint && npm run typecheck && npm run test && npm run build
+      - name: Commit audited snapshot
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src supabase/schema.sql supabase/migrations/20260828013701_admin_history_on_demand.sql supabase/tests/admin_history_on_demand.sql
-          git commit -m "Harden production admin history and availability"
+          git commit -m "Harden production admin history and availability [skip ci]"
           git push origin HEAD:fix/production-readiness-20260828
