@@ -19,6 +19,8 @@ for (const file of [
   'supabase/migrations/20260826193609_branding_logo_storage.sql',
   'supabase/tests/booking_overlap.sql',
   'supabase/tests/booking_security.sql',
+  'supabase/migrations/20260828013701_admin_history_on_demand.sql',
+  'supabase/tests/admin_history_on_demand.sql',
   'vercel.json',
   '.env.example',
 ]) {
@@ -70,6 +72,8 @@ if (existsSync(path.join(root, 'supabase/schema.sql'))) {
     'grant select on table public.booking_services to authenticated',
     'grant select (id) on table public.barbers to authenticated',
     'public.installation_bootstrap',
+    'public.get_admin_report_bookings',
+    'public.get_admin_client_history_summaries',
   ]) {
     if (!schema.includes(surface)) failures.push(`fronteira de acesso ausente no schema: ${surface}`);
   }
