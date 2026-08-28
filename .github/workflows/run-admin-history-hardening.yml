@@ -1,0 +1,35 @@
+name: Run admin history hardening
+
+on:
+  push:
+    branches:
+      - perf/admin-history-on-demand
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply history transformations
+        run: |
+          python .github/admin-history-hardening.py
+          rm -f .github/admin-history-hardening.py .github/workflows/run-admin-history-hardening.yml
+      - run: npm ci
+      - name: Validate frontend
+        run: npm run verify
+      - name: Commit validated history hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Load administrative history on demand"
+          git push origin HEAD:perf/admin-history-on-demand
