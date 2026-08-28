@@ -10,7 +10,7 @@ import { LayoutDashboard, BarChart3, CalendarDays, CalendarPlus, Scissors, Users
 import { formatBRL } from '../../../utils/validation';
 import { getErrorMessage } from '../../../utils/errors';
 import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
-import { BookingStatus } from '../../../types';
+import type { Booking, BookingStatus } from '../../../types';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { getAdminNavigation, type AdminTab } from '../navigation';
 
@@ -48,12 +48,14 @@ export const useAdminDashboard = () => {
     }
   };
 
-  const handleUpdateBookingStatus = async (id: string, newStatus: BookingStatus) => {
+  const handleUpdateBookingStatus = async (id: string, newStatus: BookingStatus, sourceBooking?: Booking) => {
     try {
-      await updateBookingStatus(id, newStatus);
+      await updateBookingStatus(id, newStatus, sourceBooking);
       showFeedback(`Agendamento ${newStatus.toLowerCase()} com sucesso!`, false);
+      return true;
     } catch (err) {
       showFeedback(getErrorMessage(err, 'Erro ao atualizar agendamento.'), true);
+      return false;
     }
   };
 
