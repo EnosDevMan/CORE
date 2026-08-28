@@ -3521,7 +3521,7 @@ returns table (
   barber_id uuid,
   service_id text,
   date date,
-  time time,
+  "time" time,
   status public.booking_status,
   notes text,
   fee_paid boolean,
