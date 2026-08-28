@@ -2,6 +2,21 @@ import { create } from 'zustand';
 import { Professional, Service, Booking, User, ScheduleBlock, BookingStatus, GalleryPhoto } from '../types';
 import { dataService } from '../services/dataService';
 
+type MutableCollection = 'professionals' | 'services' | 'bookings' | 'scheduleBlocks' | 'galleryPhotos';
+const pendingMutations = new Map<string, symbol>();
+
+const beginMutation = (collection: MutableCollection, id: string) => {
+  const key = `${collection}:${id}`;
+  const token = Symbol(key);
+  pendingMutations.set(key, token);
+  return {
+    isLatest: () => pendingMutations.get(key) === token,
+    finish: () => {
+      if (pendingMutations.get(key) === token) pendingMutations.delete(key);
+    },
+  };
+};
+
 interface DataState {
   professionals: Professional[];
   services: Service[];
@@ -120,12 +135,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     return newProfessional;
   },
   updateProfessional: async (professional) => {
-    const previous = get().professionals;
-    const oldProfessional = previous.find(b => b.id === professional.id);
+    const oldProfessional = get().professionals.find(b => b.id === professional.id);
+    const mutation = beginMutation('professionals', professional.id);
     set(state => ({ professionals: state.professionals.map(b => (b.id === professional.id ? professional : b)) }));
     try {
       await dataService.saveProfessional(professional);
-      if (oldProfessional?.userId !== professional.userId) {
+      if (mutation.isLatest() && oldProfessional?.userId !== professional.userId) {
         // O trigger `barbers_sync_user_link` altera os dois lados do vínculo
         // dentro da mesma transação do UPDATE. Aqui só espelhamos o resultado
         // já confirmado pelo banco no estado local.
@@ -138,20 +153,26 @@ export const useDataStore = create<DataState>((set, get) => ({
         }));
       }
     } catch (err) {
-      set({ professionals: previous });
+      if (mutation.isLatest() && oldProfessional) set(state => ({
+        professionals: state.professionals.map(item => item.id === professional.id ? oldProfessional : item),
+      }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   deactivateProfessional: async (id) => {
-    const previous = get().professionals;
-    const professional = previous.find(b => b.id === id);
+    const professional = get().professionals.find(b => b.id === id);
     if (!professional || professional.active === false) return;
+    const mutation = beginMutation('professionals', id);
     set(state => ({ professionals: state.professionals.map(b => (b.id === id ? { ...b, active: false } : b)) }));
     try {
       await dataService.saveProfessional({ ...professional, active: false });
     } catch (err) {
-      set({ professionals: previous });
+      if (mutation.isLatest()) set(state => ({ professionals: state.professionals.map(item => item.id === id ? professional : item) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   addService: async (service) => {
@@ -159,25 +180,30 @@ export const useDataStore = create<DataState>((set, get) => ({
     set(state => ({ services: [...state.services, newService] }));
   },
   updateService: async (service) => {
-    const previous = get().services;
+    const previous = get().services.find(item => item.id === service.id);
+    const mutation = beginMutation('services', service.id);
     set(state => ({ services: state.services.map(s => (s.id === service.id ? service : s)) }));
     try {
       await dataService.saveService(service);
     } catch (err) {
-      set({ services: previous });
+      if (mutation.isLatest() && previous) set(state => ({ services: state.services.map(item => item.id === service.id ? previous : item) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   deactivateService: async (id) => {
-    const previous = get().services;
-    const service = previous.find(item => item.id === id);
+    const service = get().services.find(item => item.id === id);
     if (!service || service.active === false) return;
+    const mutation = beginMutation('services', id);
     set(state => ({ services: state.services.map(item => (item.id === id ? { ...item, active: false } : item)) }));
     try {
       await dataService.saveService({ ...service, active: false });
     } catch (err) {
-      set({ services: previous });
+      if (mutation.isLatest()) set(state => ({ services: state.services.map(item => item.id === id ? service : item) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
 
@@ -200,8 +226,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     return newBooking;
   },
   updateBookingStatus: async (id, status) => {
-    const previous = get().bookings;
-    const booking = previous.find(b => b.id === id);
+    const booking = get().bookings.find(b => b.id === id);
     if (!booking) return;
     // "Confirmar" (Aguardando pagamento -> Confirmado) é, em toda a UI
     // (profissional e proprietário), o botão que confirma o recebimento do PIX da
@@ -209,30 +234,35 @@ export const useDataStore = create<DataState>((set, get) => ({
     // fato, então a métrica "Taxas de Agendamento" no painel nunca saía de
     // R$ 0,00.
     const feePaid = status === 'Confirmado' ? true : booking.feePaid;
+    const mutation = beginMutation('bookings', id);
     set(state => ({ bookings: state.bookings.map(b => (b.id === id ? { ...b, status, feePaid } : b)) }));
     try {
       await dataService.saveBooking({ ...booking, status, feePaid });
     } catch (err) {
-      set({ bookings: previous });
+      if (mutation.isLatest()) set(state => ({ bookings: state.bookings.map(item => item.id === id ? booking : item) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   confirmBookingAttendance: async (id) => {
-    const previous = get().bookings;
-    const booking = previous.find(b => b.id === id);
+    const booking = get().bookings.find(b => b.id === id);
     if (!booking) return;
+    const mutation = beginMutation('bookings', id);
     set(state => ({ bookings: state.bookings.map(b => (b.id === id ? { ...b, customerConfirmed: true } : b)) }));
     try {
       await dataService.saveBooking({ ...booking, customerConfirmed: true });
     } catch (err) {
-      set({ bookings: previous });
+      if (mutation.isLatest()) set(state => ({ bookings: state.bookings.map(item => item.id === id ? booking : item) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   rescheduleBooking: async (id, date, time) => {
-    const previous = get().bookings;
-    const booking = previous.find(b => b.id === id);
+    const booking = get().bookings.find(b => b.id === id);
     if (!booking) return;
+    const mutation = beginMutation('bookings', id);
     set(state => ({ bookings: state.bookings.map(b => (b.id === id ? { ...b, date, time } : b)) }));
     try {
       // Usa o RPC `reschedule_booking` (lock + revalidação de conflito no
@@ -240,10 +270,12 @@ export const useDataStore = create<DataState>((set, get) => ({
       // clientes reagendando para o mesmo horário ao mesmo tempo podiam
       // gerar um conflito de agenda antes desta correção.
       const updated = await dataService.rescheduleBooking(id, date, time);
-      set(state => ({ bookings: state.bookings.map(b => (b.id === id ? updated : b)) }));
+      if (mutation.isLatest()) set(state => ({ bookings: state.bookings.map(b => (b.id === id ? updated : b)) }));
     } catch (err) {
-      set({ bookings: previous });
+      if (mutation.isLatest()) set(state => ({ bookings: state.bookings.map(item => item.id === id ? booking : item) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   addScheduleBlock: async (blockData) => {
@@ -251,13 +283,16 @@ export const useDataStore = create<DataState>((set, get) => ({
     set(state => ({ scheduleBlocks: [...state.scheduleBlocks, newBlock] }));
   },
   deleteScheduleBlock: async (id) => {
-    const previous = get().scheduleBlocks;
+    const previous = get().scheduleBlocks.find(item => item.id === id);
+    const mutation = beginMutation('scheduleBlocks', id);
     set(state => ({ scheduleBlocks: state.scheduleBlocks.filter(b => b.id !== id) }));
     try {
       await dataService.deleteScheduleBlock(id);
     } catch (err) {
-      set({ scheduleBlocks: previous });
+      if (mutation.isLatest() && previous) set(state => ({ scheduleBlocks: [...state.scheduleBlocks, previous] }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
 
@@ -266,36 +301,49 @@ export const useDataStore = create<DataState>((set, get) => ({
     set(state => ({ galleryPhotos: [...state.galleryPhotos, newPhoto] }));
   },
   updateGalleryPhoto: async (id, caption) => {
-    const previous = get().galleryPhotos;
+    const previous = get().galleryPhotos.find(photo => photo.id === id);
+    const mutation = beginMutation('galleryPhotos', id);
     set(state => ({ galleryPhotos: state.galleryPhotos.map(photo => (
       photo.id === id ? { ...photo, caption } : photo
     )) }));
     try {
       await dataService.saveGalleryCaption(id, caption);
     } catch (err) {
-      set({ galleryPhotos: previous });
+      if (mutation.isLatest() && previous) set(state => ({ galleryPhotos: state.galleryPhotos.map(photo => photo.id === id ? previous : photo) }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   reorderGalleryPhotos: async (photos) => {
-    const previous = get().galleryPhotos;
+    const previousOrder = new Map(get().galleryPhotos.map(photo => [photo.id, photo.order]));
+    const mutation = beginMutation('galleryPhotos', '__order__');
     const reordered = photos.map((photo, index) => ({ ...photo, order: index }));
     set({ galleryPhotos: reordered });
     try {
       await dataService.reorderGalleryPhotos(reordered.map(photo => photo.id));
     } catch (err) {
-      set({ galleryPhotos: previous });
+      if (mutation.isLatest()) set(state => ({
+        galleryPhotos: state.galleryPhotos.map(photo => previousOrder.has(photo.id)
+          ? { ...photo, order: previousOrder.get(photo.id) }
+          : photo),
+      }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
   deleteGalleryPhoto: async (id) => {
-    const previous = get().galleryPhotos;
+    const previous = get().galleryPhotos.find(photo => photo.id === id);
+    const mutation = beginMutation('galleryPhotos', id);
     set(state => ({ galleryPhotos: state.galleryPhotos.filter(p => p.id !== id) }));
     try {
       await dataService.deleteGalleryPhoto(id);
     } catch (err) {
-      set({ galleryPhotos: previous });
+      if (mutation.isLatest() && previous) set(state => ({ galleryPhotos: [...state.galleryPhotos, previous] }));
       throw err;
+    } finally {
+      mutation.finish();
     }
   },
 

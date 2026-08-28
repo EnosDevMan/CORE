@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { DollarSign, Clock, UserPlus, Calendar as CalendarIcon, CheckCircle, XCircle, ArrowRight, User, Scissors } from 'lucide-react';
 import { useBookings, useUsers } from '../../../store/useApp';
 import { BookingStatus } from '../../../types';
-import { getBusinessNow, getBusinessTodayStr } from '../../../utils/validation';
+import { getBusinessNow } from '../../../utils/validation';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 import { Booking } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
@@ -33,7 +34,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   const users = useUsers();
   const niche = useNiche();
   const { profile } = useBusiness();
-  const todayStr = getBusinessTodayStr(profile.timezone);
+  const todayStr = useBusinessToday(profile.timezone);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
 
   const todayBookings = useMemo(

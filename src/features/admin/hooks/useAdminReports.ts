@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useBookings, useProfessionals, useServices } from '../../../store/useApp';
-import { getBusinessTodayStr } from '../../../utils/validation';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 import { useBusiness } from '../../../core/business/hooks';
 import { getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
 import { buildServiceRevenueBreakdown } from '../serviceRevenue';
@@ -179,7 +179,7 @@ export const useAdminReports = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  const todayStr = useMemo(() => getBusinessTodayStr(profile.timezone), [profile.timezone]);
+  const todayStr = useBusinessToday(profile.timezone);
 
   const setPeriod = (next: ReportPeriod) => {
     setPeriodState(next);

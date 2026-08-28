@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useBookings, useBusinessConfig, useCurrentUser, useProfessionals, useServices, useUpdateBookingStatus, useUpdateProfessional } from '../../../store/useApp';
 import { BookingStatus, Booking } from '../../../types';
-import { getBusinessTodayStr, formatBRL } from '../../../utils/validation';
+import { formatBRL } from '../../../utils/validation';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 import { useBusiness } from '../../../core/business/hooks';
 import { buildWhatsAppLink } from '../../../utils/whatsapp';
 import { getServiceName as getSharedServiceName } from '../../../utils/lookups';
@@ -71,7 +72,7 @@ export const useProfessionalDashboard = () => {
   // dispositivo do profissional). Antes, isto usava new Date() local, o que
   // podia classificar erroneamente agendamentos de "hoje" como passados ou
   // futuros caso o dispositivo do profissional estivesse em outro fuso horário.
-  const todayStr = useMemo(() => getBusinessTodayStr(profile.timezone), [profile.timezone]);
+  const todayStr = useBusinessToday(profile.timezone);
 
   const sortedBookings = useMemo(() => {
     return [...professionalBookings].sort((a, b) => {

@@ -6,10 +6,12 @@ import { getBusinessTodayStr, validatePhoneBR } from '../../../utils/validation'
 import { useBusiness } from '../../../core/business/hooks';
 import { getErrorMessage } from '../../../utils/errors';
 import { notificationService } from '../../../services/notificationService';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 
 export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialServiceId?: string, initialProfessionalId?: string) => {
   const { services: allServices, professionals: allProfessionals, config, currentUser, getAvailableSlots, addBooking } = useApp();
   const { profile } = useBusiness();
+  const businessToday = useBusinessToday(profile.timezone);
   // Profissionais desativados (active=false) não podem ser selecionados no
   // fluxo público de agendamento — antes, "desativar" um profissional não
   // tinha nenhum efeito aqui e ele continuava aparecendo para reserva.
@@ -66,6 +68,13 @@ export const useBookingFlow = (onSuccess?: (bookingId: string) => void, initialS
       setCustPhone(currentUser.phone || '');
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (selectedDate < businessToday) {
+      setSelectedDate(businessToday);
+      setSelectedTime('');
+    }
+  }, [businessToday, selectedDate]);
 
   // A loja com um único profissional não precisa pedir uma escolha óbvia.
   // Mantemos a seleção sincronizada para que a disponibilidade já esteja
