@@ -248,8 +248,20 @@ function mapConfig(row: ConfigRow, settings?: BookingSettingsRow | null): Busine
   };
 }
 
-async function loadBookings(role?: User['role']): Promise<BookingRow[]> {
-  if (!role || isAdministratorRole(role)) return [];
+async function loadBookings(role?: User['role'], adminDate?: string): Promise<BookingRow[]> {
+  if (!role) return [];
+
+  if (isAdministratorRole(role)) {
+    if (!adminDate) throw new Error('Data operacional do administrador não informada.');
+    const result = await supabase
+      .from('bookings')
+      .select(BOOKING_COLUMNS)
+      .eq('date', adminDate)
+      .order('time', { ascending: true });
+    throwIfError(result.error);
+    return (result.data || []) as unknown as BookingRow[];
+  }
+
   return loadPagedRows<BookingRow>((from, to) => supabase
     .from('bookings')
     .select(BOOKING_COLUMNS)
@@ -270,7 +282,7 @@ async function loadUsers(role?: User['role']): Promise<ProfileRow[]> {
 }
 
 export const bootstrapDataService = {
-  async loadAllData(role?: User['role']): Promise<{
+  async loadAllData(role?: User['role'], adminDate?: string): Promise<{
     config: BusinessConfig;
     professionals: Professional[];
     services: Service[];
@@ -295,7 +307,10 @@ export const bootstrapDataService = {
     // an unbounded media catalogue on their critical startup path.
     const galleryRequest = isAdministratorRole(role) ? galleryQuery : galleryQuery.limit(6);
 
-    const bookingsPromise = loadBookings(role);
+    // Start protected reads before awaiting the public group. Previously they
+    // began only after config/services/gallery finished, creating a full extra
+    // network waterfall for authenticated owners.
+    const bookingsPromise = loadBookings(role, adminDate);
     const usersPromise = loadUsers(role);
 
     const [
@@ -326,6 +341,7 @@ export const bootstrapDataService = {
     throwIfError(servicesRes.error);
     throwIfError(blocksRes.error);
     throwIfError(galleryRes.error);
+
 
     return {
       config: mapConfig(configRes.data as unknown as ConfigRow, settingsRes.data as unknown as BookingSettingsRow | null),
