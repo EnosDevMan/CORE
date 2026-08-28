@@ -32,7 +32,7 @@ if "isAdministratorRole" not in text:
     text = text.replace(import_anchor, import_anchor + "\nimport { isAdministratorRole } from '../auth/authorization';", 1)
 
 old = "    let mounted = true;\n    beginLoad();"
-new = "    let mounted = true;\n    let ownerDateWatcher: ReturnType<typeof window.setInterval> | undefined;\n    let refreshingBusinessDate = false;\n    beginLoad();"
+new = "    let mounted = true;\n    let ownerDateWatcher: number | undefined;\n    let refreshingBusinessDate = false;\n    beginLoad();"
 if old in text:
     text = text.replace(old, new, 1)
 elif 'ownerDateWatcher' not in text:
