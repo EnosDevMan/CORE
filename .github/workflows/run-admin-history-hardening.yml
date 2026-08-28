@@ -24,6 +24,7 @@ jobs:
           python .github/fix-admin-history-hardening.py
           python .github/admin-history-hardening.py
           python .github/compact-admin-history.py
+          git checkout origin/perf/admin-history-on-demand -- .github/workflows/quality.yml
           rm -f .github/admin-history-hardening.py .github/fix-admin-history-hardening.py .github/compact-admin-history.py .github/workflows/run-admin-history-hardening.yml
       - run: npm ci
       - name: Validate frontend
