@@ -12,6 +12,7 @@ const requireFile = (file) => {
 
 for (const file of [
   'dist/index.html',
+  'public/privacy-policy-content.json',
   'supabase/schema.sql',
   'supabase/tests/standalone_bootstrap.sql',
   'supabase/tests/data_api_grants.sql',
@@ -25,6 +26,18 @@ for (const file of [
   '.env.example',
 ]) {
   requireFile(file);
+}
+
+const policyPath = path.join(root, 'public/privacy-policy-content.json');
+if (existsSync(policyPath)) {
+  try {
+    const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    if (typeof policy.notice !== 'string' || !Array.isArray(policy.sections) || policy.sections.length < 1) {
+      failures.push('conteúdo da política de privacidade está incompleto');
+    }
+  } catch {
+    failures.push('privacy-policy-content.json não contém JSON válido');
+  }
 }
 
 const nodeMajor = Number(process.versions.node.split('.')[0]);
