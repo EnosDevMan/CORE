@@ -23,7 +23,8 @@ jobs:
         run: |
           python .github/fix-admin-history-hardening.py
           python .github/admin-history-hardening.py
-          rm -f .github/admin-history-hardening.py .github/fix-admin-history-hardening.py .github/workflows/run-admin-history-hardening.yml
+          python .github/compact-admin-history.py
+          rm -f .github/admin-history-hardening.py .github/fix-admin-history-hardening.py .github/compact-admin-history.py .github/workflows/run-admin-history-hardening.yml
       - run: npm ci
       - name: Validate frontend
         run: npm run verify
