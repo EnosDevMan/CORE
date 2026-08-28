@@ -49,8 +49,8 @@ interface DataState {
   // Bookings
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>;
   addAdministrativeBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>;
-  updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
-  rescheduleBooking: (id: string, date: string, time: string) => Promise<void>;
+  updateBookingStatus: (id: string, status: BookingStatus, sourceBooking?: Booking) => Promise<void>;
+  rescheduleBooking: (id: string, date: string, time: string, sourceBooking?: Booking) => Promise<void>;
   confirmBookingAttendance: (id: string) => Promise<void>;
 
   // Schedule Blocks
@@ -199,9 +199,9 @@ export const useDataStore = create<DataState>((set, get) => ({
     set(state => ({ bookings: [...state.bookings, newBooking] }));
     return newBooking;
   },
-  updateBookingStatus: async (id, status) => {
+  updateBookingStatus: async (id, status, sourceBooking) => {
     const previous = get().bookings;
-    const booking = previous.find(b => b.id === id);
+    const booking = previous.find(b => b.id === id) ?? sourceBooking;
     if (!booking) return;
     // "Confirmar" (Aguardando pagamento -> Confirmado) é, em toda a UI
     // (profissional e proprietário), o botão que confirma o recebimento do PIX da
@@ -229,9 +229,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       throw err;
     }
   },
-  rescheduleBooking: async (id, date, time) => {
+  rescheduleBooking: async (id, date, time, sourceBooking) => {
     const previous = get().bookings;
-    const booking = previous.find(b => b.id === id);
+    const booking = previous.find(b => b.id === id) ?? sourceBooking;
     if (!booking) return;
     set(state => ({ bookings: state.bookings.map(b => (b.id === id ? { ...b, date, time } : b)) }));
     try {

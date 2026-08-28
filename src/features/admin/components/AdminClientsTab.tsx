@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { User, Phone, Mail, Calendar as CalendarIcon, Search } from 'lucide-react';
-import { useBookings, useUsers } from '../../../store/useApp';
+import { useUsers } from '../../../store/useApp';
 import { isCustomerRole } from '../../../auth/authorization';
 import { useNiche } from '../../../core/business/hooks';
+import { adminHistoryService } from '../../../services/adminHistoryService';
 
 interface AdminClientsTabProps {
   formatBRL: (value: number) => string;
@@ -10,7 +11,6 @@ interface AdminClientsTabProps {
 
 export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) => {
   const users = useUsers();
-  const bookings = useBookings();
   const niche = useNiche();
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -24,19 +24,23 @@ export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) =
     ));
   }, [searchTerm, users]);
 
-  const histories = useMemo(() => {
-    const summaries = new Map<string, { count: number; totalSpent: number; lastDate: string }>();
+  const [histories, setHistories] = useState(new Map<string, { count: number; totalSpent: number; lastDate: string }>());
+  const [historyError, setHistoryError] = useState('');
 
-    for (const booking of bookings) {
-      const summary = summaries.get(booking.customerId) ?? { count: 0, totalSpent: 0, lastDate: '' };
-      summary.count += 1;
-      if (booking.status === 'Concluído') summary.totalSpent += booking.value;
-      if (booking.date > summary.lastDate) summary.lastDate = booking.date;
-      summaries.set(booking.customerId, summary);
-    }
-
-    return summaries;
-  }, [bookings]);
+  useEffect(() => {
+    let active = true;
+    void adminHistoryService.loadClientHistorySummaries()
+      .then(rows => {
+        if (!active) return;
+        setHistories(new Map(rows.map(row => [row.customerId, {
+          count: row.count,
+          totalSpent: row.totalSpent,
+          lastDate: row.lastDate,
+        }])));
+      })
+      .catch(error => { if (active) setHistoryError(error instanceof Error ? error.message : 'Não foi possível carregar o histórico dos clientes.'); });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -59,6 +63,8 @@ export const AdminClientsTab: React.FC<AdminClientsTabProps> = ({ formatBRL }) =
           <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
         </div>
       </div>
+
+      {historyError && <div className="text-sm text-slate-500">{historyError}</div>}
 
       {filteredClients.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-500 shadow-sm">

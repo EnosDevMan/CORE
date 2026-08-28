@@ -82,7 +82,6 @@ button, a, input, textarea, select { touch-action: manipulation; }
 
 /* Navigation intentionally feels like part of the selected structural style. */
 .core-navbar { background: color-mix(in srgb, var(--core-surface) 88%, transparent); backdrop-filter: blur(18px); }
-.core-navbar__brand { display: inline-flex; align-items: center; }
 [data-theme-style="heritage"] .core-navbar { border-bottom-width: 2px; }
 [data-theme-style="heritage"] .core-brand-mark { border-radius: .2rem; }
 [data-theme-style="editorial"] .core-navbar .core-brand-name { font-weight: 600; }

@@ -4,6 +4,7 @@ import { businessService } from '../core/business/businessService';
 import { bootstrapDataService } from '../services/bootstrapDataService';
 import { useConfigStore } from './configStore';
 import { useDataStore } from './dataStore';
+import { getBusinessTodayStr } from '../utils/validation';
 
 /**
  * Inicializa autenticação e, depois dela, carrega dados do negócio somente
@@ -48,7 +49,10 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
           return;
         }
 
-        const data = await bootstrapDataService.loadAllData(currentUserRole);
+        const data = await bootstrapDataService.loadAllData(
+          currentUserRole,
+          getBusinessTodayStr(runtime.profile.timezone),
+        );
         if (mounted) {
           setConfig(data.config);
           setInitialData({

@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import {
   type Booking,
-  type BookingServiceItem,
   type BusinessConfig,
   type GalleryPhoto,
   type Professional,
@@ -88,15 +87,6 @@ type ScheduleBlockRow = {
   end_time?: string;
   reason?: string;
   special_hours?: ScheduleBlock['specialHours'];
-};
-
-type BookingServiceRow = {
-  booking_id: string;
-  service_id: string;
-  position: number;
-  name_snapshot: string;
-  duration_minutes: number;
-  price_snapshot: number | string;
 };
 
 type GalleryPhotoRow = {
@@ -190,7 +180,7 @@ function mapService(row: ServiceRow): Service {
   };
 }
 
-function mapBooking(row: BookingRow, serviceItems?: BookingServiceItem[]): Booking {
+export function mapBooking(row: BookingRow): Booking {
   return {
     id: row.id,
     customerId: row.customer_id ?? 'guest',
@@ -209,7 +199,6 @@ function mapBooking(row: BookingRow, serviceItems?: BookingServiceItem[]): Booki
     startsAt: row.starts_at ?? undefined,
     endsAt: row.ends_at ?? undefined,
     durationMinutes: row.duration_minutes ?? undefined,
-    serviceItems: serviceItems?.length ? serviceItems : undefined,
   };
 }
 
@@ -259,8 +248,20 @@ function mapConfig(row: ConfigRow, settings?: BookingSettingsRow | null): Busine
   };
 }
 
-async function loadBookings(role?: User['role']): Promise<BookingRow[]> {
+async function loadBookings(role?: User['role'], adminDate?: string): Promise<BookingRow[]> {
   if (!role) return [];
+
+  if (isAdministratorRole(role)) {
+    if (!adminDate) throw new Error('Data operacional do administrador não informada.');
+    const result = await supabase
+      .from('bookings')
+      .select(BOOKING_COLUMNS)
+      .eq('date', adminDate)
+      .order('time', { ascending: true });
+    throwIfError(result.error);
+    return (result.data || []) as unknown as BookingRow[];
+  }
+
   const rows: BookingRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const result = await supabase
@@ -290,24 +291,8 @@ async function loadUsers(role?: User['role']): Promise<ProfileRow[]> {
   }
 }
 
-async function loadServiceItems(role?: User['role']): Promise<BookingServiceRow[]> {
-  if (!isAdministratorRole(role)) return [];
-  const rows: BookingServiceRow[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const result = await supabase
-      .from('booking_services')
-      .select('booking_id,service_id,position,name_snapshot,duration_minutes,price_snapshot')
-      .order('booking_id')
-      .order('position')
-      .range(from, from + PAGE_SIZE - 1);
-    throwIfError(result.error);
-    rows.push(...((result.data || []) as unknown as BookingServiceRow[]));
-    if ((result.data?.length ?? 0) < PAGE_SIZE) return rows;
-  }
-}
-
 export const bootstrapDataService = {
-  async loadAllData(role?: User['role']): Promise<{
+  async loadAllData(role?: User['role'], adminDate?: string): Promise<{
     config: BusinessConfig;
     professionals: Professional[];
     services: Service[];
@@ -335,9 +320,8 @@ export const bootstrapDataService = {
     // Start protected reads before awaiting the public group. Previously they
     // began only after config/services/gallery finished, creating a full extra
     // network waterfall for authenticated owners.
-    const bookingsPromise = loadBookings(role);
+    const bookingsPromise = loadBookings(role, adminDate);
     const usersPromise = loadUsers(role);
-    const serviceItemsPromise = loadServiceItems(role);
 
     const [
       configRes,
@@ -348,7 +332,6 @@ export const bootstrapDataService = {
       galleryRes,
       bookings,
       users,
-      serviceItemRows,
     ] = await Promise.all([
       supabase.from('barbershop_config').select(CONFIG_COLUMNS).eq('id', true).single(),
       supabase.from('booking_settings').select('interval_minutes,booking_window_days,minimum_notice_minutes,cancellation_notice_minutes').eq('id', true).maybeSingle(),
@@ -360,7 +343,6 @@ export const bootstrapDataService = {
       galleryRequest,
       bookingsPromise,
       usersPromise,
-      serviceItemsPromise,
     ]);
 
     throwIfError(configRes.error);
@@ -370,17 +352,6 @@ export const bootstrapDataService = {
     throwIfError(blocksRes.error);
     throwIfError(galleryRes.error);
 
-    const serviceItemsByBooking = new Map<string, BookingServiceItem[]>();
-    for (const row of serviceItemRows) {
-      const items = serviceItemsByBooking.get(row.booking_id) ?? [];
-      items.push({
-        serviceId: row.service_id,
-        name: row.name_snapshot,
-        durationMinutes: row.duration_minutes,
-        price: Number(row.price_snapshot),
-      });
-      serviceItemsByBooking.set(row.booking_id, items);
-    }
 
     return {
       config: mapConfig(configRes.data as unknown as ConfigRow, settingsRes.data as unknown as BookingSettingsRow | null),
@@ -388,7 +359,7 @@ export const bootstrapDataService = {
         .map(mapProfessional)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
       services: ((servicesRes.data || []) as unknown as ServiceRow[]).map(mapService),
-      bookings: bookings.map(booking => mapBooking(booking, serviceItemsByBooking.get(booking.id))),
+      bookings: bookings.map(mapBooking),
       users: users.map(mapProfile),
       scheduleBlocks: ((blocksRes.data || []) as unknown as ScheduleBlockRow[]).map(mapScheduleBlock),
       galleryPhotos: ((galleryRes.data || []) as unknown as GalleryPhotoRow[]).map(mapGalleryPhoto),
