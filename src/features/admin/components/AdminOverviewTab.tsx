@@ -1,27 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { DollarSign, Clock, UserPlus, Calendar as CalendarIcon, CheckCircle, XCircle, ArrowRight, User, Scissors } from 'lucide-react';
-import { useUsers } from '../../../store/useApp';
-import type { Booking, BookingStatus } from '../../../types';
+import { useBookings, useUsers } from '../../../store/useApp';
+import { BookingStatus } from '../../../types';
 import { getBusinessNow } from '../../../utils/validation';
 import { useBusinessToday } from '../../../hooks/useBusinessToday';
+import { Booking } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
 import { useBusiness, useNiche } from '../../../core/business/hooks';
 import { isCustomerRole } from '../../../auth/authorization';
-import { adminHistoryService } from '../../../services/adminHistoryService';
-import { getErrorMessage } from '../../../utils/errors';
 
 interface AdminOverviewTabProps {
   formatBRL: (value: number) => string;
   getProfessionalName: (id: string) => string;
   getServiceName: (id: string) => string;
-  handleUpdateBookingStatus: (id: string, newStatus: BookingStatus, sourceBooking?: Booking) => Promise<boolean>;
+  handleUpdateBookingStatus: (id: string, newStatus: BookingStatus) => Promise<void>;
   onViewFullReport: () => void;
   canViewReports: boolean;
   showFeedback: (message: string, isError: boolean) => void;
 }
 
-/** Resumo operacional diário carregado diretamente para a data do negócio. */
+/** Relatório diário: apenas dados necessários para o snapshot de hoje. */
 export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   formatBRL,
   getProfessionalName,
@@ -31,26 +30,17 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   canViewReports,
   showFeedback,
 }) => {
+  const bookings = useBookings();
   const users = useUsers();
   const niche = useNiche();
   const { profile } = useBusiness();
   const todayStr = useBusinessToday(profile.timezone);
-  const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
-  const [bookingsError, setBookingsError] = useState('');
-  const [loadingBookings, setLoadingBookings] = useState(true);
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [rescheduling, setRescheduling] = useState<Booking | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    setLoadingBookings(true);
-    setBookingsError('');
-    void adminHistoryService.loadBookingsRange(todayStr, todayStr)
-      .then(rows => { if (active) setTodayBookings(rows); })
-      .catch(error => { if (active) { setTodayBookings([]); setBookingsError(getErrorMessage(error, 'Não foi possível carregar os agendamentos de hoje.')); } })
-      .finally(() => { if (active) setLoadingBookings(false); });
-    return () => { active = false; };
-  }, [loadAttempt, todayStr]);
+  const todayBookings = useMemo(
+    () => bookings.filter(booking => booking.date === todayStr).sort((a, b) => a.time.localeCompare(b.time)),
+    [bookings, todayStr],
+  );
 
   const revenueToday = useMemo(
     () => todayBookings.filter(booking => booking.status === 'Concluído').reduce((acc, booking) => acc + booking.value, 0),
@@ -73,12 +63,6 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
     weekday: 'long', day: '2-digit', month: 'long',
   });
 
-  const updateStatus = async (id: string, status: BookingStatus) => {
-    const source = todayBookings.find(booking => booking.id === id);
-    if (!source || !(await handleUpdateBookingStatus(id, status, source))) return;
-    setTodayBookings(rows => rows.map(booking => booking.id === id ? { ...booking, status } : booking));
-  };
-
   const getStatusChip = (status: BookingStatus) => (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shrink-0 ${
       status === 'Aguardando pagamento' ? 'bg-amber-50 text-amber-700 border-amber-200' :
@@ -94,17 +78,13 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
     </span>
   );
 
-  const renderActions = (booking: Booking) => {
+  const renderActions = (booking: typeof todayBookings[number]) => {
     if (booking.status === 'Concluído' || booking.status === 'Cancelado' || booking.status === 'Não compareceu') return null;
-    return <div className="flex items-center gap-2 flex-wrap">
-      <BookingStatusActions booking={booking} handleStatusChange={updateStatus} onReschedule={setRescheduling} />
-    </div>;
-  };
-
-  const handleRescheduled = (updated: Booking) => {
-    setTodayBookings(rows => updated.date === todayStr
-      ? rows.map(booking => booking.id === updated.id ? updated : booking).sort((a, b) => a.time.localeCompare(b.time))
-      : rows.filter(booking => booking.id !== updated.id));
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <BookingStatusActions booking={booking} handleStatusChange={handleUpdateBookingStatus} onReschedule={setRescheduling} />
+      </div>
+    );
   };
 
   return (
@@ -165,11 +145,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           <p className="text-xs text-slate-500 mt-1">Ordenados por horário</p>
         </div>
 
-        {loadingBookings ? (
-          <p className="px-6 py-10 text-center text-slate-400 text-sm">Carregando agendamentos de hoje...</p>
-        ) : bookingsError ? (
-          <p className="px-6 py-10 text-center text-rose-600 text-sm">{bookingsError} <button type="button" className="font-bold underline" onClick={() => setLoadAttempt(value => value + 1)}>Tentar novamente</button></p>
-        ) : todayBookings.length === 0 ? (
+        {todayBookings.length === 0 ? (
           <p className="px-6 py-10 text-center text-slate-400 text-sm">Nenhum agendamento para hoje.</p>
         ) : (
           <>
@@ -211,7 +187,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {todayBookings.map(booking => (
+                  {todayBookings.map((booking) => (
                     <tr key={booking.id} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-900">
                         <div className="flex flex-col">
@@ -220,8 +196,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                         </div>
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">{booking.time}h</td>
-                      <td className="px-6 py-4"><span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">{getProfessionalName(booking.professionalId)}</span></td>
-                      <td className="px-6 py-4"><span className="text-slate-600 font-medium text-xs">{getServiceName(booking.serviceId)}</span></td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                          {getProfessionalName(booking.professionalId)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-slate-600 font-medium text-xs">{getServiceName(booking.serviceId)}</span>
+                      </td>
                       <td className="px-6 py-4">{getStatusChip(booking.status)}</td>
                       <td className="px-6 py-4 text-right">{renderActions(booking)}</td>
                     </tr>
@@ -232,7 +214,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           </>
         )}
       </div>
-      {rescheduling && <AdminRescheduleDialog booking={rescheduling} onClose={() => setRescheduling(null)} showFeedback={showFeedback} onRescheduled={handleRescheduled} />}
+      {rescheduling && <AdminRescheduleDialog booking={rescheduling} onClose={() => setRescheduling(null)} showFeedback={showFeedback} />}
     </div>
   );
 };
