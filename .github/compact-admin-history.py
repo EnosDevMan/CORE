@@ -37,3 +37,12 @@ for path in (
     text = text.replace('rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500', 'text-sm text-slate-500')
     text = text.replace('rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700', 'text-sm text-slate-500')
     p.write_text(text)
+
+# Navbar button already contains BusinessBrand, which is inline-flex and is
+# centered by the navbar row. The wrapper rule duplicated that layout work.
+p = Path('src/index.css')
+text = p.read_text()
+rule = '.core-navbar__brand { display: inline-flex; align-items: center; }\n'
+if rule not in text:
+    raise SystemExit('redundant navbar wrapper rule not found')
+p.write_text(text.replace(rule, '', 1))
