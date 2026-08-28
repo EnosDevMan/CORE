@@ -1,8 +1,9 @@
 import { ArrowUpRight, Facebook, Instagram, MapPin, Phone, WalletCards } from 'lucide-react';
 import type { BusinessConfig, Professional, ScheduleBlock } from '../../../types';
 import { BusinessBrand } from '../../../core/business/BusinessBrand';
-import { getBusinessTodayStr, summarizeWeeklySchedule } from '../../../utils/validation';
+import { summarizeWeeklySchedule } from '../../../utils/validation';
 import { useBusiness } from '../../../core/business/hooks';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 
 interface FooterSectionProps {
   config: BusinessConfig;
@@ -13,7 +14,7 @@ interface FooterSectionProps {
 
 export function FooterSection({ config, professionals, scheduleBlocks, onOpenPrivacy }: FooterSectionProps) {
   const { profile } = useBusiness();
-  const today = getBusinessTodayStr(profile.timezone);
+  const today = useBusinessToday(profile.timezone);
   const activeProfessionalIds = new Set(professionals.map(professional => professional.id));
   const specialOpenings = scheduleBlocks
     .filter(block => block.type === 'special' && block.specialHours && block.date && block.date >= today && (block.professionalId === 'all' || activeProfessionalIds.has(block.professionalId)))

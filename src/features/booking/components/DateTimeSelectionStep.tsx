@@ -1,7 +1,8 @@
 import React from 'react';
 import { Calendar as CalendarIcon, Clock, Loader2 } from 'lucide-react';
-import { getBusinessTodayStr, getBusinessMaxBookingDateStr } from '../../../utils/validation';
+import { getBusinessMaxBookingDateStr } from '../../../utils/validation';
 import { useBusiness } from '../../../core/business/hooks';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 
 interface Props {
   selectedDate: string;
@@ -25,7 +26,7 @@ export const DateTimeSelectionStep: React.FC<Props> = ({
   bookingWindowDays
 }) => {
   const { profile } = useBusiness();
-  const today = getBusinessTodayStr(profile.timezone);
+  const today = useBusinessToday(profile.timezone);
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div>

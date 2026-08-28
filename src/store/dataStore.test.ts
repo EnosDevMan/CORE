@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDataStore } from './dataStore';
 import { dataService } from '../services/dataService';
-import type { Booking, Professional, User } from '../types';
+import type { Booking, Professional, Service, User } from '../types';
 
 vi.mock('../services/dataService', () => ({
   dataService: {
     updateUserRole: vi.fn(),
     deleteUserAccount: vi.fn(),
+    saveService: vi.fn(),
   },
 }));
 
@@ -39,6 +40,16 @@ const booking: Booking = {
   feePaid: false,
   value: 50,
   createdAt: '2026-08-24T10:00:00Z',
+};
+
+const service = (id: string, name: string): Service => ({
+  id, name, duration: 30, price: 50, description: '', category: 'Geral', active: true,
+});
+
+const deferred = () => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<void>((_resolve, rejectPromise) => { reject = rejectPromise; });
+  return { promise, reject };
 };
 
 beforeEach(() => {
@@ -90,5 +101,40 @@ describe('owner-managed account state', () => {
 
     expect(useDataStore.getState().users).toEqual([customer]);
     expect(useDataStore.getState().bookings[0]?.customerId).toBe(customer.id);
+  });
+});
+
+describe('concurrent optimistic mutations', () => {
+  it('does not erase a confirmed edit to another record when an older request fails', async () => {
+    const firstFailure = deferred();
+    vi.mocked(dataService.saveService)
+      .mockReturnValueOnce(firstFailure.promise)
+      .mockResolvedValueOnce(undefined);
+    useDataStore.setState({ services: [service('one', 'One'), service('two', 'Two')] });
+
+    const failingUpdate = useDataStore.getState().updateService(service('one', 'One changed'));
+    await useDataStore.getState().updateService(service('two', 'Two changed'));
+    firstFailure.reject(new Error('network failed'));
+
+    await expect(failingUpdate).rejects.toThrow('network failed');
+    expect(useDataStore.getState().services).toEqual([
+      service('one', 'One'),
+      service('two', 'Two changed'),
+    ]);
+  });
+
+  it('keeps the newest edit when an older request for the same record fails later', async () => {
+    const firstFailure = deferred();
+    vi.mocked(dataService.saveService)
+      .mockReturnValueOnce(firstFailure.promise)
+      .mockResolvedValueOnce(undefined);
+    useDataStore.setState({ services: [service('one', 'One')] });
+
+    const olderUpdate = useDataStore.getState().updateService(service('one', 'Older'));
+    await useDataStore.getState().updateService(service('one', 'Newest'));
+    firstFailure.reject(new Error('late failure'));
+
+    await expect(olderUpdate).rejects.toThrow('late failure');
+    expect(useDataStore.getState().services).toEqual([service('one', 'Newest')]);
   });
 });
