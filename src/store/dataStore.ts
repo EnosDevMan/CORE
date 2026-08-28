@@ -64,8 +64,8 @@ interface DataState {
   // Bookings
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>;
   addAdministrativeBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>;
-  updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
-  rescheduleBooking: (id: string, date: string, time: string) => Promise<void>;
+  updateBookingStatus: (id: string, status: BookingStatus, sourceBooking?: Booking) => Promise<void>;
+  rescheduleBooking: (id: string, date: string, time: string, sourceBooking?: Booking) => Promise<void>;
   confirmBookingAttendance: (id: string) => Promise<void>;
 
   // Schedule Blocks
@@ -225,8 +225,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     set(state => ({ bookings: [...state.bookings, newBooking] }));
     return newBooking;
   },
-  updateBookingStatus: async (id, status) => {
-    const booking = get().bookings.find(b => b.id === id);
+  updateBookingStatus: async (id, status, sourceBooking) => {
+    const booking = get().bookings.find(b => b.id === id) ?? sourceBooking;
     if (!booking) return;
     // "Confirmar" (Aguardando pagamento -> Confirmado) é, em toda a UI
     // (profissional e proprietário), o botão que confirma o recebimento do PIX da
@@ -259,8 +259,8 @@ export const useDataStore = create<DataState>((set, get) => ({
       mutation.finish();
     }
   },
-  rescheduleBooking: async (id, date, time) => {
-    const booking = get().bookings.find(b => b.id === id);
+  rescheduleBooking: async (id, date, time, sourceBooking) => {
+    const booking = get().bookings.find(b => b.id === id) ?? sourceBooking;
     if (!booking) return;
     const mutation = beginMutation('bookings', id);
     set(state => ({ bookings: state.bookings.map(b => (b.id === id ? { ...b, date, time } : b)) }));
@@ -270,7 +270,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       // clientes reagendando para o mesmo horário ao mesmo tempo podiam
       // gerar um conflito de agenda antes desta correção.
       const updated = await dataService.rescheduleBooking(id, date, time);
-      if (mutation.isLatest()) set(state => ({ bookings: state.bookings.map(b => (b.id === id ? updated : b)) }));
+      if (mutation.isLatest()) set(state => ({ bookings: [...state.bookings.filter(b => b.id !== id), updated] }));
     } catch (err) {
       if (mutation.isLatest()) set(state => ({ bookings: state.bookings.map(item => item.id === id ? booking : item) }));
       throw err;

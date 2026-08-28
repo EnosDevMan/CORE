@@ -1,20 +1,23 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Search } from 'lucide-react';
-import { useBookings, useProfessionals, useServices, useUpdateBookingStatus } from '../../../store/useApp';
-import { getBusinessTodayStr } from '../../../utils/validation';
+import { useProfessionals, useServices, useUpdateBookingStatus } from '../../../store/useApp';
+import { useBusinessToday } from '../../../hooks/useBusinessToday';
 import { useBusiness } from '../../../core/business/hooks';
 import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
 import { Booking, BookingStatus } from '../../../types';
 import { BookingStatusActions } from '../../../components/BookingStatusActions';
 import { AdminRescheduleDialog } from './agenda/AdminRescheduleDialog';
 import { getErrorMessage } from '../../../utils/errors';
+import { adminHistoryService } from '../../../services/adminHistoryService';
 
 interface AdminAgendaTabProps {
   showFeedback: (msg: string, isError: boolean) => void;
 }
 
 export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) => {
-  const bookings = useBookings();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [bookingsError, setBookingsError] = useState('');
   const professionals = useProfessionals();
   const services = useServices();
   const updateBookingStatus = useUpdateBookingStatus();
@@ -24,7 +27,9 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
   // dispositivo do admin), para que o filtro padrão da agenda sempre
   // corresponda ao dia real de funcionamento do estabelecimento, mesmo que o
   // administrador esteja acessando de outro fuso horário.
-  const [dateFilter, setDateFilter] = useState(() => getBusinessTodayStr(profile.timezone));
+  const todayStr = useBusinessToday(profile.timezone);
+  const [dateFilter, setDateFilter] = useState(todayStr);
+  useEffect(() => setDateFilter(todayStr), [todayStr]);
   const [professionalFilter, setProfessionalFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -36,9 +41,13 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
   const getServiceName = (id: string) => getSharedServiceName(services, id);
 
   const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
-    if (updateBookingStatus) {
+    const sourceBooking = bookings.find(item => item.id === bookingId);
+    if (updateBookingStatus && sourceBooking) {
       try {
-        await updateBookingStatus(bookingId, newStatus);
+        await updateBookingStatus(bookingId, newStatus, sourceBooking);
+        setBookings(current => current.map(item => item.id === bookingId
+          ? { ...item, status: newStatus, feePaid: newStatus === 'Confirmado' ? true : item.feePaid }
+          : item));
         const statusMessages: Record<BookingStatus, string> = {
           'Confirmado': 'Agendamento confirmado!',
           'Concluído': 'Agendamento marcado como concluído!',
@@ -70,6 +79,17 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
     const toYmd = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     return { rangeStart: toYmd(start), rangeEnd: toYmd(end) };
   }, [dateFilter, period]);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingBookings(true);
+    setBookingsError('');
+    void adminHistoryService.loadBookingsRange(rangeStart, rangeEnd)
+      .then(rows => { if (active) setBookings(rows); })
+      .catch(error => { if (active) setBookingsError(getErrorMessage(error, 'Não foi possível carregar a agenda.')); })
+      .finally(() => { if (active) setLoadingBookings(false); });
+    return () => { active = false; };
+  }, [rangeEnd, rangeStart]);
 
   const filteredBookings = useMemo(() => bookings.filter(booking => {
     const matchDate = booking.date >= rangeStart && booking.date <= rangeEnd;
@@ -139,7 +159,11 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
           </div>
 
           <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto custom-scrollbar">
-            {filteredBookings.length === 0 ? (
+            {loadingBookings ? (
+              <div className="p-6 text-sm text-slate-500">Carregando agenda...</div>
+            ) : bookingsError ? (
+              <div className="p-6 text-sm text-slate-500">{bookingsError}</div>
+            ) : filteredBookings.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
                   <CalendarIcon size={24} className="text-slate-400" />
@@ -191,7 +215,7 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
             )}
           </div>
       </div>
-      {rescheduling && <AdminRescheduleDialog booking={rescheduling} onClose={() => setRescheduling(null)} showFeedback={showFeedback} />}
+      {rescheduling && <AdminRescheduleDialog booking={rescheduling} onClose={() => setRescheduling(null)} showFeedback={showFeedback} onRescheduled={updated => setBookings(current => current.map(item => item.id === updated.id ? updated : item))} />}
     </div>
   );
 };

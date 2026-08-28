@@ -44,6 +44,8 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ formatBRL }) =
     maxChartValue,
     professionalBreakdown,
     serviceBreakdown,
+    loading,
+    loadError,
   } = useAdminReports();
 
   return (
@@ -115,6 +117,9 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ formatBRL }) =
           </div>
         )}
       </div>
+
+      {loading && <div className="text-sm text-slate-500">Carregando dados do período...</div>}
+      {loadError && <div className="text-sm text-slate-500">{loadError}</div>}
 
       {/* Stats do período */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
