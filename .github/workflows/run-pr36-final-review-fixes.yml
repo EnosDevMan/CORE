@@ -23,6 +23,7 @@ jobs:
         run: |
           python .github/pr36-final-review-fixes.py
           python .github/fix-pr36-pagination-module.py
+          python .github/compact-pr36-availability.py
       - run: npm ci
       - name: Validate project
         run: npm run verify
@@ -30,6 +31,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/services/bootstrapDataService.ts src/services/adminHistoryService.ts src/services/pagedQuery.ts src/store/appStore.ts src/features/admin/components/agenda/AdminBookingForm.tsx src/features/admin/components/agenda/AdminBookingForm.test.tsx src/features/admin/components/agenda/AdminRescheduleDialog.tsx src/services/adminHistoryPagination.test.ts
+          git add src/services/bootstrapDataService.ts src/services/adminHistoryService.ts src/services/pagedQuery.ts src/store/appStore.ts src/features/admin/hooks/useAdminAvailableSlots.ts src/features/admin/components/agenda/AdminBookingForm.tsx src/features/admin/components/agenda/AdminBookingForm.test.tsx src/features/admin/components/agenda/AdminRescheduleDialog.tsx src/services/adminHistoryPagination.test.ts
           git commit -m "Finish admin history review hardening"
           git push origin HEAD:perf/admin-history-on-demand
