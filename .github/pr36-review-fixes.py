@@ -12,20 +12,20 @@ elif 'setBookings([]);' not in text:
 p.write_text(text)
 
 # 2) A booking loaded on demand can be absent from the day-scoped owner store.
-# After a successful reschedule, upsert the authoritative RPC result instead of only mapping existing rows.
+# Replace any cached copy by id and append the authoritative RPC result, which is also a correct insert.
 p = Path('src/store/dataStore.ts')
 text = p.read_text()
 old = "      const updated = await dataService.rescheduleBooking(id, date, time);\n      set(state => ({ bookings: state.bookings.map(b => (b.id === id ? updated : b)) }));"
-new = "      const updated = await dataService.rescheduleBooking(id, date, time);\n      set(state => ({\n        bookings: state.bookings.some(b => b.id === id)\n          ? state.bookings.map(b => (b.id === id ? updated : b))\n          : [...state.bookings, updated],\n      }));"
+new = "      const updated = await dataService.rescheduleBooking(id, date, time);\n      set(state => ({ bookings: [...state.bookings.filter(b => b.id !== id), updated] }));"
 if old in text:
     text = text.replace(old, new, 1)
-elif ': [...state.bookings, updated]' not in text:
+elif 'filter(b => b.id !== id), updated' not in text:
     raise SystemExit('dataStore reschedule target not found')
 p.write_text(text)
 
 # 3) Owner bootstrap is intentionally day-scoped. Keep an open owner/admin session correct across the
-# establishment's midnight. Mark the new date before the request so the interval cannot duplicate it;
-# reset on failure so the next tick retries.
+# establishment's midnight. The loaded date changes only after a successful refresh, so failures retry
+# naturally on the next tick without separate retry state.
 p = Path('src/store/AppDataLoader.tsx')
 text = p.read_text()
 old = "    let mounted = true;\n    beginLoad();"
@@ -36,7 +36,7 @@ elif 'const applyData' not in text:
     raise SystemExit('AppDataLoader state target not found')
 
 old = "        if (mounted) {\n          setConfig(data.config);\n          setInitialData({\n            professionals: data.professionals,\n            services: data.services,\n            bookings: data.bookings,\n            users: data.users,\n            scheduleBlocks: data.scheduleBlocks || [],\n            galleryPhotos: data.galleryPhotos || [],\n          });\n        }"
-new = "        if (mounted) {\n          applyData(data);\n          if (currentUserRole === 'owner' || currentUserRole === 'admin') {\n            let loadedBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n            ownerDateWatcher = window.setInterval(() => {\n              const currentBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n              if (!mounted || currentBusinessDate === loadedBusinessDate) return;\n              loadedBusinessDate = currentBusinessDate;\n              void bootstrapDataService.loadAllData(currentUserRole, currentBusinessDate)\n                .then(freshData => { if (mounted) applyData(freshData); })\n                .catch(() => { loadedBusinessDate = ''; });\n            }, 30_000);\n          }\n        }"
+new = "        if (mounted) {\n          applyData(data);\n          if (currentUserRole === 'owner' || currentUserRole === 'admin') {\n            let loadedBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n            ownerDateWatcher = window.setInterval(() => {\n              const currentBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n              if (!mounted || currentBusinessDate === loadedBusinessDate) return;\n              void bootstrapDataService.loadAllData(currentUserRole, currentBusinessDate)\n                .then(freshData => {\n                  if (!mounted) return;\n                  loadedBusinessDate = currentBusinessDate;\n                  applyData(freshData);\n                })\n                .catch(() => undefined);\n            }, 30_000);\n          }\n        }"
 if old in text:
     text = text.replace(old, new, 1)
 elif 'loadedBusinessDate' not in text:
