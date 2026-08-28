@@ -1,0 +1,33 @@
+name: Run PR 36 final review fixes
+
+on:
+  push:
+    branches:
+      - perf/admin-history-on-demand
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply final review fixes
+        run: python .github/pr36-final-review-fixes.py
+      - run: npm ci
+      - name: Validate project
+        run: npm run verify
+      - name: Commit validated fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/bootstrapDataService.ts src/services/adminHistoryService.ts src/store/appStore.ts src/features/admin/components/agenda/AdminBookingForm.tsx src/features/admin/components/agenda/AdminBookingForm.test.tsx src/features/admin/components/agenda/AdminRescheduleDialog.tsx src/services/adminHistoryPagination.test.ts
+          git commit -m "Finish admin history review hardening"
+          git push origin HEAD:perf/admin-history-on-demand
