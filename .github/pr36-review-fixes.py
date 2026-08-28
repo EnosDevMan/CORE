@@ -23,23 +23,20 @@ elif ': [...state.bookings, updated]' not in text:
     raise SystemExit('dataStore reschedule target not found')
 p.write_text(text)
 
-# 3) Owner bootstrap is intentionally day-scoped. Keep an open session correct across the
-# establishment's midnight by checking the business date and silently refreshing only when it changes.
+# 3) Owner bootstrap is intentionally day-scoped. Keep an open owner/admin session correct across the
+# establishment's midnight. Mark the new date before the request so the interval cannot duplicate it;
+# reset on failure so the next tick retries.
 p = Path('src/store/AppDataLoader.tsx')
 text = p.read_text()
-import_anchor = "import { getBusinessTodayStr } from '../utils/validation';"
-if "isAdministratorRole" not in text:
-    text = text.replace(import_anchor, import_anchor + "\nimport { isAdministratorRole } from '../auth/authorization';", 1)
-
 old = "    let mounted = true;\n    beginLoad();"
-new = "    let mounted = true;\n    let ownerDateWatcher: number | undefined;\n    let refreshingBusinessDate = false;\n    beginLoad();\n\n    type LoadedData = Awaited<ReturnType<typeof bootstrapDataService.loadAllData>>;\n    const applyData = (data: LoadedData) => {\n      setConfig(data.config);\n      setInitialData({\n        professionals: data.professionals, services: data.services, bookings: data.bookings, users: data.users,\n        scheduleBlocks: data.scheduleBlocks || [], galleryPhotos: data.galleryPhotos || [],\n      });\n    };"
+new = "    let mounted = true;\n    let ownerDateWatcher: number | undefined;\n    beginLoad();\n\n    type LoadedData = Awaited<ReturnType<typeof bootstrapDataService.loadAllData>>;\n    const applyData = (data: LoadedData) => {\n      setConfig(data.config);\n      setInitialData({\n        professionals: data.professionals, services: data.services, bookings: data.bookings, users: data.users,\n        scheduleBlocks: data.scheduleBlocks || [], galleryPhotos: data.galleryPhotos || [],\n      });\n    };"
 if old in text:
     text = text.replace(old, new, 1)
 elif 'const applyData' not in text:
     raise SystemExit('AppDataLoader state target not found')
 
 old = "        if (mounted) {\n          setConfig(data.config);\n          setInitialData({\n            professionals: data.professionals,\n            services: data.services,\n            bookings: data.bookings,\n            users: data.users,\n            scheduleBlocks: data.scheduleBlocks || [],\n            galleryPhotos: data.galleryPhotos || [],\n          });\n        }"
-new = "        if (mounted) {\n          applyData(data);\n          if (isAdministratorRole(currentUserRole)) {\n            let loadedBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n            ownerDateWatcher = window.setInterval(() => {\n              if (!mounted || refreshingBusinessDate) return;\n              const currentBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n              if (currentBusinessDate === loadedBusinessDate) return;\n              refreshingBusinessDate = true;\n              void bootstrapDataService.loadAllData(currentUserRole, currentBusinessDate)\n                .then(freshData => {\n                  if (!mounted) return;\n                  loadedBusinessDate = currentBusinessDate;\n                  applyData(freshData);\n                })\n                .catch(() => undefined)\n                .finally(() => { refreshingBusinessDate = false; });\n            }, 30_000);\n          }\n        }"
+new = "        if (mounted) {\n          applyData(data);\n          if (currentUserRole === 'owner' || currentUserRole === 'admin') {\n            let loadedBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n            ownerDateWatcher = window.setInterval(() => {\n              const currentBusinessDate = getBusinessTodayStr(runtime.profile.timezone);\n              if (!mounted || currentBusinessDate === loadedBusinessDate) return;\n              loadedBusinessDate = currentBusinessDate;\n              void bootstrapDataService.loadAllData(currentUserRole, currentBusinessDate)\n                .then(freshData => { if (mounted) applyData(freshData); })\n                .catch(() => { loadedBusinessDate = ''; });\n            }, 30_000);\n          }\n        }"
 if old in text:
     text = text.replace(old, new, 1)
 elif 'loadedBusinessDate' not in text:
