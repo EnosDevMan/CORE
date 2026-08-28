@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { Professional, Service, BusinessConfig, Booking, BookingServiceItem, User, ScheduleBlock, GalleryPhoto, WorkingHours, UserRole } from '../types';
-import { isAdministratorRole, isProfessionalRole, parseUserRole } from '../auth/authorization';
+import { Professional, Service, BusinessConfig, Booking, ScheduleBlock, GalleryPhoto } from '../types';
 export { DEFAULT_PROFESSIONAL_AVATAR as DEFAULT_AVATAR } from '../features/professionals/constants';
 
 /**
@@ -16,29 +15,6 @@ export { DEFAULT_PROFESSIONAL_AVATAR as DEFAULT_AVATAR } from '../features/profe
  */
 
 // Tipos do Supabase (como vêm do wire/JSON)
-type ProfileRow = {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  phone?: string;
-  avatar?: string;
-  profile_id?: string;
-  created_at?: string;
-};
-
-type ProfessionalRow = {
-  id: string;
-  name: string;
-  avatar: string;
-  specialty: string;
-  active: boolean;
-  working_hours?: WorkingHours;
-  description?: string;
-  order?: number;
-  user_id?: string;
-};
-
 type ServiceRow = {
   id: string;
   name: string;
@@ -83,15 +59,6 @@ type ScheduleBlockRow = {
   special_hours?: ScheduleBlock['specialHours'];
 };
 
-type BookingServiceRow = {
-  booking_id: string;
-  service_id: string;
-  position: number;
-  name_snapshot: string;
-  duration_minutes: number;
-  price_snapshot: number | string;
-};
-
 type GalleryPhotoRow = {
   id: string;
   image_url: string;
@@ -99,34 +66,6 @@ type GalleryPhotoRow = {
   order?: number;
   display_order?: number;
   created_at?: string;
-};
-
-type ConfigRow = {
-  id: boolean;
-  name: string;
-  logo: string;
-  address: string;
-  phone: string;
-  working_hours: WorkingHours;
-  social_links?: BusinessConfig['socialLinks'];
-  booking_fee: number | string;
-  interval_minutes: number;
-  booking_window_days: number;
-  minimum_notice_minutes: number;
-  cancellation_notice_minutes: number;
-  pix_key?: string;
-  hero_title?: string;
-  hero_subtitle?: string;
-  hero_description?: string;
-  about_text?: string;
-  updated_at: string;
-};
-
-type BookingSettingsRow = {
-  interval_minutes: number;
-  booking_window_days: number;
-  minimum_notice_minutes: number;
-  cancellation_notice_minutes: number;
 };
 
 type OccupiedIntervalRow = {
@@ -137,33 +76,6 @@ type OccupiedIntervalRow = {
 // ---------------------------------------------------------------------------
 // Mapeamento linha do banco -> tipo do app
 // ---------------------------------------------------------------------------
-
-function mapProfile(row: ProfileRow): User {
-  return {
-    id: row.id,
-    email: row.email,
-    name: row.name,
-    role: parseUserRole(row.role),
-    phone: row.phone ?? undefined,
-    avatar: row.avatar ?? undefined,
-    profileId: row.profile_id ?? undefined,
-    createdAt: row.created_at ?? undefined,
-  };
-}
-
-function mapProfessional(row: ProfessionalRow): Professional {
-  return {
-    id: row.id,
-    name: row.name,
-    avatar: row.avatar,
-    specialty: row.specialty,
-    active: row.active,
-    workingHours: row.working_hours ?? undefined,
-    description: row.description ?? undefined,
-    order: row.order ?? undefined,
-    userId: row.user_id ?? undefined,
-  };
-}
 
 function mapService(row: ServiceRow): Service {
   return {
@@ -180,7 +92,7 @@ function mapService(row: ServiceRow): Service {
 
 const toHHMM = (t: string | null | undefined) => (t ? t.slice(0, 5) : t);
 
-function mapBooking(row: BookingRow, serviceItems?: BookingServiceItem[]): Booking {
+function mapBooking(row: BookingRow): Booking {
   return {
     id: row.id,
     customerId: row.customer_id ?? 'guest',
@@ -199,7 +111,6 @@ function mapBooking(row: BookingRow, serviceItems?: BookingServiceItem[]): Booki
     startsAt: row.starts_at ?? undefined,
     endsAt: row.ends_at ?? undefined,
     durationMinutes: row.duration_minutes ?? undefined,
-    serviceItems: serviceItems?.length ? serviceItems : undefined,
   };
 }
 
@@ -228,133 +139,11 @@ function mapGalleryPhoto(row: GalleryPhotoRow): GalleryPhoto {
   };
 }
 
-function mapConfig(row: ConfigRow, bookingSettings?: BookingSettingsRow | null): BusinessConfig {
-  return {
-    name: row.name,
-    logo: row.logo,
-    address: row.address,
-    phone: row.phone,
-    workingHours: row.working_hours,
-    socialLinks: row.social_links ?? {},
-    bookingFee: Number(row.booking_fee),
-    intervalMinutes: bookingSettings?.interval_minutes ?? row.interval_minutes,
-    bookingWindowDays: bookingSettings?.booking_window_days ?? row.booking_window_days ?? 3,
-    minimumNoticeMinutes: bookingSettings?.minimum_notice_minutes ?? row.minimum_notice_minutes ?? 30,
-    cancellationNoticeMinutes: bookingSettings?.cancellation_notice_minutes ?? row.cancellation_notice_minutes ?? 0,
-    pixKey: row.pix_key ?? undefined,
-    heroTitle: row.hero_title ?? undefined,
-    heroSubtitle: row.hero_subtitle ?? undefined,
-    heroDescription: row.hero_description ?? undefined,
-    aboutText: row.about_text ?? undefined,
-  };
-}
-
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
 export const dataService = {
-  /**
-   * Carrega todos os dados iniciais em paralelo.
-   */
-  async loadAllData(role?: User['role']): Promise<{
-    config: BusinessConfig;
-    professionals: Professional[];
-    services: Service[];
-    bookings: Booking[];
-    users: User[];
-    scheduleBlocks: ScheduleBlock[];
-    galleryPhotos: GalleryPhoto[];
-  }> {
-    const canReadPrivateBlocks = isAdministratorRole(role) || isProfessionalRole(role);
-    const professionalsQuery = isAdministratorRole(role)
-      ? supabase.rpc('get_admin_professionals')
-      : supabase.rpc('get_public_professionals');
-    const [configRes, settingsRes, professionalsRes, servicesRes, blocksRes, galleryRes] = await Promise.all([
-      supabase.from('barbershop_config').select('*').eq('id', true).single(),
-      supabase.from('booking_settings').select('interval_minutes, booking_window_days, minimum_notice_minutes, cancellation_notice_minutes').eq('id', true).maybeSingle(),
-      professionalsQuery,
-      supabase.from('services').select('*').order('order', { ascending: true }),
-      canReadPrivateBlocks
-        ? supabase.from('schedule_blocks').select('*')
-        : supabase.rpc('get_public_schedule_blocks'),
-      supabase.from('gallery_photos').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
-    ]);
-
-    throwIfError(configRes.error);
-    throwIfError(settingsRes.error);
-    throwIfError(professionalsRes.error);
-    throwIfError(servicesRes.error);
-    throwIfError(blocksRes.error);
-    throwIfError(galleryRes.error);
-
-    // Visitantes não consultam tabelas protegidas. Para usuários autenticados,
-    // paginação explícita evita o limite silencioso de 1.000 linhas do PostgREST.
-    const loadBookings = async (): Promise<BookingRow[]> => {
-      if (!role) return [];
-      const rows: BookingRow[] = [];
-      for (let from = 0; ; from += 500) {
-        const result = await supabase.from('bookings').select('*').order('date').range(from, from + 499);
-        throwIfError(result.error);
-        rows.push(...((result.data || []) as BookingRow[]));
-        if ((result.data?.length ?? 0) < 500) return rows;
-      }
-    };
-
-    const loadUsers = async (): Promise<ProfileRow[]> => {
-      if (!isAdministratorRole(role)) return [];
-      const rows: ProfileRow[] = [];
-      for (let from = 0; ; from += 500) {
-        const result = await supabase.from('profiles').select('*')
-          .order('created_at', { ascending: false }).range(from, from + 499);
-        throwIfError(result.error);
-        rows.push(...((result.data || []) as ProfileRow[]));
-        if ((result.data?.length ?? 0) < 500) return rows;
-      }
-    };
-
-    const loadServiceItems = async (): Promise<BookingServiceRow[]> => {
-      if (!isAdministratorRole(role)) return [];
-      const rows: BookingServiceRow[] = [];
-      for (let from = 0; ; from += 500) {
-        const result = await supabase.from('booking_services')
-          .select('booking_id, service_id, position, name_snapshot, duration_minutes, price_snapshot')
-          .order('booking_id').order('position').range(from, from + 499);
-        throwIfError(result.error);
-        rows.push(...((result.data || []) as BookingServiceRow[]));
-        if ((result.data?.length ?? 0) < 500) return rows;
-      }
-    };
-
-    const [bookings, users, serviceItemRows] = await Promise.all([
-      loadBookings(), loadUsers(), loadServiceItems(),
-    ]);
-    const serviceItemsByBooking = new Map<string, BookingServiceItem[]>();
-
-    for (const row of serviceItemRows) {
-      const items = serviceItemsByBooking.get(row.booking_id) ?? [];
-      items.push({
-        serviceId: row.service_id,
-        name: row.name_snapshot,
-        durationMinutes: row.duration_minutes,
-        price: Number(row.price_snapshot),
-      });
-      serviceItemsByBooking.set(row.booking_id, items);
-    }
-
-    return {
-      config: mapConfig(configRes.data, settingsRes.data as BookingSettingsRow | null),
-      professionals: ((professionalsRes.data || []) as ProfessionalRow[])
-        .map(mapProfessional)
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-      services: (servicesRes.data || []).map(mapService),
-      bookings: bookings.map(booking => mapBooking(booking, serviceItemsByBooking.get(booking.id))),
-      users: users.map(mapProfile),
-      scheduleBlocks: (blocksRes.data || []).map(mapScheduleBlock),
-      galleryPhotos: (galleryRes.data || []).map(mapGalleryPhoto),
-    };
-  },
-
   /**
    * Config Operations
    */

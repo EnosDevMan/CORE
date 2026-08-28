@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Search, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import { getRoleLabel, isAdministratorRole, isProfessionalRole } from '../../../auth/authorization';
-import { useApp } from '../../../store/useApp';
+import { useCurrentUser, useDeleteUserAccount, useUpdateUserRole, useUsers } from '../../../store/useApp';
 import { getErrorMessage } from '../../../utils/errors';
 import type { User } from '../../../types';
 
@@ -11,7 +11,10 @@ interface AdminAccountsTabProps {
 
 /** Owner-only screen; database policies remain the actual security boundary. */
 export function AdminAccountsTab({ showFeedback }: AdminAccountsTabProps) {
-  const { users, currentUser, updateUserRole, deleteUserAccount } = useApp();
+  const users = useUsers();
+  const currentUser = useCurrentUser();
+  const updateUserRole = useUpdateUserRole();
+  const deleteUserAccount = useDeleteUserAccount();
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
 

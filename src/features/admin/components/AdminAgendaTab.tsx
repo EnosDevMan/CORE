@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Search } from 'lucide-react';
-import { useApp } from '../../../store/useApp';
+import { useBookings, useProfessionals, useServices, useUpdateBookingStatus } from '../../../store/useApp';
 import { getBusinessTodayStr } from '../../../utils/validation';
 import { useBusiness } from '../../../core/business/hooks';
 import { getServiceName as getSharedServiceName, getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
@@ -14,7 +14,10 @@ interface AdminAgendaTabProps {
 }
 
 export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) => {
-  const { bookings, professionals, services, updateBookingStatus } = useApp();
+  const bookings = useBookings();
+  const professionals = useProfessionals();
+  const services = useServices();
+  const updateBookingStatus = useUpdateBookingStatus();
   const { profile } = useBusiness();
 
   // Usa a data "de hoje" no fuso horário do negócio (não o fuso do
@@ -51,20 +54,40 @@ export const AdminAgendaTab: React.FC<AdminAgendaTabProps> = ({ showFeedback }) 
     }
   };
 
-  const filteredBookings = bookings.filter(b => {
+  const normalizedSearch = useMemo(() => search.trim().toLocaleLowerCase('pt-BR'), [search]);
+
+  const { rangeStart, rangeEnd } = useMemo(() => {
     const start = new Date(`${dateFilter}T12:00:00`);
     const end = new Date(start);
-    if (period === 'tomorrow') { start.setDate(start.getDate() + 1); end.setDate(end.getDate() + 1); }
-    if (period === 'week') end.setDate(end.getDate() + 6);
-    if (period === 'month') end.setMonth(end.getMonth() + 1, 0);
-    const date = new Date(`${b.date}T12:00:00`);
-    const matchDate = date >= start && date <= end;
-    const matchProfessional = professionalFilter === 'all' || b.professionalId === professionalFilter;
-    const matchStatus = statusFilter === 'all' || b.status === statusFilter;
-    const query = search.trim().toLocaleLowerCase('pt-BR');
-    const matchSearch = !query || `${b.customerName} ${b.customerPhone} ${getServiceName(b.serviceId)}`.toLocaleLowerCase('pt-BR').includes(query);
+    if (period === 'tomorrow') {
+      start.setDate(start.getDate() + 1);
+      end.setDate(end.getDate() + 1);
+    } else if (period === 'week') {
+      end.setDate(end.getDate() + 6);
+    } else if (period === 'month') {
+      end.setMonth(end.getMonth() + 1, 0);
+    }
+    const toYmd = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return { rangeStart: toYmd(start), rangeEnd: toYmd(end) };
+  }, [dateFilter, period]);
+
+  const filteredBookings = useMemo(() => bookings.filter(booking => {
+    const matchDate = booking.date >= rangeStart && booking.date <= rangeEnd;
+    const matchProfessional = professionalFilter === 'all' || booking.professionalId === professionalFilter;
+    const matchStatus = statusFilter === 'all' || booking.status === statusFilter;
+    const matchSearch = !normalizedSearch || `${booking.customerName} ${booking.customerPhone} ${getSharedServiceName(services, booking.serviceId)}`
+      .toLocaleLowerCase('pt-BR')
+      .includes(normalizedSearch);
     return matchDate && matchProfessional && matchStatus && matchSearch;
-  }).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  }).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)), [
+    bookings,
+    normalizedSearch,
+    professionalFilter,
+    rangeEnd,
+    rangeStart,
+    services,
+    statusFilter,
+  ]);
 
   return (
     <div className="space-y-6">

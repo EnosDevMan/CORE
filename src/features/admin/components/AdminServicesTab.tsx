@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Plus, Edit2, PowerOff } from 'lucide-react';
-import { useApp } from '../../../store/useApp';
+import { useDeactivateService, useServices } from '../../../store/useApp';
 import { Service } from '../../../types';
 import { AdminServiceForm } from './services/AdminServiceForm';
 import { getErrorMessage } from '../../../utils/errors';
@@ -16,7 +16,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({
   setSuccessMessage,
   setErrorMessage,
 }) => {
-  const { services, deactivateService } = useApp();
+  const services = useServices();
+  const deactivateService = useDeactivateService();
 
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
