@@ -240,7 +240,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       // clientes reagendando para o mesmo horário ao mesmo tempo podiam
       // gerar um conflito de agenda antes desta correção.
       const updated = await dataService.rescheduleBooking(id, date, time);
-      set(state => ({ bookings: state.bookings.map(b => (b.id === id ? updated : b)) }));
+      set(state => ({ bookings: [...state.bookings.filter(b => b.id !== id), updated] }));
     } catch (err) {
       set({ bookings: previous });
       throw err;

@@ -30,7 +30,17 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
     if (authLoading) return;
 
     let mounted = true;
+    let ownerDateWatcher: number | undefined;
     beginLoad();
+
+    type LoadedData = Awaited<ReturnType<typeof bootstrapDataService.loadAllData>>;
+    const applyData = (data: LoadedData) => {
+      setConfig(data.config);
+      setInitialData({
+        professionals: data.professionals, services: data.services, bookings: data.bookings, users: data.users,
+        scheduleBlocks: data.scheduleBlocks || [], galleryPhotos: data.galleryPhotos || [],
+      });
+    };
 
     const loadData = async () => {
       try {
@@ -54,15 +64,21 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
           getBusinessTodayStr(runtime.profile.timezone),
         );
         if (mounted) {
-          setConfig(data.config);
-          setInitialData({
-            professionals: data.professionals,
-            services: data.services,
-            bookings: data.bookings,
-            users: data.users,
-            scheduleBlocks: data.scheduleBlocks || [],
-            galleryPhotos: data.galleryPhotos || [],
-          });
+          applyData(data);
+          if (currentUserRole === 'owner' || currentUserRole === 'admin') {
+            let loadedBusinessDate = getBusinessTodayStr(runtime.profile.timezone);
+            ownerDateWatcher = window.setInterval(() => {
+              const currentBusinessDate = getBusinessTodayStr(runtime.profile.timezone);
+              if (!mounted || currentBusinessDate === loadedBusinessDate) return;
+              void bootstrapDataService.loadAllData(currentUserRole, currentBusinessDate)
+                .then(freshData => {
+                  if (!mounted) return;
+                  loadedBusinessDate = currentBusinessDate;
+                  applyData(freshData);
+                })
+                .catch(() => undefined);
+            }, 30_000);
+          }
         }
       } catch (err) {
         if (mounted) {
@@ -74,7 +90,10 @@ export const AppDataLoader: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     void loadData();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      if (ownerDateWatcher !== undefined) window.clearInterval(ownerDateWatcher);
+    };
   }, [authLoading, beginLoad, currentUserId, currentUserRole, setConfig, setInitialData, setLoadError]);
 
   return <>{children}</>;

@@ -7,6 +7,7 @@ vi.mock('../services/dataService', () => ({
   dataService: {
     updateUserRole: vi.fn(),
     deleteUserAccount: vi.fn(),
+    rescheduleBooking: vi.fn(),
   },
 }));
 
@@ -90,5 +91,20 @@ describe('owner-managed account state', () => {
 
     expect(useDataStore.getState().users).toEqual([customer]);
     expect(useDataStore.getState().bookings[0]?.customerId).toBe(customer.id);
+  });
+});
+
+
+describe('day-scoped booking mutations', () => {
+  it('upserts an on-demand booking after rescheduling when it is absent from the daily store', async () => {
+    const onDemand = { ...booking, id: 'booking-future', date: '2026-09-02', time: '14:00' };
+    const updated = { ...onDemand, date: '2026-08-30', time: '16:00' };
+    useDataStore.setState({ bookings: [] });
+    vi.mocked(dataService.rescheduleBooking).mockResolvedValue(updated);
+
+    await useDataStore.getState().rescheduleBooking(onDemand.id, updated.date, updated.time, onDemand);
+
+    expect(dataService.rescheduleBooking).toHaveBeenCalledWith(onDemand.id, updated.date, updated.time);
+    expect(useDataStore.getState().bookings).toEqual([updated]);
   });
 });

@@ -209,7 +209,12 @@ export const useAdminReports = () => {
     setLoadError('');
     void adminHistoryService.loadReportBookings(rangeStart, rangeEnd)
       .then(rows => { if (active) setBookings(rows); })
-      .catch(error => { if (active) setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.'); })
+      .catch(error => {
+        if (active) {
+          setBookings([]);
+          setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.');
+        }
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [rangeEnd, rangeStart]);
