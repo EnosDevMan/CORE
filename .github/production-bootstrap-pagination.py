@@ -116,8 +116,8 @@ new = """    // Start protected reads before awaiting the public group. Accumula
       services: ((servicesRes.data || []) as unknown as ServiceRow[]).map(mapService),
       bookings: bookings.map(mapBooking),
       users: users.map(mapProfile),
-      scheduleBlocks: (privateBlocks ?? (blocksRes.data || []) as ScheduleBlockRow[]).map(mapScheduleBlock),
-      galleryPhotos: (adminGallery ?? (galleryRes.data || []) as unknown as GalleryPhotoRow[]).map(mapGalleryPhoto),
+      scheduleBlocks: (privateBlocks ?? ((blocksRes.data || []) as ScheduleBlockRow[])).map(mapScheduleBlock),
+      galleryPhotos: (adminGallery ?? ((galleryRes.data || []) as unknown as GalleryPhotoRow[])).map(mapGalleryPhoto),
     };
 """
 if old not in text:
