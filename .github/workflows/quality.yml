@@ -66,6 +66,7 @@ jobs:
           --file supabase/tests/admin_business_identity_sync.sql
           --file supabase/tests/admin_history_on_demand.sql
           --file supabase/tests/data_api_grants.sql
+          --file supabase/tests/barbers_authenticated_id_select.sql
           --file supabase/tests/extensions_security.sql
           --file supabase/tests/branding_storage_security.sql
           --file supabase/tests/universal_defaults.sql
@@ -74,6 +75,12 @@ jobs:
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql
           --file supabase/tests/pet_notes_authorization.sql
+      - name: Validate minimal barber update grant migration
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --command "revoke select (id) on table public.barbers from authenticated;"
+          --file supabase/migrations/20260829020000_barbers_authenticated_id_select.sql
+          --file supabase/tests/barbers_authenticated_id_select.sql
       - name: Validate schedule block update grant migration
         run: >-
           psql --set ON_ERROR_STOP=1
