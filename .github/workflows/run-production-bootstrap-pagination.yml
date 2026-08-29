@@ -1,0 +1,39 @@
+name: Run production bootstrap pagination hardening
+
+on:
+  push:
+    branches:
+      - fix/production-readiness-20260828
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply pagination hardening
+        run: python .github/production-bootstrap-pagination.py
+      - run: npm ci
+      - name: Validate project
+        env:
+          VITE_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+        run: npm run verify
+      - name: Commit validated source change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/bootstrapDataService.ts
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Page remaining bootstrap collections"
+          git push origin HEAD:fix/production-readiness-20260828
