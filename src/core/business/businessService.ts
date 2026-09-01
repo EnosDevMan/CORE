@@ -33,6 +33,7 @@ let recentRuntime: { value: BusinessRuntime | null; expiresAt: number } | null =
 let runtimeRevision = 0;
 const RUNTIME_BOOTSTRAP_CACHE_MS = 15_000;
 const BRANDING_BUCKET = 'branding';
+const BUSINESS_PROFILE_COLUMNS = 'id,business_name,description,logo_url,favicon_url,cover_url,phone,whatsapp,email,address,timezone,currency,locale,niche_id,theme_id,theme_style_id,palette_id,surface_mode,custom_primary_color,custom_secondary_color,custom_accent_color,onboarding_completed';
 
 const invalidateRuntimeCache = () => {
   recentRuntime = null;
@@ -75,7 +76,7 @@ async function removeStoredBrandingUrl(publicUrl: string | undefined): Promise<v
 
 async function fetchRuntime(): Promise<BusinessRuntime | null> {
   const [profileResult, featuresResult] = await Promise.all([
-    supabase.from('business_profile').select('*').eq('id', true).maybeSingle(),
+    supabase.from('business_profile').select(BUSINESS_PROFILE_COLUMNS).eq('id', true).maybeSingle(),
     supabase.from('feature_settings').select('capability').eq('enabled', true),
   ]);
   if (profileResult.error) throw new Error(profileResult.error.message);
