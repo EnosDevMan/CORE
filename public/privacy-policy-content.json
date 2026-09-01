@@ -1,0 +1,46 @@
+{
+  "notice": "Este texto descreve o que o sistema efetivamente coleta e faz com os dados e não substitui revisão jurídica. Ajuste-o às práticas reais do estabelecimento e peça revisão profissional antes do lançamento comercial.",
+  "sections": [
+    {
+      "title": "1. Quem somos",
+      "paragraphs": ["Esta política se aplica ao site e sistema de agendamento de {{business}}{{address}}."]
+    },
+    {
+      "title": "2. Termos de uso",
+      "paragraphs": ["O agendamento está sujeito à disponibilidade confirmada pelo sistema. O cliente deve informar dados verdadeiros, comparecer no horário e observar as regras de antecedência, cancelamento e reagendamento exibidas. Ao concluir uma reserva, o sistema oferece um link do WhatsApp com uma mensagem pronta; o envio só acontece após a ação do próprio usuário."]
+    },
+    {
+      "title": "3. Quais dados coletamos",
+      "items": [
+        "Ao criar uma conta: nome, e-mail e telefone.",
+        "Ao agendar um horário, com ou sem conta: nome, telefone, serviço escolhido, profissional, data/horário e eventuais observações fornecidas.",
+        "Automaticamente: data de criação da conta ou do agendamento e o status operacional do agendamento."
+      ],
+      "paragraphs": ["Não coletamos dados de cartão. Quando houver taxa de reserva via PIX, o sistema informa a chave cadastrada pelo estabelecimento e não processa nem armazena credenciais do aplicativo bancário do cliente."]
+    },
+    {
+      "title": "4. Para que usamos esses dados e bases legais",
+      "items": [
+        "Criar, exibir e gerenciar agendamentos.",
+        "Permitir contato pelo WhatsApp sobre confirmação, pagamento ou lembrete do horário.",
+        "Mostrar o histórico de agendamentos quando o cliente possui conta.",
+        "Executar o contrato ou procedimentos preliminares solicitados pelo titular para criar e administrar reservas.",
+        "Cumprir obrigações legais e exercer direitos em processos, quando aplicável.",
+        "Atender ao legítimo interesse de proteger a agenda e o serviço, com acesso restrito e possibilidade de oposição quando cabível.",
+        "Prevenir abuso do sistema de agendamento, incluindo limites operacionais aplicados pelo servidor."
+      ]
+    },
+    {
+      "title": "5. Compartilhamento e operadores",
+      "paragraphs": ["Os dados são armazenados no Supabase, provedor de banco de dados e autenticação utilizado pelo sistema. Administradores e profissionais cadastrados recebem somente os acessos necessários às suas funções; profissionais são limitados às agendas e dados autorizados pelo sistema. O aplicativo não vende dados pessoais nem os compartilha com terceiros para fins de marketing."]
+    },
+    {
+      "title": "6. Retenção, segurança e seus direitos",
+      "paragraphs": ["Os dados são mantidos enquanto necessários ao atendimento, ao cumprimento de obrigações legais ou ao exercício regular de direitos. O responsável pelo estabelecimento deve definir e documentar os prazos concretos de retenção aplicáveis à sua operação. O sistema utiliza autenticação, controles de acesso no banco e conexões criptografadas. Solicitações relacionadas a direitos do titular podem ser encaminhadas pelo telefone ou WhatsApp {{phone}}."]
+    },
+    {
+      "title": "7. Alterações nesta política",
+      "paragraphs": ["Esta política pode ser atualizada quando houver mudança no sistema ou nas práticas do estabelecimento. A versão exibida no topo da página identifica o texto atualmente publicado."]
+    }
+  ]
+}

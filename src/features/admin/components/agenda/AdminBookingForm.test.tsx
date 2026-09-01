@@ -13,8 +13,7 @@ describe('AdminBookingForm', () => {
     vi.mocked(useApp).mockReturnValue({
       professionals: [{ id: 'barber-1', name: 'Paulo', active: true }],
       services: [{ id: 'service-1', name: 'Corte', duration: 30, price: 40 }],
-      isSlotAvailable: vi.fn(() => true),
-      getAvailabilitySlots: vi.fn(() => [{ time: '10:00', status: 'available' }]),
+      getAvailableSlots: vi.fn().mockResolvedValue(['10:00']),
       addAdministrativeBooking,
     } as unknown as ReturnType<typeof useApp>);
   });
@@ -32,7 +31,7 @@ describe('AdminBookingForm', () => {
     fireEvent.change(inputs[0], { target: { value: 'barber-1' } });
     fireEvent.change(inputs[1], { target: { value: 'service-1' } });
     fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2026-08-08' } });
-    fireEvent.click(screen.getByRole('button', { name: /10:00/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /10:00/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(addAdministrativeBooking).toHaveBeenCalledOnce();
@@ -56,7 +55,7 @@ describe('AdminBookingForm', () => {
     fireEvent.change(inputs[0], { target: { value: 'barber-1' } });
     fireEvent.change(inputs[1], { target: { value: 'service-1' } });
     fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2026-08-08' } });
-    fireEvent.click(screen.getByRole('button', { name: /10:00/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /10:00/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => expect(showFeedback).toHaveBeenCalledWith('Falha no banco', true));

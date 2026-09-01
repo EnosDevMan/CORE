@@ -16,6 +16,11 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Keep the production-only CAPTCHA branch in the bundle budget. The real
+      # site key is public by design; CI only needs a non-empty value so Vite
+      # cannot tree-shake the Turnstile path that production actually ships.
+      VITE_TURNSTILE_SITE_KEY: ci-production-turnstile-enabled
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -59,7 +64,9 @@ jobs:
           --file supabase/tests/appearance_surface_custom.sql
           --file supabase/tests/schedule_blocks_update_grant.sql
           --file supabase/tests/admin_business_identity_sync.sql
+          --file supabase/tests/admin_history_on_demand.sql
           --file supabase/tests/data_api_grants.sql
+          --file supabase/tests/barbers_authenticated_id_select.sql
           --file supabase/tests/extensions_security.sql
           --file supabase/tests/branding_storage_security.sql
           --file supabase/tests/universal_defaults.sql
@@ -68,6 +75,12 @@ jobs:
           --file supabase/tests/booking_overlap.sql
           --file supabase/tests/booking_security.sql
           --file supabase/tests/pet_notes_authorization.sql
+      - name: Validate minimal barber update grant migration
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --command "revoke select (id) on table public.barbers from authenticated;"
+          --file supabase/migrations/20260829020000_barbers_authenticated_id_select.sql
+          --file supabase/tests/barbers_authenticated_id_select.sql
       - name: Validate schedule block update grant migration
         run: >-
           psql --set ON_ERROR_STOP=1
@@ -83,3 +96,8 @@ jobs:
           psql --set ON_ERROR_STOP=1
           --file supabase/migrations/20260827213000_sync_admin_business_identity.sql
           --file supabase/tests/admin_business_identity_sync.sql
+      - name: Validate on-demand admin history migration
+        run: >-
+          psql --set ON_ERROR_STOP=1
+          --file supabase/migrations/20260828013701_admin_history_on_demand.sql
+          --file supabase/tests/admin_history_on_demand.sql

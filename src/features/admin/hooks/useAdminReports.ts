@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
-import { useBookings, useProfessionals, useServices } from '../../../store/useApp';
+import { useEffect, useMemo, useState } from 'react';
+import { useProfessionals, useServices } from '../../../store/useApp';
 import { useBusinessToday } from '../../../hooks/useBusinessToday';
 import { useBusiness } from '../../../core/business/hooks';
 import { getProfessionalName as getSharedProfessionalName } from '../../../utils/lookups';
 import { buildServiceRevenueBreakdown } from '../serviceRevenue';
+import { adminHistoryService } from '../../../services/adminHistoryService';
+import type { Booking } from '../../../types';
 
 export type ReportPeriod = 'day' | 'week' | 'month' | 'year' | 'custom';
 
@@ -170,7 +172,9 @@ const buildRange = (period: ReportPeriod, offset: number, today: Date, customSta
 };
 
 export const useAdminReports = () => {
-  const bookings = useBookings();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const professionals = useProfessionals();
   const services = useServices();
   const { profile } = useBusiness();
@@ -198,6 +202,22 @@ export const useAdminReports = () => {
     const today = new Date(todayStr + 'T00:00:00');
     return buildRange(period, offset, today, customStartDate, customEndDate);
   }, [period, offset, todayStr, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError('');
+    void adminHistoryService.loadReportBookings(rangeStart, rangeEnd)
+      .then(rows => { if (active) setBookings(rows); })
+      .catch(error => {
+        if (active) {
+          setBookings([]);
+          setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.');
+        }
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [rangeEnd, rangeStart]);
 
   const bookingsInRange = useMemo(
     () => bookings.filter(booking => booking.date >= rangeStart && booking.date <= rangeEnd),
@@ -281,5 +301,7 @@ export const useAdminReports = () => {
     maxChartValue,
     professionalBreakdown,
     serviceBreakdown,
+    loading,
+    loadError,
   };
 };

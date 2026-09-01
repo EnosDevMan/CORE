@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../../../store/useApp';
 import { BookingStatus } from '../../../../types';
 import { getErrorMessage } from '../../../../utils/errors';
@@ -10,7 +10,7 @@ interface AdminBookingFormProps {
 }
 
 export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback, onSuccess }) => {
-  const { professionals, services, isSlotAvailable, getAvailabilitySlots, addAdministrativeBooking } = useApp();
+  const { professionals, services, getAvailableSlots, addAdministrativeBooking } = useApp();
 
   const [adminCustName, setAdminCustName] = useState('');
   const [adminCustPhone, setAdminCustPhone] = useState('');
@@ -23,9 +23,21 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
   const [adminStatus, setAdminStatus] = useState<BookingStatus>('Confirmado');
   const [isSaving, setIsSaving] = useState(false);
   const selectedService = services.find(service => service.id === adminServiceId);
-  const slots = useMemo(() => adminProfessionalId && adminServiceId && adminDate
-    ? getAvailabilitySlots(adminProfessionalId, adminServiceId, adminDate, true)
-    : [], [adminProfessionalId, adminServiceId, adminDate, getAvailabilitySlots]);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsError, setSlotsError] = useState('');
+  const [slotsAttempt, setSlotsAttempt] = useState(0);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  useEffect(() => {
+    if (!adminProfessionalId || !adminServiceId || !adminDate) { setSlots([]); setSlotsError(''); return; }
+    let active = true;
+    setLoadingSlots(true); setSlotsError('');
+    void getAvailableSlots(adminProfessionalId, adminServiceId, adminDate, undefined, undefined, true)
+      .then(values => { if (active) setSlots(values); })
+      .catch(error => { if (active) { setSlots([]); setSlotsError(getErrorMessage(error, 'Não foi possível consultar os horários.')); } })
+      .finally(() => { if (active) setLoadingSlots(false); });
+    return () => { active = false; };
+  }, [adminProfessionalId, adminServiceId, adminDate, getAvailableSlots, slotsAttempt]);
 
   const handleAdminBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,15 +57,8 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
       return;
     }
 
-    const duration = adminServiceId.split(',').reduce((sum, subId) => {
-      const s = services.find(x => x.id === subId.trim());
-      return sum + (s ? s.duration : 0);
-    }, 0);
-
-    const isAvailable = isSlotAvailable(adminProfessionalId, adminDate, adminTime, duration);
-
-    if (!isAvailable) {
-      showFeedback('Erro: Este horário não está mais disponível ou conflita com outro agendamento/bloqueio.', true);
+    if (!slots.includes(adminTime)) {
+      showFeedback('Erro: Este horário não está mais disponível. Consulte os horários novamente.', true);
       return;
     }
 
@@ -127,10 +132,10 @@ export const AdminBookingForm: React.FC<AdminBookingFormProps> = ({ showFeedback
         {selectedService && <p className="text-slate-500">Duração: <strong>{selectedService.duration} min</strong></p>}
 
         <p className="font-bold text-slate-500 uppercase tracking-wide">4. Horário</p>
-        {adminDate && slots.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-slate-500">Estabelecimento ou profissional fechado nesta data.</div>}
+        {slotsError ? <div className="rounded-lg bg-slate-50 p-3 text-slate-600">{slotsError} <button type="button" className="font-bold" onClick={() => setSlotsAttempt(value => value + 1)}>Tentar novamente</button></div> : loadingSlots ? <div className="rounded-lg bg-slate-50 p-3 text-slate-500">Consultando horários...</div> : adminDate && slots.length === 0 ? <div className="rounded-lg bg-slate-50 p-3 text-slate-500">Não há horários disponíveis nesta data.</div> : null}
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {slots.map(slot => <button key={slot.time} type="button" disabled={slot.status !== 'available'} title={slot.reason} onClick={() => setAdminTime(slot.time)} className={`rounded-lg border px-2 py-2 font-bold transition-colors ${adminTime === slot.time ? 'bg-indigo-600 text-white border-indigo-600' : slot.status === 'available' ? 'bg-white text-slate-800 border-slate-200 hover:border-indigo-500' : 'bg-slate-100 text-slate-400 border-slate-100 line-through cursor-not-allowed'}`}>
-            {slot.time}<span className="block text-[9px] no-underline">{slot.status === 'available' ? 'Livre' : slot.reason}</span>
+          {slots.map(slot => <button key={slot} type="button" onClick={() => setAdminTime(slot)} className={`rounded-lg border px-2 py-2 font-bold transition-colors ${adminTime === slot ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-500'}`}>
+            {slot}<span className="block text-[9px]">Livre</span>
           </button>)}
         </div>
         <input type="text" maxLength={1000} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Observações" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium" />
